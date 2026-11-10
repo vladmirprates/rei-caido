@@ -294,8 +294,8 @@ function campExpeditions(h){
       <div class="xcard"><span class="xk">Abismo infinito</span><b>Descida sem fim</b><p>Biomas mudam a cada 3 andares, chefe a cada 3, o Reflexo a cada 12.</p><p class="muted small">Seu recorde: andar ${h.record||0}.</p><button class="ghost sm" type="button" data-act="abyss">Descer</button></div>
       <div class="xcard"><span class="xk">Desafio do dia</span><b>${todayStr()}</b><p>Tabuleiro igual para todos. Vença dentro do limite de turnos.</p><p class="muted small">${dailyDone ? 'Recompensa de hoje já recebida.' : 'Recompensa: escolha entre dois únicos.'}</p><button class="ghost sm" type="button" data-act="daily">Jogar</button></div>
     </div>
-    <h3 class="sub">Maré de Sangue</h3><div class="xgrid"><div class="xcard" style="--bc:#b8332b"><span class="xk">${tideActive() ? 'Ativa agora' : 'Inativa'}</span><b>${tideActive() ? `Até ${hhmm(tideBoundary())}` : `Começa às ${hhmm(tideBoundary())}`}</b>
-      <p>Ativa nos primeiros 45 minutos de cada hora. Expedições começadas durante a maré: poças de sangue sobem no tabuleiro (inimigos nelas ficam mais fortes, mas matá-los ali dá Brasas em dobro), cada abate enche a Ira da Maré, que ao transbordar traz um Arauto e uma Chuva de Sangue, e um Baú Tormentoso por andar custa ${TIDE_COST_BASE} brasas.</p><p class="muted small">Brasas: ${h.embers||0}.</p></div>
+    <h3 class="sub">Maré de Sangue</h3><div class="xgrid"><div class="xcard" style="--bc:#b8332b"><span class="xk">Evento</span><b>Aparece em andares aleatórios</b>
+      <p>A partir do Ato 2, um andar pode trazer a Maré: poças de sangue sobem no tabuleiro (inimigos nelas batem mais forte; a partir do Tormento 1 também se curam), matar ali dá Brasas em dobro, cada abate enche a Ira da Maré, que ao transbordar traz um Arauto e uma Chuva de Sangue, e o Baú Tormentoso custa ${TIDE_COST_BASE} brasas.</p><p class="muted small">Brasas: ${h.embers||0}.</p></div>
       <div class="xcard" style="--bc:#8fd18a"><span class="xk">Rival</span><b>${esc(heroRival(h).name)}</b><p>Nível ${heroRival(h).tier}. Pode aparecer uma vez por expedição. Derrotado ${heroRival(h).beaten} ${heroRival(h).beaten===1?'vez':'vezes'}; te matou ${heroRival(h).kills} ${heroRival(h).kills===1?'vez':'vezes'}.</p></div></div>
     <h3 class="sub">Chefes supremos <span class="muted">${UBER_COST.shards} Estilhaços (você tem ${h.riftShards||0}) e ${UBER_COST.seals} Selos (você tem ${h.checkSeals||0}) cada</span></h3><div class="xgrid">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard bio-${U.biome}"><span class="xk">Supremo</span><b>${U.name}</b>
       <p>${U.special} Golpe de área a cada 2 turnos, fase 2 aos 60%, arena que piora a cada 4 turnos. Deixa únicos exclusivos.</p>
@@ -424,7 +424,7 @@ function startExpedition(exp){
   S = {exp, color:HERO.color, cls:HERO.cls, floor:0, player:{x:0,y:0,rx:0,ry:0,lx:0,ly:0,hp:0}, equip:HERO.equip, seen:new Set(),
        enemies:[], allies:[], items:[], walls:null, terrain:new Map(), danger:new Set(), dangerSeen:new Set(), threatNext:new Set(),
        fire:new Map(), burn:new Map(), pendingLoot:[], log:[], kills:0, phase:'busy', actions:1, cds:{}, mode:'move', killsThisAction:0, turn:1,
-       mapAff:new Set(exp.kind==='map' ? exp.map.affixes : []), goldFound:0, xpFound:0, torment: exp.kind==='daily' ? 0 : (HERO.torment||0), tide: !['tutorial'].includes(exp.kind) && (tideActive() || (exp.kind==='map' && (HERO.atlasTree||[]).some(id => (atlasTree()[id]||{aff:{}}).aff.kTide))) && !['daily','uber'].includes(exp.kind),
+       mapAff:new Set(exp.kind==='map' ? exp.map.affixes : []), goldFound:0, xpFound:0, torment: exp.kind==='daily' ? 0 : (HERO.torment||0), tide:false,
        snapshot:JSON.stringify({equip:HERO.equip, stash:HERO.stash, gold:HERO.gold, maps:HERO.maps, runes:HERO.runes||{}, currency:HERO.currency||{}})};
   if (exp.kind==='map' && atlasRank('kDanger')){
     const keys = Object.keys(MAP_AFFIXES), have = S.mapAff;

@@ -53,13 +53,13 @@ function floorTitleBase(){
   if (ex.kind==='uber') return `Chefe supremo: ${UBERS[ex.boss||'queen'].name}`;
   return 'Desafio do dia';
 }
-function enemyScale(){ return (1 + 0.15*(S.lvl-1)) * (S.mapAff.has('mHp') ? 1.4 : 1) * (1 + .3*(S.torment||0)) * (S.tide ? 1.2 : 1); }
+function enemyScale(){ return (1 + 0.15*(S.lvl-1)) * (S.mapAff.has('mHp') ? 1.4 : 1) * (1 + .3*(S.torment||0)); }
 
 /* ---------- Units ---------- */
 function makeEnemy(type, x, y, o){
   const d = EDEF[type], hp = Math.round(d.hp*enemyScale());
   const e = {id:++uid, type, x, y, rx:x, ry:y, lx:0, ly:0, hp, maxHp:hp, shield:0, mods:[],
-             dmg: d.dmg + Math.floor((S.lvl-1)/3) + (S.mapAff.has('mDmg')?1:0) + (S.torment||0) + (S.tide?1:0),
+             dmg: d.dmg + Math.floor((S.lvl-1)/3) + (S.mapAff.has('mDmg')?1:0) + (S.torment||0),
              boss:false, elite:false, t:0, intent:null, moved:false};
   e.dtype = BIOME_ELEMENT[S.biome] || 'phys';
   e.res = e.dtype!=='phys' ? {[e.dtype]:50} : {};
@@ -105,7 +105,6 @@ function makeBoss(id, x, y){
   e.mods = [...mods];
   if (atlasRank('kDuel')){ e.hp = e.maxHp = Math.round(e.maxHp*1.3); }
   if (S.exp.kind==='uber'){ e.uber = true; e.hp = e.maxHp = Math.round(e.maxHp*1.6); e.dmg += 2; e.name = id==='twins' ? 'Torre Suprema' : UBERS[id].name; }
-  if (S.tide) e.dmg += 1;
   return e;
 }
 function placePlayer(x,y){ Object.assign(S.player, {x, y, rx:x, ry:y, lx:0, ly:0}); }
@@ -138,7 +137,7 @@ function placePack(){
    piece (Bishop, or Queen deeper down) stays behind it and, as in chess, only shoots along a clear line;
    two pawn Guards stand in front. Breaking the Protector first breaks the shields. */
 function placeFormation(){
-  if (S.exp.kind==='daily' || S.lvl<3 || rnd()>=.5) return;
+  if (S.exp.kind==='daily' || S.lvl<5 || rnd()>=.5) return;
   const P = S.lvl>=8 && rnd()<.4 ? 'K' : 'R', A = S.lvl>=10 && rnd()<.35 ? 'Q' : 'B';
   for (let g=0; g<80; g++){
     const x = 1+rint(W-2), y = 1+rint(Math.max(1, Math.ceil(H/2)-2));
@@ -171,15 +170,19 @@ function makeElites(n){
   const cands = shuffle(S.enemies.filter(e => !e.boss && !e.elite && e.type!=='P'));
   for (const e of cands.slice(0,n)){
     e.elite = true; e.hp = e.maxHp = Math.round(e.maxHp*2); e.dmg += 1;
-    const extra = shuffle(ELITE_MODS.filter(m => !e.mods.includes(m))).slice(0, S.lvl>=7 ? 2 : 1);
+    // early elites only get the simpler modifiers; spikes, regeneration and lifesteal come later
+    const pool = S.lvl>=6 || S.torment ? ELITE_MODS : ['armor','swift','explode'];
+    const extra = shuffle(pool.filter(m => !e.mods.includes(m))).slice(0, S.lvl>=9 ? 2 : 1);
     e.mods.push(...extra);
   }
 }
 
 /* ---------- Floor generation ---------- */
 function composition(){
-  if (S.lvl<=1) return ['P','P','P','P','B'];
-  const n = Math.round((3 + Math.min(8, S.lvl*0.6)) * (W*H/64) * (1 + .12*(S.torment||0)));
+  if (S.lvl<=1) return ['P','P','P','B'];
+  // fewer enemies early on: the count ramps up through Acts 2 and 3 and is full from Act 3 on
+  const ramp = Math.min(1, .5 + .06*S.lvl);
+  const n = Math.round((3 + Math.min(8, S.lvl*0.6)) * (W*H/64) * ramp * (1 + .12*(S.torment||0)));
   const c = [];
   for (let i=0;i<n;i++){
     const r = rnd();
@@ -222,8 +225,9 @@ function genRandomFloor(){
     for (let y=1;y<H-1;y++) for (let x=0;x<W;x++) if (!isWall(x,y) && rnd()<.28 && cheb(x,y,px,py)>1) S.terrain.set(key(x,y), 'ice');
   }
   for (const t of composition()) placeEnemy(t, Math.ceil(H/2));
-  if (S.lvl>=2) for (let i=0; i<(S.lvl>=6 ? 2 : 1); i++) placePack();
-  if (S.lvl>=2) makeElites((S.mapAff.has('mElites') ? 2 : 1) + ((S.torment||0)>=3 ? 1 : 0) + (S.tide ? 1 : 0));
+  // difficulty ramps up: packs and elites from the end of Act 1, a second pack and elite later on
+  if (S.lvl>=3) for (let i=0; i<(S.lvl>=7 ? 2 : 1); i++) placePack();
+  if (S.lvl>=3) makeElites((S.mapAff.has('mElites') ? 2 : 1) + (S.lvl>=10 ? 1 : 0) + ((S.torment||0)>=3 ? 1 : 0));
   placeSpecial();
   placeEvent();
   placeTide();
@@ -294,7 +298,7 @@ function nextFloor(){
   const plan = floorPlan();
   Object.assign(S, {biome:plan.biome, bossId:plan.boss, lvl:plan.lvl, act:plan.act, af:plan.af,
     walls:new Set(), terrain:new Map(), items:[], stairs:null, enemies:[], fire:new Map(), burn:new Map(),
-    env:null, rise:null, clock:null, clocks:0, tideRise:null, bloodRain:null, tideIra:0, tideGoal:8, sight:0, risen:0, rift:null, riftShardsRun:0, firstHitDone:false, chess:null, hits:[], timeStop:0, fseed:Math.floor(Math.random()*1e9), bossRelics:null, floorCleared:false, bossKilledThisFloor:false});
+    env:null, rise:null, clock:null, clocks:0, tide:false, tideRise:null, bloodRain:null, tideIra:0, tideGoal:8, sight:0, risen:0, rift:null, riftShardsRun:0, firstHitDone:false, chess:null, hits:[], timeStop:0, fseed:Math.floor(Math.random()*1e9), bossRelics:null, floorCleared:false, bossKilledThisFloor:false});
   const keep = S.allies; S.allies = [];
   if (plan.boss) genArena(plan.boss); else if (S.exp.kind==='tutorial') genTutorial(); else genRandomFloor();
   placeAllies(keep);

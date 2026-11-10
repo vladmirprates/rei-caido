@@ -5,8 +5,19 @@
 const eventPower = () => S.lvl + 3*(S.torment||0);
 const armySize = () => Math.max(4, Math.min(16, Math.round(3 + eventPower()*.45)));
 const riftMaxAlive = () => Math.max(3, Math.min(8, Math.round(2 + eventPower()/4)));
+// once it rises, the tide lasts 1 to 3 floors in a row (it comes and goes like a wave)
+function startTide(cont){
+  S.tide = true;
+  if (!cont) S.tideLeft = rint(3);
+  const more = S.tideLeft ? ` Ela deve durar mais ${S.tideLeft} ${S.tideLeft===1?'andar':'andares'}.` : ' Ela recua depois deste andar.';
+  log(cont ? 'A Maré de Sangue continua.' : 'A Maré de Sangue sobe.');
+  S.eventNote = [cont ? 'A Maré continua' : 'Maré de Sangue', 'Poças de sangue sobem: inimigos nelas batem mais forte, mas abates ali dão Brasas em dobro.' + more];
+}
 function placeEvent(force){
-  if (S.exp.kind==='daily' || S.exp.kind==='uber') return;
+  if (S.exp.kind==='daily' || S.exp.kind==='uber' || S.exp.kind==='tutorial') return;
+  // Atlas keystone: every map floor has the tide, on top of any other event
+  if (S.exp.kind==='map' && atlasRank('kTide')) startTide(true);
+  else if (S.tideLeft>0){ S.tideLeft--; startTide(true); }
   const chance = S.exp.kind==='map' ? .6 + .1*atlasRank('aEvent') : S.exp.kind==='abyss' ? .45 : .35;
   if (!force && rnd()>=chance && !S.mapAff.has('rEvent')) return;
   let spot = null;
@@ -15,7 +26,10 @@ function placeEvent(force){
     if (!occupied(x,y) && !S.terrain.has(key(x,y)) && !S.items.some(i => i.x===x && i.y===y) && cheb(x,y,S.player.x,S.player.y)>2) spot = [x,y];
   }
   if (!spot) return;
-  const kind = force || (rnd() < Math.min(.9, Math.max(.1, .5 - .15*atlasRank('aRiftW'))) ? 'frozen' : 'rift');
+  // the Blood Tide is one of the floor events, from Act 2 on (it makes the floor harder)
+  const tideOk = S.lvl>=4 && !S.tide;
+  const kind = force || (tideOk && rnd()<.25 ? 'tide' : rnd() < Math.min(.9, Math.max(.1, .5 - .15*atlasRank('aRiftW'))) ? 'frozen' : 'rift');
+  if (kind==='tide'){ startTide(); return; }
   if (kind==='frozen' && frozenMode()==='army'){
     S.items.push({x:spot[0], y:spot[1], frozenArmy:pick(OPENINGS).id});
     // the army replaces part of the floor's usual enemies
@@ -288,14 +302,10 @@ const UBER_UNIQUES = [
 const canUber = h => (h.riftShards||0) >= UBER_COST.shards && (h.checkSeals||0) >= UBER_COST.seals;
 
 /* ---------- Maré de Sangue (Helltide-like) ----------
-   Active during the first 45 minutes of every hour. An expedition started during the tide keeps it to the end:
-   tougher enemies, Embers from every kill, Torment Chests that cost Embers, and a roaming Herald. */
+   A random floor event (from Act 2 on): blood pools, Embers from every kill, a Torment Chest that costs Embers,
+   and sometimes a roaming Herald. */
 const TIDE_COST_BASE = 30;
 const tideCost = () => TIDE_COST_BASE - 10*atlasRank('aChestCost');
-const tideActive = (d = new Date()) => d.getMinutes() < 45;
-// when it ends (if active) or next starts (if not)
-const tideBoundary = (d = new Date()) => { const n = new Date(d); n.setSeconds(0,0); if (d.getMinutes() < 45) n.setMinutes(45); else { n.setMinutes(0); n.setHours(n.getHours()+1); } return n; };
-const hhmm = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 function placeTide(){
   if (!S.tide) return;
   let spot = null;
@@ -346,7 +356,8 @@ function resolveTide(){
   }
 }
 // end of each enemy turn: enemies in blood regenerate
-function bloodRegen(){ for (const e of S.enemies) if (terrainAt(e.x,e.y)==='blood' && e.hp<e.maxHp) healEnemy(e, 1); }
+// only from Torment 1: at the base difficulty the pools just make enemies hit harder
+function bloodRegen(){ if (!S.torment) return; for (const e of S.enemies) if (terrainAt(e.x,e.y)==='blood' && e.hp<e.maxHp) healEnemy(e, 1); }
 function tideOverflow(){
   S.tideIra = 0; S.tideGoal = (S.tideGoal||8) + 4;
   const pools = [...S.terrain].filter(([k,t]) => t==='blood').map(([k]) => unkey(k)).filter(([x,y]) => !occupied(x,y));
@@ -402,7 +413,8 @@ const RIVAL_NAMES = ['Aldric','Bertrand','Casimir','Dorian','Edmundo','Fausto','
 const RIVAL_EPITHETS = ['o Implacável','a Lâmina Cinza','o Usurpador','a Sombra da Torre','o Sem-Rei','a Coroa Quebrada','o Carrasco','a Dama de Ferro','o Gambito Negro','a Última Fileira'];
 function heroRival(h){ if (!h.rival) h.rival = {name:`${pick(RIVAL_NAMES)} ${pick(RIVAL_EPITHETS)}`, tier:1, beaten:0, kills:0}; return h.rival; }
 function placeRival(){
-  if (['daily','uber'].includes(S.exp.kind) || S.rivalMet || S.bossId || rnd()>=.15) return;
+  // the rival shows up from Act 2 on
+  if (['daily','uber','tutorial'].includes(S.exp.kind) || S.rivalMet || S.bossId || S.lvl<4 || rnd()>=.15) return;
   const R = heroRival(HERO);
   let spot = null;
   for (let g=0; g<200 && !spot; g++){ const x = rint(W), y = rint(Math.ceil(H/2)); if (!occupied(x,y) && !isLava(x,y) && !isPit(x,y)) spot = [x,y]; }

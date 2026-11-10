@@ -120,7 +120,7 @@ const ATLAS_BRANCHES = [
     {notable:'Baú Barato', d:'Baús Tormentosos custam 10 brasas a menos', aff:{aChestCost:1}},
     ['+15% de Brasas de Sangue', {aEmbers:1}],
     ['+10% de chance de Arauto', {aHerald:1}],
-    {key:'Maré Sem Fim', d:'Todo mapa começa sob a Maré de Sangue, a qualquer hora', aff:{kTide:1}}]},
+    {key:'Maré Sem Fim', d:'Todo andar de mapa tem a Maré de Sangue, além do evento normal', aff:{kTide:1}}]},
   {id:'p', name:'Mapas e Saque', ang:306, nodes:[
     ['+10% de itens nos mapas', {aQuant:1}],
     ['+20% de moedas de mapa', {aCurrency:1}],

@@ -396,7 +396,7 @@ function damageEnemy(e, amt, src){
   if (e.boss && e.phase===2) amt = bossObjective(e, amt, src);
   if (e.judged) amt = Math.ceil(amt*1.5);
   if (e.frozenPiece && S.timeStop>0){ if (src==='enemy') return; amt = Math.ceil(amt * (atlasRank('kWinter') ? 1.25 : 1.5)); }   // only you can break the ice
-  if (src==='player' && e.mods.includes('thorns')) hurtPlayer(2, `Os espinhos de ${enemyName(e)} te ferem (2).`);
+  if (src==='player' && e.mods.includes('thorns')){ const t = S.lvl>=7 || S.torment ? 2 : 1; hurtPlayer(t, `Os espinhos de ${enemyName(e)} te ferem (${t}).`); }
   if (e.shield>0){
     const a = Math.min(e.shield, amt); e.shield -= a; amt -= a;
     floatText(e.x, e.y, 'escudo -'+a, '#a9bfd6');
