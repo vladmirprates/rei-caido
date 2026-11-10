@@ -245,14 +245,14 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .xcard.bio-crypt{--bc:#8a6a48} .xcard.bio-swamp{--bc:#5f8a55} .xcard.bio-forge{--bc:#d0602a} .xcard.bio-cathedral{--bc:#8fb0d8}
 
 /* expeditions: portals, campaign path, modes, map device */
-.portals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.portals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px}
 .portal{--pc:var(--ember);text-align:left;background:linear-gradient(160deg,var(--stone-2),var(--stone));border:1px solid var(--line);border-top:3px solid var(--pc);color:var(--bone);padding:14px 16px;font:inherit;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0}
 .portal b{font-family:var(--f-display);font-weight:400;font-size:1.3rem;line-height:1.1}
 .portal small{color:var(--ash);font-size:.8rem}
 .portal:hover:not(:disabled){border-color:var(--pc)}
 .portal.on{background:linear-gradient(160deg,color-mix(in srgb,var(--pc) 22%,var(--stone-2)),var(--stone));border-color:var(--pc);box-shadow:0 0 22px color-mix(in srgb,var(--pc) 25%,transparent)}
 .portal:disabled{opacity:.5;cursor:not-allowed}
-.portal.p-camp{--pc:#e07a32} .portal.p-modes{--pc:#b08cff} .portal.p-maps{--pc:#e3b456}
+.portal.p-camp{--pc:#e07a32} .portal.p-maps{--pc:#e3b456} .portal.p-bosses{--pc:#e04a3a} .portal.p-chal{--pc:#b08cff}
 .xbody{margin-top:14px}
 .actpath{display:flex;align-items:center;gap:0;margin-bottom:12px}
 .an-link{flex:1;height:2px;background:var(--line);min-width:10px}
@@ -311,6 +311,7 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .curbtn:hover:not(:disabled){border-color:var(--cc)}
 .curbtn:disabled{opacity:.45;cursor:not-allowed}
 @media (max-width:820px){.mapdev{grid-template-columns:1fr}.curgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:900px){.portals{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){.portals{grid-template-columns:1fr}.actpath{flex-direction:column;align-items:stretch;gap:6px}.an-link{display:none}.actdetail{flex-direction:column;align-items:stretch}.dev-main{grid-template-columns:1fr;justify-items:center}}
 
 /* ----- game ----- */

@@ -285,14 +285,15 @@ function campExpeditions(h){
       <span class="xk">${kicker}</span><b>${title}</b><small>${sub}</small></button>`;
   const portals = `<div class="portals">
     ${portal('camp', 'Campanha', prog>=4 ? 'Concluída' : `Ato ${nextAct+1}: ${BIOMES[ACTS[nextAct]].name}`, prog>=4 ? 'Suba o Tormento ou repita um ato' : 'Continue a história', false)}
-    ${portal('modes', 'Modos', 'Abismo, Desafio, Caças', `Recorde no Abismo: andar ${h.record||0}`, false)}
     ${portal('maps', 'Mapas', mapsOpen(h) ? `${h.maps.length} ${h.maps.length===1?'mapa':'mapas'}` : 'Bloqueado', mapsOpen(h) ? 'Dispositivo de Mapas' : 'Conclua o Ato 4 da campanha', !mapsOpen(h))}
+    ${portal('bosses', 'Chefes Supremos', `${Object.keys(UBERS).length} supremos`, canUber(h) ? 'Você pode enfrentar um agora' : `${h.riftShards||0}/${UBER_COST.shards} Estilhaços · ${h.checkSeals||0}/${UBER_COST.seals} Selos`, false)}
+    ${portal('chal', 'Desafios', 'Abismo e Desafio do dia', `Recorde no Abismo: andar ${h.record||0}`, false)}
   </div>`;
   const torm = `<div class="tormbar"><div><span class="xk">Dificuldade · vale para tudo, menos o desafio do dia</span><b>${h.torment ? 'Tormento '+h.torment : 'Normal'}</b><p class="muted small">${tormentDesc(h.torment||0)}</p></div>
       <div class="tstep"><button class="ghost sm" type="button" data-act="torm:-1" ${(h.torment||0)>0?'':'disabled'} aria-label="Diminuir tormento">−</button>
       <span>${h.torment||0} / ${h.tormentMax||0}</span>
       <button class="ghost sm" type="button" data-act="torm:1" ${(h.torment||0)<(h.tormentMax||0)?'':'disabled'} aria-label="Aumentar tormento">+</button></div></div>`;
-  const body = campExp==='maps' ? expMaps(h, side) : campExp==='modes' ? expModes(h, side) : expCampaign(h, side, prog);
+  const body = campExp==='maps' ? expMaps(h, side) : campExp==='bosses' ? expBosses(h, side) : campExp==='chal' ? expChallenges(h) : expCampaign(h, side, prog);
   return portals + torm + `<div class="xbody">${body}</div>`;
 }
 function expCampaign(h, side, prog){
@@ -311,20 +312,22 @@ function expCampaign(h, side, prog){
     </div>
     <p class="muted small xfoot">Primeira vez? <button class="link" type="button" data-act="tutorial">${h.tutorialDone ? 'Refazer o Pátio de Treino' : 'Fazer o Pátio de Treino'}</button></p>`;
 }
-function expModes(h, side){
-  const dailyDone = h.daily===todayStr();
+function expBosses(h, side){
   const hunts = h.bossesKilled.length ? `<div class="chips">${h.bossesKilled.map(id => `<button class="ghost sm" type="button" data-act="hunt:${id}">${BOSSES[id].names[side]}</button>`).join('')}</div>` : '<p class="muted small">Derrote um chefe na campanha para poder caçá-lo de novo.</p>';
+  return `<p class="muted small">Cada chefe supremo custa ${UBER_COST.shards} Estilhaços (você tem ${h.riftShards||0}) e ${UBER_COST.seals} Selos (você tem ${h.checkSeals||0}). Estilhaços vêm das Fendas; Selos, das Partidas Congeladas.</p>
+    <div class="xgrid">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard bio-${U.biome}"><span class="xk">Supremo</span><b>${U.name}</b>
+      <p>${U.special} Deixa únicos exclusivos.</p>
+      <button class="${canUber(h)?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${canUber(h)?'':'disabled'}>Enfrentar</button></div>`).join('')}</div>
+    <h3 class="sub">Caça ao chefe <span class="muted">um andar só, com o chefe e as relíquias dele</span></h3>${hunts}`;
+}
+function expChallenges(h){
+  const dailyDone = h.daily===todayStr();
   const ev = [['Fenda','#b08cff','Pise no rasgo roxo: 5 turnos de crias que deixam Estilhaços.'],['Partida Congelada','#cfe6f5','Um problema de xeque-mate; ensina poderes do Grimório e dá Selos.'],
     ['Maré de Sangue','#e04a3a','Onda de 1 a 3 andares: poças de sangue, Brasas e o Baú Tormentoso.'],['Rival', '#8fd18a', `${esc(heroRival(h).name)}, nível ${heroRival(h).tier}: pode aparecer uma vez por expedição.`]];
   return `<div class="xgrid">
       <div class="xcard"><span class="xk">Sem fim</span><b>Abismo infinito</b><p>Biomas mudam a cada 3 andares, chefe a cada 3, o Reflexo a cada 12. A dificuldade sobe a cada andar.</p><p class="muted small">Recorde: andar ${h.record||0}.</p><button class="primary sm" type="button" data-act="abyss">Descer</button></div>
       <div class="xcard"><span class="xk">Desafio do dia · ${todayStr()}</span><b>Tabuleiro do dia</b><p>Igual para todos. Vença dentro do limite de turnos.</p><p class="muted small">${dailyDone ? 'Recompensa de hoje já recebida.' : 'Recompensa: escolha entre dois únicos.'}</p><button class="ghost sm" type="button" data-act="daily">Jogar</button></div>
-      <div class="xcard"><span class="xk">Caça ao chefe</span><b>Enfrente um chefe direto</b><p>Um andar só, com o chefe e as relíquias dele.</p>${hunts}</div>
     </div>
-    <h3 class="sub">Chefes supremos <span class="muted">cada um custa ${UBER_COST.shards} Estilhaços (você tem ${h.riftShards||0}) e ${UBER_COST.seals} Selos (você tem ${h.checkSeals||0})</span></h3>
-    <div class="xgrid">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard bio-${U.biome}"><span class="xk">Supremo</span><b>${U.name}</b>
-      <p>${U.special} Deixa únicos exclusivos.</p>
-      <button class="${canUber(h)?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${canUber(h)?'':'disabled'}>Enfrentar</button></div>`).join('')}</div>
     <h3 class="sub">Eventos que surgem nos andares <span class="muted">em qualquer modo</span></h3>
     <div class="evstrip">${ev.map(([n,c,d]) => `<div style="--ec:${c}"><b>${n}</b><span>${d}</span></div>`).join('')}</div>`;
 }
