@@ -53,6 +53,9 @@ function floorTitleBase(){
   if (ex.kind==='uber') return `Chefe supremo: ${UBERS[ex.boss||'queen'].name}`;
   return 'Desafio do dia';
 }
+// what shows up on a floor (packs, elites, formations, events) follows the act in Normal;
+// in any Torment and in maps everything is in from the first floor
+const contentLvl = () => (S.torment || S.exp.kind==='map') ? Math.max(S.lvl, 12) : S.lvl;
 function enemyScale(){ return (1 + 0.15*(S.lvl-1)) * (S.mapAff.has('mHp') ? 1.4 : 1) * (1 + .3*(S.torment||0)); }
 
 /* ---------- Units ---------- */
@@ -137,8 +140,8 @@ function placePack(){
    piece (Bishop, or Queen deeper down) stays behind it and, as in chess, only shoots along a clear line;
    two pawn Guards stand in front. Breaking the Protector first breaks the shields. */
 function placeFormation(){
-  if (S.exp.kind==='daily' || S.lvl<5 || rnd()>=.5) return;
-  const P = S.lvl>=8 && rnd()<.4 ? 'K' : 'R', A = S.lvl>=10 && rnd()<.35 ? 'Q' : 'B';
+  if (S.exp.kind==='daily' || contentLvl()<5 || rnd()>=.5) return;
+  const P = contentLvl()>=8 && rnd()<.4 ? 'K' : 'R', A = contentLvl()>=10 && rnd()<.35 ? 'Q' : 'B';
   for (let g=0; g<80; g++){
     const x = 1+rint(W-2), y = 1+rint(Math.max(1, Math.ceil(H/2)-2));
     const cells = [[x,y,P,'protector'], [x-1,y+1,'P','guard'], [x+1,y+1,'P','guard'], [x+1,y-1,A,'artillery']];
@@ -171,22 +174,22 @@ function makeElites(n){
   for (const e of cands.slice(0,n)){
     e.elite = true; e.hp = e.maxHp = Math.round(e.maxHp*2); e.dmg += 1;
     // early elites only get the simpler modifiers; spikes, regeneration and lifesteal come later
-    const pool = S.lvl>=6 || S.torment ? ELITE_MODS : ['armor','swift','explode'];
-    const extra = shuffle(pool.filter(m => !e.mods.includes(m))).slice(0, S.lvl>=9 ? 2 : 1);
+    const pool = contentLvl()>=6 ? ELITE_MODS : ['armor','swift','explode'];
+    const extra = shuffle(pool.filter(m => !e.mods.includes(m))).slice(0, contentLvl()>=9 ? 2 : 1);
     e.mods.push(...extra);
   }
 }
 
 /* ---------- Floor generation ---------- */
 function composition(){
-  if (S.lvl<=1) return ['P','P','P','B'];
+  if (contentLvl()<=1) return ['P','P','P','B'];
   // fewer enemies early on: the count ramps up through Acts 2 and 3 and is full from Act 3 on
-  const ramp = Math.min(1, .5 + .06*S.lvl);
+  const ramp = Math.min(1, .5 + .06*contentLvl());
   const n = Math.round((3 + Math.min(8, S.lvl*0.6)) * (W*H/64) * ramp * (1 + .12*(S.torment||0)));
   const c = [];
   for (let i=0;i<n;i++){
     const r = rnd();
-    if (S.lvl>=3 && r<.12) c.push('N');
+    if (contentLvl()>=3 && r<.12) c.push('N');
     else if (r<.27) c.push('B');
     else if (r<.4) c.push('R');
     else c.push('P');
@@ -226,8 +229,9 @@ function genRandomFloor(){
   }
   for (const t of composition()) placeEnemy(t, Math.ceil(H/2));
   // difficulty ramps up: packs and elites from the end of Act 1, a second pack and elite later on
-  if (S.lvl>=3) for (let i=0; i<(S.lvl>=7 ? 2 : 1); i++) placePack();
-  if (S.lvl>=3) makeElites((S.mapAff.has('mElites') ? 2 : 1) + (S.lvl>=10 ? 1 : 0) + ((S.torment||0)>=3 ? 1 : 0));
+  const cl = contentLvl();
+  if (cl>=3) for (let i=0; i<(cl>=7 ? 2 : 1); i++) placePack();
+  if (cl>=3) makeElites((S.mapAff.has('mElites') ? 2 : 1) + (cl>=10 ? 1 : 0) + ((S.torment||0)>=3 ? 1 : 0));
   placeSpecial();
   placeEvent();
   placeTide();

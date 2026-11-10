@@ -27,7 +27,7 @@ function placeEvent(force){
   }
   if (!spot) return;
   // the Blood Tide is one of the floor events, from Act 2 on (it makes the floor harder)
-  const tideOk = S.lvl>=4 && !S.tide;
+  const tideOk = contentLvl()>=4 && !S.tide;
   const kind = force || (tideOk && rnd()<.25 ? 'tide' : rnd() < Math.min(.9, Math.max(.1, .5 - .15*atlasRank('aRiftW'))) ? 'frozen' : 'rift');
   if (kind==='tide'){ startTide(); return; }
   if (kind==='frozen' && frozenMode()==='army'){
@@ -414,7 +414,7 @@ const RIVAL_EPITHETS = ['o Implacável','a Lâmina Cinza','o Usurpador','a Sombr
 function heroRival(h){ if (!h.rival) h.rival = {name:`${pick(RIVAL_NAMES)} ${pick(RIVAL_EPITHETS)}`, tier:1, beaten:0, kills:0}; return h.rival; }
 function placeRival(){
   // the rival shows up from Act 2 on
-  if (['daily','uber','tutorial'].includes(S.exp.kind) || S.rivalMet || S.bossId || S.lvl<4 || rnd()>=.15) return;
+  if (['daily','uber','tutorial'].includes(S.exp.kind) || S.rivalMet || S.bossId || contentLvl()<4 || rnd()>=.15) return;
   const R = heroRival(HERO);
   let spot = null;
   for (let g=0; g<200 && !spot; g++){ const x = rint(W), y = rint(Math.ceil(H/2)); if (!occupied(x,y) && !isLava(x,y) && !isPit(x,y)) spot = [x,y]; }

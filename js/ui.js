@@ -128,9 +128,9 @@ function itemBlock(it){
 }
 const actProgress = (h, t = h.torment||0) => t ? ((h.actsByT||{})[t]||0) : h.actDone;
 function tormentDesc(t){
-  const next = 'Conclua a campanha no nível mais alto liberado para abrir o próximo. Cada nível tem a própria campanha, que recomeça no Ato 1; o fim de jogo (Abismo, mapas, caças) continua liberado.';
-  if (!t) return 'Dificuldade base. ' + next;
-  return `Inimigos com +${30*t}% de vida, +${t} de dano e ${12*t}% mais numerosos${t>=3?', com uma elite a mais por andar':''}. Recompensa: +${25*t}% de itens, ouro e experiência, e itens de raridade maior. Vale para tudo, menos o desafio do dia. ${next}`;
+  const next = 'Zere a campanha no nível mais alto liberado para abrir o próximo (cada nível recomeça no Ato 1).';
+  if (!t) return `Base: o Ato 1 é tranquilo e o conteúdo (elites, grupos, formações, Maré, Rival) entra ato a ato. ${next}`;
+  return `Inimigos +${30*t}% de vida, +${t} de dano, ${12*t}% mais numerosos${t>=3?', uma elite a mais por andar':''}; todo o conteúdo desde o primeiro andar. Recompensa +${25*t}% e raridade maior. ${next}`;
 }
 /* ---------- Camp: three tabs (expeditions, equipment, talents) ---------- */
 let campTab = 'exp', campSel = null, campFilter = 'all';
@@ -272,36 +272,92 @@ function campTalents(h, pts){
   return `<div class="thead"><p class="muted">${pts>0 ? `Você tem <b class="pts">${pts}</b> ${pts===1?'ponto':'pontos'} para gastar. Ganha 1 por nível.` : 'Sem pontos livres. Você ganha 1 por nível.'}</p>
     <button class="ghost sm" type="button" data-act="respec">Redistribuir pontos (grátis)</button></div><div class="tgrid">${cards}</div>`;
 }
+/* Expeditions tab: three portals on top (Campaign, Modes, Maps), the chosen one opens below.
+   Maps use a Map Device: pick a map from your stash, it goes into the device, apply currency, open the portal. */
+let campExp = null, campAct = null, campDev = null;
+const mapsOpen = h => h.actDone>=4;
 function campExpeditions(h){
-  const side = h.color==='w' ? 'dark' : 'holy', end = h.actDone>=4, dailyDone = h.daily===todayStr();
-  const acts = ACTS.map((b,i) => {
-    const prog = actProgress(h), open = i <= prog, done = i < prog;
-    return `<div class="xcard bio-${b} ${open?'':'locked'}"><span class="xk">Ato ${i+1}${done?' · concluído':''}</span><b>${BIOMES[b].name}</b>
-      <p>${BIOMES[b].rule}</p><p class="muted small">Chefe: ${BOSSES[BIOMES[b].boss].names[side]}</p>
-      <button class="${open&&!done?'primary':'ghost'} sm" type="button" data-act="act:${i}" ${open?'':'disabled'}>${done?'Repetir':open?'Iniciar':`Conclua o Ato ${i}`}</button></div>`;
-  }).join('');
-  const hunts = h.bossesKilled.map(id => `<div class="xcard"><span class="xk">Caça</span><b>${BOSSES[id].names[side]}</b>
-    <p class="muted small">Pode deixar: ${bossTable(id, h.cls).map(U=>U.name).join(', ')}.</p><button class="ghost sm" type="button" data-act="hunt:${id}">Caçar</button></div>`).join('');
-  const maps = h.maps.slice().sort((a,b)=>b.tier-a.tier).map(m => `<div class="xcard bio-${m.biome}"><span class="xk">Mapa nível ${m.tier}</span><b>${BIOMES[m.biome].name}</b>
-    <p class="muted small">Chefe: ${BOSSES[m.boss].names[side]}. ${m.affixes.filter(a=>!isRewardAffix(a)).map(a=>MAP_AFFIXES[a]).join('. ')}.</p><p class="small rule">${m.affixes.filter(isRewardAffix).map(a=>MAP_AFFIXES[a].replace('Recompensa: ','')).join('. ')}.</p>${curButtons(h, m)}<button class="ghost sm" type="button" data-act="map:${m.id}">Abrir</button></div>`).join('');
-  return `<div class="tormbar"><div><span class="xk">Dificuldade</span><b>${h.torment ? 'Tormento '+h.torment : 'Normal'}</b><p class="muted small">${tormentDesc(h.torment||0)}</p></div>
+  if (!campExp) campExp = mapsOpen(h) && actProgress(h)>=4 ? 'maps' : 'camp';
+  if (campExp==='maps' && !mapsOpen(h)) campExp = 'camp';
+  const prog = actProgress(h), side = h.color==='w' ? 'dark' : 'holy';
+  const nextAct = Math.min(3, prog);
+  const portal = (k, kicker, title, sub, locked) => `<button class="portal p-${k} ${campExp===k?'on':''}" type="button" data-act="xsub:${k}" aria-pressed="${campExp===k}" ${locked?'disabled':''}>
+      <span class="xk">${kicker}</span><b>${title}</b><small>${sub}</small></button>`;
+  const portals = `<div class="portals">
+    ${portal('camp', 'Campanha', prog>=4 ? 'Concluída' : `Ato ${nextAct+1}: ${BIOMES[ACTS[nextAct]].name}`, prog>=4 ? 'Suba o Tormento ou repita um ato' : 'Continue a história', false)}
+    ${portal('modes', 'Modos', 'Abismo, Desafio, Caças', `Recorde no Abismo: andar ${h.record||0}`, false)}
+    ${portal('maps', 'Mapas', mapsOpen(h) ? `${h.maps.length} ${h.maps.length===1?'mapa':'mapas'}` : 'Bloqueado', mapsOpen(h) ? 'Dispositivo de Mapas' : 'Conclua o Ato 4 da campanha', !mapsOpen(h))}
+  </div>`;
+  const torm = `<div class="tormbar"><div><span class="xk">Dificuldade · vale para tudo, menos o desafio do dia</span><b>${h.torment ? 'Tormento '+h.torment : 'Normal'}</b><p class="muted small">${tormentDesc(h.torment||0)}</p></div>
       <div class="tstep"><button class="ghost sm" type="button" data-act="torm:-1" ${(h.torment||0)>0?'':'disabled'} aria-label="Diminuir tormento">−</button>
       <span>${h.torment||0} / ${h.tormentMax||0}</span>
-      <button class="ghost sm" type="button" data-act="torm:1" ${(h.torment||0)<(h.tormentMax||0)?'':'disabled'} aria-label="Aumentar tormento">+</button></div></div>
-    <h3 class="sub">Campanha ${h.torment ? `<span class="muted">Tormento ${h.torment}</span>` : ''}</h3><div class="xgrid">${acts}</div>
-    <h3 class="sub">Sempre disponível</h3><div class="xgrid">
-      <div class="xcard"><span class="xk">Treino</span><b>Pátio de Treino</b><p>Um andar curto que ensina a mover sua peça, atacar, desviar das casas vermelhas, usar habilidades e descer a escada.</p><button class="${h.tutorialDone?'ghost':'primary'} sm" type="button" data-act="tutorial">${h.tutorialDone ? 'Refazer' : 'Começar'}</button></div>
-      <div class="xcard"><span class="xk">Abismo infinito</span><b>Descida sem fim</b><p>Biomas mudam a cada 3 andares, chefe a cada 3, o Reflexo a cada 12.</p><p class="muted small">Seu recorde: andar ${h.record||0}.</p><button class="ghost sm" type="button" data-act="abyss">Descer</button></div>
-      <div class="xcard"><span class="xk">Desafio do dia</span><b>${todayStr()}</b><p>Tabuleiro igual para todos. Vença dentro do limite de turnos.</p><p class="muted small">${dailyDone ? 'Recompensa de hoje já recebida.' : 'Recompensa: escolha entre dois únicos.'}</p><button class="ghost sm" type="button" data-act="daily">Jogar</button></div>
+      <button class="ghost sm" type="button" data-act="torm:1" ${(h.torment||0)<(h.tormentMax||0)?'':'disabled'} aria-label="Aumentar tormento">+</button></div></div>`;
+  const body = campExp==='maps' ? expMaps(h, side) : campExp==='modes' ? expModes(h, side) : expCampaign(h, side, prog);
+  return portals + torm + `<div class="xbody">${body}</div>`;
+}
+function expCampaign(h, side, prog){
+  if (campAct===null || campAct>Math.min(3,prog)) campAct = Math.min(3, prog);
+  const nodes = ACTS.map((b,i) => {
+    const open = i <= prog, done = i < prog;
+    return `<button class="actnode bio-${b} ${campAct===i?'on':''} ${done?'done':''}" type="button" data-act="actsel:${i}" ${open?'':'disabled'} aria-pressed="${campAct===i}">
+      <span class="an-n">${done ? '✓' : i+1}</span><span class="an-t"><b>${BIOMES[b].name}</b><small>${done ? 'Concluído' : open ? 'Disponível' : 'Bloqueado'}</small></span></button>`;
+  }).join('<span class="an-link" aria-hidden="true"></span>');
+  const b = ACTS[campAct], done = campAct < prog;
+  return `<div class="actpath">${nodes}</div>
+    <div class="actdetail bio-${b}">
+      <div><span class="xk">Ato ${campAct+1}${h.torment ? ` · Tormento ${h.torment}` : ''}</span><h3 class="sh">${BIOMES[b].name}</h3>
+        <p>${BIOMES[b].rule}</p><p class="muted small">Três andares; o último é o chefe: ${BOSSES[BIOMES[b].boss].names[side]}.</p></div>
+      <button class="primary" type="button" data-act="act:${campAct}">${done ? 'Repetir ato' : `Iniciar Ato ${campAct+1}`}</button>
     </div>
-    <h3 class="sub">Maré de Sangue</h3><div class="xgrid"><div class="xcard" style="--bc:#b8332b"><span class="xk">Evento</span><b>Aparece em andares aleatórios</b>
-      <p>A partir do Ato 2, um andar pode trazer a Maré: poças de sangue sobem no tabuleiro (inimigos nelas batem mais forte; a partir do Tormento 1 também se curam), matar ali dá Brasas em dobro, cada abate enche a Ira da Maré, que ao transbordar traz um Arauto e uma Chuva de Sangue, e o Baú Tormentoso custa ${TIDE_COST_BASE} brasas.</p><p class="muted small">Brasas: ${h.embers||0}.</p></div>
-      <div class="xcard" style="--bc:#8fd18a"><span class="xk">Rival</span><b>${esc(heroRival(h).name)}</b><p>Nível ${heroRival(h).tier}. Pode aparecer uma vez por expedição. Derrotado ${heroRival(h).beaten} ${heroRival(h).beaten===1?'vez':'vezes'}; te matou ${heroRival(h).kills} ${heroRival(h).kills===1?'vez':'vezes'}.</p></div></div>
-    <h3 class="sub">Chefes supremos <span class="muted">${UBER_COST.shards} Estilhaços (você tem ${h.riftShards||0}) e ${UBER_COST.seals} Selos (você tem ${h.checkSeals||0}) cada</span></h3><div class="xgrid">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard bio-${U.biome}"><span class="xk">Supremo</span><b>${U.name}</b>
-      <p>${U.special} Golpe de área a cada 2 turnos, fase 2 aos 60%, arena que piora a cada 4 turnos. Deixa únicos exclusivos.</p>
+    <p class="muted small xfoot">Primeira vez? <button class="link" type="button" data-act="tutorial">${h.tutorialDone ? 'Refazer o Pátio de Treino' : 'Fazer o Pátio de Treino'}</button></p>`;
+}
+function expModes(h, side){
+  const dailyDone = h.daily===todayStr();
+  const hunts = h.bossesKilled.length ? `<div class="chips">${h.bossesKilled.map(id => `<button class="ghost sm" type="button" data-act="hunt:${id}">${BOSSES[id].names[side]}</button>`).join('')}</div>` : '<p class="muted small">Derrote um chefe na campanha para poder caçá-lo de novo.</p>';
+  const ev = [['Fenda','#b08cff','Pise no rasgo roxo: 5 turnos de crias que deixam Estilhaços.'],['Partida Congelada','#cfe6f5','Um problema de xeque-mate; ensina poderes do Grimório e dá Selos.'],
+    ['Maré de Sangue','#e04a3a','Onda de 1 a 3 andares: poças de sangue, Brasas e o Baú Tormentoso.'],['Rival', '#8fd18a', `${esc(heroRival(h).name)}, nível ${heroRival(h).tier}: pode aparecer uma vez por expedição.`]];
+  return `<div class="xgrid">
+      <div class="xcard"><span class="xk">Sem fim</span><b>Abismo infinito</b><p>Biomas mudam a cada 3 andares, chefe a cada 3, o Reflexo a cada 12. A dificuldade sobe a cada andar.</p><p class="muted small">Recorde: andar ${h.record||0}.</p><button class="primary sm" type="button" data-act="abyss">Descer</button></div>
+      <div class="xcard"><span class="xk">Desafio do dia · ${todayStr()}</span><b>Tabuleiro do dia</b><p>Igual para todos. Vença dentro do limite de turnos.</p><p class="muted small">${dailyDone ? 'Recompensa de hoje já recebida.' : 'Recompensa: escolha entre dois únicos.'}</p><button class="ghost sm" type="button" data-act="daily">Jogar</button></div>
+      <div class="xcard"><span class="xk">Caça ao chefe</span><b>Enfrente um chefe direto</b><p>Um andar só, com o chefe e as relíquias dele.</p>${hunts}</div>
+    </div>
+    <h3 class="sub">Chefes supremos <span class="muted">cada um custa ${UBER_COST.shards} Estilhaços (você tem ${h.riftShards||0}) e ${UBER_COST.seals} Selos (você tem ${h.checkSeals||0})</span></h3>
+    <div class="xgrid">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard bio-${U.biome}"><span class="xk">Supremo</span><b>${U.name}</b>
+      <p>${U.special} Deixa únicos exclusivos.</p>
       <button class="${canUber(h)?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${canUber(h)?'':'disabled'}>Enfrentar</button></div>`).join('')}</div>
-    <h3 class="sub">Caça ao chefe</h3>${hunts ? `<div class="xgrid">${hunts}</div>` : '<p class="muted">Derrote um chefe na campanha para poder caçá-lo de novo.</p>'}
-    <h3 class="sub">Mapas <span class="muted">${Object.keys(CURRENCY).map(k => `${CURRENCY[k].short} ${(h.currency||{})[k]||0}`).join(' · ')}</span></h3>${!end ? '<p class="muted">Conclua o Ato 4 para desbloquear os mapas.</p>' : maps ? `<div class="xgrid">${maps}</div>` : '<p class="muted">Nenhum mapa. Mapas caem dos chefes no Abismo infinito e nos próprios mapas.</p>'}`;
+    <h3 class="sub">Eventos que surgem nos andares <span class="muted">em qualquer modo</span></h3>
+    <div class="evstrip">${ev.map(([n,c,d]) => `<div style="--ec:${c}"><b>${n}</b><span>${d}</span></div>`).join('')}</div>`;
+}
+function mapTile(m, on){
+  const pen = m.affixes.filter(a => !isRewardAffix(a)).length, rew = m.affixes.length - pen, new_ = !(HERO.atlas||{})[`${m.biome}-${m.tier}`];
+  return `<button class="mtile bio-${m.biome} ${on?'on':''}" type="button" data-act="dev:${m.id}" aria-pressed="${on}" title="${esc(mapName(m))}">
+    <span class="mt-tier">${m.tier}</span><span class="mt-name">${BIOMES[m.biome].name}</span>
+    <span class="mt-aff">${'<i class="pen"></i>'.repeat(pen)}${'<i class="rew"></i>'.repeat(rew)}</span>${new_ ? '<span class="mt-new">novo</span>' : ''}</button>`;
+}
+function expMaps(h, side){
+  const maps = h.maps.slice().sort((a,b) => b.tier-a.tier || a.biome.localeCompare(b.biome));
+  if (campDev && !h.maps.some(m => m.id===campDev)) campDev = null;
+  if (!campDev && maps.length) campDev = maps[0].id;
+  const m = h.maps.find(m => m.id===campDev);
+  const cur = Object.keys(CURRENCY).map(k => { const n = (h.currency||{})[k]||0;
+    return `<button class="curbtn" type="button" data-act="cur:${m?m.id:''}|${k}" ${n&&m?'':'disabled'} title="${CURRENCY[k].d}" style="--cc:${CURRENCY[k].c}"><b>${CURRENCY[k].short}</b><span>${n}</span><small>${CURRENCY[k].d}</small></button>`; }).join('');
+  const done = Object.keys(h.atlas||{}).length;
+  const device = m ? `<div class="dev-core bio-${m.biome}"><span class="xk">Nível</span><span class="dc-tier">${m.tier}</span><span class="dc-name">${BIOMES[m.biome].name}</span></div>
+      <div class="dev-info">
+        <p class="muted small">Chefe no 3º andar: <b>${BOSSES[m.boss].names[side]}</b>${(h.atlas||{})[`${m.biome}-${m.tier}`] ? ' · já concluído no Atlas' : ' · primeira conclusão: +1 ponto de Atlas'}</p>
+        <ul class="maff">${m.affixes.filter(a=>!isRewardAffix(a)).map(a => `<li class="pen">${MAP_AFFIXES[a]}</li>`).join('')}${m.affixes.filter(isRewardAffix).map(a => `<li class="rew">${MAP_AFFIXES[a].replace('Recompensa: ','')}</li>`).join('')}</ul>
+        <button class="primary devgo" type="button" data-act="map:${m.id}">Abrir o portal</button>
+      </div>`
+    : `<div class="dev-core empty"><span class="dc-name">Vazio</span></div><div class="dev-info"><p class="muted">Nenhum mapa. Mapas caem dos chefes no Abismo infinito e nos próprios mapas.</p></div>`;
+  return `<div class="mapdev">
+      <section class="mstash" aria-label="Seus mapas"><h3 class="sub">Seus mapas <span class="muted">${maps.length} · clique para pôr no dispositivo</span></h3>
+        <div class="mgrid">${maps.map(x => mapTile(x, x.id===campDev)).join('') || '<p class="muted small">Vazio.</p>'}</div>
+        <p class="muted small">Atlas: ${done} ${done===1?'mapa concluído':'mapas concluídos'}. Pontos e bônus na aba Atlas.</p></section>
+      <section class="device" aria-label="Dispositivo de Mapas"><h3 class="sub">Dispositivo de Mapas</h3>
+        <div class="dev-main">${device}</div>
+        <div class="dev-cur"><span class="xk">Moedas · aplicar no mapa do dispositivo</span><div class="curgrid">${cur}</div></div>
+      </section>
+    </div>`;
 }
 function campSkills(h){
   const pool = CLASSES[h.cls].skills, st = statsFor(h.cls, h.color, h.equip);
@@ -331,10 +387,6 @@ function campSkills(h){
 function miniBoard(fen){
   const b = chParse(fen);
   return `<div class="mini" aria-hidden="true">${b.map((p,i) => `<i class="${(i%8 + ((i/8)|0))%2 ? 'd' : 'l'} ${p ? p.c : ''}">${p ? GLYPH[p.t] : ''}</i>`).join('')}</div>`;
-}
-function curButtons(h, m){
-  const own = Object.keys(CURRENCY).filter(k => (h.currency||{})[k]);
-  return own.length ? `<div class="curbar">${own.map(k => `<button class="ghost sm" type="button" data-act="cur:${m.id}|${k}" title="${CURRENCY[k].d}" style="border-color:${CURRENCY[k].c}">${CURRENCY[k].short} (${h.currency[k]})</button>`).join('')}</div>` : '';
 }
 function campGrimoire(h){
   const g = h.grimoire || {};
@@ -375,6 +427,9 @@ $('scrCamp').addEventListener('click', ev => {
   const h = HERO;
   campNotice = '';
   if (act==='tab'){ campTab = arg; }
+  else if (act==='xsub'){ campExp = arg; }
+  else if (act==='actsel'){ campAct = +arg; }
+  else if (act==='dev'){ campDev = +arg; }
   else if (act==='filter'){ campFilter = arg; }
   else if (act==='selS'){ campSel = {from:'stash', i:+arg}; }
   else if (act==='selE'){ campSel = {from:'equip', slot:arg}; }
