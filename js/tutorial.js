@@ -12,7 +12,7 @@ const TUT_STEPS = [
   {title:'Ataque', text:() => 'Mover-se para a casa de um inimigo é atacar. Ataque o boneco de treino (o marcador laranja mostra quem você alcança).'},
   {title:'Casas vermelhas', text:() => 'Os inimigos avisam antes onde vão bater: as casas vermelhas. Saia delas antes de passar o turno. O triângulo amarelo marca quem está na linha de fogo.'},
   {title:'Contra-ataque', text:() => 'Agora derrote a Torre de treino: ela aguenta dois golpes. Se o golpe não matar, você não ocupa a casa dela. Passe o mouse sobre uma peça para ver vida, dano e o que ela vai fazer.'},
-  {title:'Habilidades', text:() => 'As habilidades ficam na barra embaixo do tabuleiro. Use a habilidade 1: clique no botão ou tecle 1. Algumas pedem que você escolha uma casa.'},
+  {title:'Habilidades', text:() => 'As habilidades ficam na barra embaixo do tabuleiro. Use a habilidade 1 (clique no botão ou tecle 1); um ataque normal não conta. Algumas pedem que você escolha uma casa depois.'},
   {title:'Escada', text:() => 'Treino concluído. Pise na escada para voltar ao acampamento. Nas expedições, a escada aparece quando o andar fica limpo.'}
 ];
 function genTutorial(){
@@ -78,7 +78,11 @@ function tutCheck(kind){
     if (!done){ log('Você ficou numa casa vermelha. Tente de novo: saia das casas vermelhas antes de passar o turno.'); st.hp0 = S.player.hp; }
   }
   else if (st.step===3) done = !S.enemies.length;
-  else if (st.step===4) done = st.skillUsed;
+  else if (st.step===4){
+    done = st.skillUsed;
+    // the dummy was killed with a normal attack: skills need a target on the board, so a new dummy shows up
+    if (!done && !S.enemies.length){ log('Esse foi um ataque normal. Um novo boneco aparece: use a habilidade 1 nele.'); floatText(S.player.x, S.player.y-0.4, 'use a habilidade 1', '#e3b456'); tutSetup(); return; }
+  }
   if (!done) return;
   floatText(S.player.x, S.player.y-0.4, 'muito bem', '#8fd18a');
   st.step++;
