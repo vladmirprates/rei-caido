@@ -25,7 +25,8 @@ function placeEvent(force){
     S.eventNote = ['Exército Congelado', 'Um tabuleiro de gelo brilha neste andar. Pise nele para revelar o exército.'];
   } else if (kind==='frozen'){
     const unknown = MATES.filter(m => !(HERO.grimoire||{})[m.id]);
-    const P = unknown.length && rnd()<.7 ? pick(unknown) : pick(MATES);
+    // mostly the longer problems; now and then a pattern you haven't learned yet (it teaches a Grimório power)
+    const P = unknown.length && rnd()<.35 ? pick(unknown) : pick(PROBLEMS);
     S.items.push({x:spot[0], y:spot[1], frozen:P.id});
     log('Um tabuleiro congelado brilha neste andar.');
     S.eventNote = ['Partida Congelada', 'Um tabuleiro de gelo brilha neste andar. Pise nele para jogar.'];
@@ -39,7 +40,8 @@ function placeEvent(force){
 /* ---------- Two versions of the frozen event, switchable in the camp ----------
    'army'  : a black army frozen in a classic opening; time stops for 3 turns to strike it, then it wakes.
    'puzzle': the hero and spectral pieces must deliver a checkmate in N moves (kept intact below). */
-const frozenMode = () => ((typeof SAVE!=='undefined' && SAVE.opts) || {}).frozenMode || 'army';
+// the army version is kept in the code but switched off for now: only the checkmate version spawns
+const frozenMode = () => 'puzzle';
 const OPENINGS = [
   {id:'italiana', name:'Abertura Italiana', fen:'r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R'},
   {id:'siciliana', name:'Defesa Siciliana, Najdorf', fen:'rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R'},
@@ -169,24 +171,40 @@ function chessHint(){
 function chessGiveUp(){ const c = S.chess; if (c && !c.busy) chessEnd('fail'); }
 async function chessEnd(result){
   const c = S.chess; c.busy = true; c.result = result; updateUI();
-  if (result==='win') showBanner('Xeque-mate!', c.P.name);
-  else showBanner('O exército desperta', result==='stale' ? 'Afogamento não é mate: as peças ganham vida.' : 'Sem mate a tempo: as peças ganham vida.');
-  await sleep(reduce ? 500 : 1500);
+  await sleep(reduce ? 200 : 700);
+  if (result==='win'){
+    const lines = frozenReward(c);
+    await openModal({title:'Xeque-mate!', body:`<p class="mtext">${c.P.name} resolvido${c.hints ? ` com ${c.hints} ${c.hints===1?'dica':'dicas'}` : ' sem dicas'}.</p><ul class="mtext">${lines.map(l => `<li>${l}</li>`).join('')}</ul>`,
+      note:'O saque está no chão, ao lado do tabuleiro de gelo.', actions:[{label:'Voltar ao andar', primary:true, value:'ok'}]});
+  } else {
+    await openModal({title:'O exército desperta', body:`<p class="mtext">${result==='stale' ? 'Afogamento não é mate.' : 'O mate não veio a tempo.'} As peças pretas ganham vida ao redor do tabuleiro de gelo.</p>`,
+      actions:[{label:'Voltar ao andar e lutar', primary:true, value:'ok'}]});
+    thawArmy(c);
+  }
   S.chess = null; S.phase = 'modal';
-  if (result==='win') frozenReward(c); else thawArmy(c);
   updateUI();
   c.resolve();
 }
+// returns the lines shown in the result window; items go on the ground around the frozen board (with their light beams)
 function frozenReward(c){
+  const lines = [];
   HERO.grimoire = HERO.grimoire || {};
-  const first = !HERO.grimoire[c.P.id];
-  HERO.grimoire[c.P.id] = true;
-  HERO.checkSeals = (HERO.checkSeals||0) + 1;
-  log(`Xeque-mate: ${c.P.name}. +1 Selo de Xeque.`);
-  if (first){ log(`Grimório: ${c.P.name} aprendido. ${c.P.power}`); floatText(S.player.x, S.player.y-0.5, 'Grimório: novo poder', '#c9a0ff'); }
-  if (!c.hints){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; log(`Sem dicas: ${RUNES[r].name} de bônus.`); }
-  S.pendingLoot.push({item: rollItem(c.hints>=2 ? 'magic' : 'rare', areaIlvl())});
+  if (!c.P.problem){
+    const first = !HERO.grimoire[c.P.id];
+    HERO.grimoire[c.P.id] = true;
+    if (first){ lines.push(`<b>Grimório:</b> ${c.P.name} aprendido. ${c.P.power}`); log(`Grimório: ${c.P.name} aprendido.`); }
+  }
+  const seals = c.P.n>=4 ? 2 : 1;
+  HERO.checkSeals = (HERO.checkSeals||0) + seals;
+  lines.push(`+${seals} ${seals===1 ? 'Selo' : 'Selos'} de Xeque`);
+  if (!c.hints){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; lines.push(`${RUNES[r].name} (bônus por não usar dicas)`); }
+  const items = [rollItem(c.hints>=2 ? 'magic' : 'rare', areaIlvl())];
+  if (c.P.problem) items.push(rollItem(c.P.n>=4 || !c.hints ? 'rare' : 'magic', areaIlvl() + (c.P.n>=4 ? 2 : 0)));
+  const spots = [[c.at[0],c.at[1]], ...ALL.map(([dx,dy]) => [c.at[0]+dx, c.at[1]+dy])].filter(([x,y]) => inb(x,y) && !isWall(x,y) && !isPit(x,y) && !S.items.some(i => i.x===x && i.y===y));
+  for (const it of items){ const s = spots.shift() || c.at; S.items.push({x:s[0], y:s[1], item:it}); lines.push(`<span class="rc-${it.rar}">${esc(it.name)}</span> no chão`); }
+  log(`Xeque-mate: ${c.P.name}.`);
   burst(c.at[0], c.at[1], '#cfe6f5', 30); fx.rings.push({x:c.at[0], y:c.at[1], t:0, c:'207,230,245'});
+  return lines;
 }
 // failure: the black army wakes up on the dungeon floor around the board
 function thawArmy(c){

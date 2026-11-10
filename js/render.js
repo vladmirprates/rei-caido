@@ -607,6 +607,7 @@ function draw(time){
   for (const [k,t] of S.terrain){ const [x,y] = unkey(k); drawTerrain(x, y, t, time); }
   drawBiomeLight(time, size);
   if (S.rift) drawRift(time);
+  if (S.tut && S.tut.target && S.phase==='player'){ const [tx,ty] = S.tut.target, [cx,cy] = sqCenter(tx,ty), r = tile*(.36 + (reduce?0:.05*Math.sin(time*5))); ctx.strokeStyle = '#e3b456'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke(); glow(cx, cy, tile*.7, 'rgba(227,180,86,.25)'); }
   if (S.tideRise) for (const [x,y] of S.tideRise){ const pul = reduce ? .5 : .5+.5*Math.sin(time*5); ctx.fillStyle = `rgba(160,20,10,${.15+.15*pul})`; ctx.fillRect(x*tile, y*tile, tile, tile); ctx.strokeStyle = `rgba(255,80,60,${.6+.3*pul})`; ctx.setLineDash([4,3]); ctx.lineWidth = 2; ctx.strokeRect(x*tile+3, y*tile+3, tile-6, tile-6); ctx.setLineDash([]); }
   if (S.tide){ ctx.fillStyle = `rgba(140,10,0,${reduce?.09:.07+.03*Math.sin(time*.9)})`; ctx.fillRect(0, 0, size, size); }
   for (const [k,t] of S.fire){ const [x,y] = unkey(k); ctx.fillStyle = `rgba(240,138,60,${(t>1?.22:.13)+(reduce?0:.06*Math.sin(time*9+x*3+y))})`; ctx.fillRect(x*tile, y*tile, tile, tile); }
@@ -746,6 +747,15 @@ function draw(time){
     if (showWarn && S.dangerSeen.has(key(u.x,u.y))) warnMark(x, y);
   }
   if (!S.dead) drawPiece(S.cls, S.player.rx+S.player.lx, S.player.ry+S.player.ly, S.color, {player:true});
+  // interactive events: a bouncing marker says "step here"
+  for (const it of S.items) if (it.frozen || it.riftGate || it.tideChest){
+    const cx = (it.x+.5)*tile, bob = reduce ? 0 : Math.sin(time*4)*tile*.05, top = it.y*tile + tile*.02 + bob;
+    const col = it.frozen ? '207,230,245' : it.riftGate ? '200,170,255' : '255,110,90';
+    ctx.strokeStyle = `rgba(${col},.85)`; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.arc(cx, (it.y+.5)*tile, tile*.44, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = `rgba(${col},.95)`; ctx.strokeStyle = 'rgba(10,6,4,.9)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx - tile*.11, top - tile*.12); ctx.lineTo(cx + tile*.11, top - tile*.12); ctx.lineTo(cx, top); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
   drawAmb(time);
   if (S.tide && !reduce) for (const d of fx.rain || []){ ctx.strokeStyle = `rgba(200,30,20,${.55*Math.min(1,d.life)})`; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(d.x*tile, d.y*tile); ctx.lineTo((d.x-.04)*tile, (d.y-.28)*tile); ctx.stroke(); }
   for (const b of fx.beams){
@@ -769,7 +779,7 @@ function draw(time){
   for (const f of fx.floats){
     const a = Math.max(0, 1-f.t/1.1);
     // keep the text inside the board, even for squares on the edges
-    const half = ctx.measureText(f.text).width/2 + 4, fs = Math.max(12, tile*.26);
+    const half = ((ctx.measureText(f.text) || {}).width || 0)/2 + 4, fs = Math.max(12, tile*.26);
     const xx = Math.min(size - half, Math.max(half, f.x*tile)), yy = Math.min(size - fs*.6, Math.max(fs*.6, (f.y - f.t*.6)*tile));
     ctx.globalAlpha = a; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10,6,4,.9)';
     ctx.strokeText(f.text, xx, yy); ctx.fillStyle = f.color; ctx.fillText(f.text, xx, yy);

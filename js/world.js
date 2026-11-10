@@ -26,6 +26,7 @@ function floorPlan(){
     return {biome, boss: f%12===0 ? 'mirror' : f%3===0 ? BIOMES[biome].boss : null, lvl:f};
   }
   if (ex.kind==='map') return {biome:ex.map.biome, boss: f===3 ? ex.map.boss : null, lvl: 12 + ex.map.tier*2 + f};
+  if (ex.kind==='tutorial') return {biome:'crypt', boss:null, lvl:1};
   if (ex.kind==='uber'){ const id = ex.boss || 'queen'; return {biome:UBERS[id].biome, boss:id, lvl: Math.max(30, HERO.level+5)}; }
   if (ex.kind==='hunt'){
     const i = BOSS_ORDER.indexOf(ex.boss);
@@ -47,6 +48,7 @@ function floorTitleBase(){
   if (ex.kind==='abyss') return `Abismo infinito, andar ${S.floor}: ${b}`;
   if (ex.kind==='map') return `Mapa nível ${ex.map.tier}, andar ${S.floor} de 3: ${b}`;
   if (ex.kind==='hunt') return `Caça ao chefe: ${b}`;
+  if (ex.kind==='tutorial') return 'Pátio de Treino';
   if (ex.kind==='uber') return `Chefe supremo: ${UBERS[ex.boss||'queen'].name}`;
   return 'Desafio do dia';
 }
@@ -161,7 +163,7 @@ function roleBias(e, x, y){
   const mates = S.enemies.filter(o => o.group===e.group && o!==e);
   if (!mates.length) return 0;
   if (e.role==='protector') return Math.min(...mates.map(o => cheb(x,y,o.x,o.y))) > 1 ? 1.2 : 0;
-  if (e.role==='artillery'){ const p = mates.find(o => o.role==='protector'); return p ? Math.max(0, cheb(x,y,p.x,p.y)-2)*1.2 + (y > p.y ? .8 : 0) : 0; }
+  if (e.role==='artillery'){ const p = mates.find(o => o.role==='protector'); return p ? Math.max(0, cheb(x,y,p.x,p.y)-2)*2.5 + (y > p.y ? .8 : 0) : 0; }
   return 0;
 }
 function makeElites(n){
@@ -293,7 +295,7 @@ function nextFloor(){
     walls:new Set(), terrain:new Map(), items:[], stairs:null, enemies:[], fire:new Map(), burn:new Map(),
     env:null, rise:null, clock:null, clocks:0, tideRise:null, bloodRain:null, tideIra:0, tideGoal:8, sight:0, risen:0, rift:null, riftShardsRun:0, firstHitDone:false, chess:null, hits:[], timeStop:0, fseed:Math.floor(Math.random()*1e9), bossRelics:null, floorCleared:false, bossKilledThisFloor:false});
   const keep = S.allies; S.allies = [];
-  if (plan.boss) genArena(plan.boss); else genRandomFloor();
+  if (plan.boss) genArena(plan.boss); else if (S.exp.kind==='tutorial') genTutorial(); else genRandomFloor();
   placeAllies(keep);
   const st = stats();
   if (S.floor>1) S.player.hp = Math.min(st.hp, S.player.hp+5);
@@ -474,6 +476,7 @@ function summonEvery(e){
 function planIntents(moveOnly){
   const reserved = new Set();
   for (const e of S.enemies){
+    if (e.dummy){ e.intent = {kind:'wait'}; reserved.add(key(e.x,e.y)); continue; }
     if (e.frozenPiece && S.timeStop>0){ e.intent = {kind:'wait', frozen:true}; reserved.add(key(e.x,e.y)); continue; }
     e.t++;
     const sp = !moveOnly && e.boss ? bossSpecial(e) : null;

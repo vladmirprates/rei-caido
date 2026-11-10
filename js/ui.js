@@ -110,7 +110,7 @@ $('scrHeroes').addEventListener('click', ev => {
     const name = ($('heroName').value || '').trim() || 'Sem Nome';
     const h = newHero(name.slice(0,20), pick_.cls, pick_.color, pick_.mode);
     SAVE.heroes.push(h); persist(); $('heroName').value = '';
-    HERO = h; showCamp(`${esc(h.name)} chega ao acampamento à beira do abismo.`);
+    HERO = h; startExpedition({kind:'tutorial'});
   }
   else if (act==='play'){ HERO = SAVE.heroes.find(h=>h.id===arg); delPending = null; showCamp(); }
   else if (act==='del'){
@@ -288,10 +288,9 @@ function campExpeditions(h){
       <div class="tstep"><button class="ghost sm" type="button" data-act="torm:-1" ${(h.torment||0)>0?'':'disabled'} aria-label="Diminuir tormento">−</button>
       <span>${h.torment||0} / ${h.tormentMax||0}</span>
       <button class="ghost sm" type="button" data-act="torm:1" ${(h.torment||0)<(h.tormentMax||0)?'':'disabled'} aria-label="Aumentar tormento">+</button></div></div>
-    <div class="erow"><div><b>Partida Congelada</b><small>${frozenMode()==='army' ? 'Versão Exército: um exército novo congelado numa abertura; 3 turnos para estilhaçar peças, que voltam e deixam saque.' : 'Versão Xeque-mate: dê mate em N lances com o herói e peças espectrais; ensina o Grimório.'}</small></div>
-      <div class="tstep"><button class="${frozenMode()==='army'?'primary':'ghost'} sm" type="button" data-act="fmode:army" aria-pressed="${frozenMode()==='army'}">Exército</button><button class="${frozenMode()==='puzzle'?'primary':'ghost'} sm" type="button" data-act="fmode:puzzle" aria-pressed="${frozenMode()==='puzzle'}">Xeque-mate</button></div></div>
     <h3 class="sub">Campanha ${h.torment ? `<span class="muted">Tormento ${h.torment}</span>` : ''}</h3><div class="xgrid">${acts}</div>
     <h3 class="sub">Sempre disponível</h3><div class="xgrid">
+      <div class="xcard"><span class="xk">Treino</span><b>Pátio de Treino</b><p>Um andar curto que ensina a mover sua peça, atacar, desviar das casas vermelhas, usar habilidades e descer a escada.</p><button class="${h.tutorialDone?'ghost':'primary'} sm" type="button" data-act="tutorial">${h.tutorialDone ? 'Refazer' : 'Começar'}</button></div>
       <div class="xcard"><span class="xk">Abismo infinito</span><b>Descida sem fim</b><p>Biomas mudam a cada 3 andares, chefe a cada 3, o Reflexo a cada 12.</p><p class="muted small">Seu recorde: andar ${h.record||0}.</p><button class="ghost sm" type="button" data-act="abyss">Descer</button></div>
       <div class="xcard"><span class="xk">Desafio do dia</span><b>${todayStr()}</b><p>Tabuleiro igual para todos. Vença dentro do limite de turnos.</p><p class="muted small">${dailyDone ? 'Recompensa de hoje já recebida.' : 'Recompensa: escolha entre dois únicos.'}</p><button class="ghost sm" type="button" data-act="daily">Jogar</button></div>
     </div>
@@ -409,6 +408,7 @@ $('scrCamp').addEventListener('click', ev => {
   else if (act==='switch'){ persist(); showHeroes(); return; }
   else if (act==='act'){ startExpedition({kind:'campaign', act:+arg}); return; }
   else if (act==='abyss'){ startExpedition({kind:'abyss'}); return; }
+  else if (act==='tutorial'){ startExpedition({kind:'tutorial'}); return; }
   else if (act==='uber'){ if (canUber(h)){ h.riftShards -= UBER_COST.shards; h.checkSeals -= UBER_COST.seals; persist(); startExpedition({kind:'uber', boss:arg||'queen'}); return; } }
   else if (act==='daily'){ startExpedition({kind:'daily'}); return; }
   else if (act==='hunt'){ startExpedition({kind:'hunt', boss:arg}); return; }
@@ -424,7 +424,7 @@ function startExpedition(exp){
   S = {exp, color:HERO.color, cls:HERO.cls, floor:0, player:{x:0,y:0,rx:0,ry:0,lx:0,ly:0,hp:0}, equip:HERO.equip, seen:new Set(),
        enemies:[], allies:[], items:[], walls:null, terrain:new Map(), danger:new Set(), dangerSeen:new Set(), threatNext:new Set(),
        fire:new Map(), burn:new Map(), pendingLoot:[], log:[], kills:0, phase:'busy', actions:1, cds:{}, mode:'move', killsThisAction:0, turn:1,
-       mapAff:new Set(exp.kind==='map' ? exp.map.affixes : []), goldFound:0, xpFound:0, torment: exp.kind==='daily' ? 0 : (HERO.torment||0), tide: (tideActive() || (exp.kind==='map' && (HERO.atlasTree||[]).some(id => (atlasTree()[id]||{aff:{}}).aff.kTide))) && !['daily','uber'].includes(exp.kind),
+       mapAff:new Set(exp.kind==='map' ? exp.map.affixes : []), goldFound:0, xpFound:0, torment: exp.kind==='daily' ? 0 : (HERO.torment||0), tide: !['tutorial'].includes(exp.kind) && (tideActive() || (exp.kind==='map' && (HERO.atlasTree||[]).some(id => (atlasTree()[id]||{aff:{}}).aff.kTide))) && !['daily','uber'].includes(exp.kind),
        snapshot:JSON.stringify({equip:HERO.equip, stash:HERO.stash, gold:HERO.gold, maps:HERO.maps, runes:HERO.runes||{}, currency:HERO.currency||{}})};
   if (exp.kind==='map' && atlasRank('kDanger')){
     const keys = Object.keys(MAP_AFFIXES), have = S.mapAff;
@@ -459,6 +459,7 @@ function endExpedition(reason){
       () => showCamp(recap ? `${c.name} caiu em ${floorTitle()}.<details class="rdet"><summary>Como você morreu</summary>${recap}</details>` : ''));
     return;
   }
+  if (ex.kind==='tutorial'){ HERO.tutorialDone = true; persist(); showCamp(reason==='abandon' ? 'Treino interrompido. Você pode refazê-lo pela aba Expedições.' : `${esc(HERO.name)} terminou o treino e chega ao acampamento à beira do abismo.`); return; }
   if (reason==='abandon'){
     persist();
     showCamp(ex.kind==='daily' ? 'Você desistiu do desafio do dia.' : `Expedição encerrada. Você trouxe tudo o que pegou (+${run.goldFound} de ouro, +${run.xpFound} de experiência).`);
@@ -680,11 +681,11 @@ function renderTip(){
     else if (item.shrine) html += `<div class="tn" style="color:#f0d68c">${item.shrine.name}</div><div class="tr">${item.shrine.desc}</div>`;
     else if (item.merchant) html += `<div class="tn" style="color:#e3b456">Mercador</div><div class="tr">Pise aqui para comprar com ouro</div>`;
     else if (item.mapItem) html += `<div class="tn rc-legend">Mapa</div><div class="tr">${mapName(item.mapItem)}</div>`;
-    else if (item.frozen) html += `<div class="tn" style="color:#cfe6f5">Partida Congelada</div><div class="tr">Dê xeque-mate em ${mateById(item.frozen).n} ${mateById(item.frozen).n===1?'lance':'lances'}. ${(HERO.grimoire||{})[item.frozen] ? 'Padrão já aprendido.' : 'Padrão novo: ensina um poder do Grimório.'}</div><div class="tr">Pise para jogar. Se falhar, o exército desperta.</div>`;
+    else if (item.frozen){ const P = mateById(item.frozen); html += `<div class="tn" style="color:#cfe6f5">Partida Congelada</div><div class="tr">${P.problem ? `Problema: mate em ${P.n}. Paga mais que os padrões.` : `Padrão de mate em ${P.n}. ${(HERO.grimoire||{})[item.frozen] ? 'Já aprendido.' : 'Novo: ensina um poder do Grimório.'}`}</div><div class="tr"><b>Pise nesta casa para jogar.</b> Se falhar, o exército desperta.</div>`; }
     else if (item.currency) html += `<div class="tn" style="color:${CURRENCY[item.currency].c}">${CURRENCY[item.currency].name}</div><div class="tr">${CURRENCY[item.currency].d} Use no acampamento, num mapa.</div>`;
     else if (item.tideChest) html += `<div class="tn" style="color:#ff6b4a">Baú Tormentoso</div><div class="tr">Custa ${tideCost()} Brasas de Sangue (você tem ${HERO.embers||0}). Item raro garantido, 25% de chance de único, 30% de runa.</div>`;
     else if (item.frozenArmy) html += `<div class="tn" style="color:#cfe6f5">Exército Congelado</div><div class="tr">Pise para revelar um exército novo, congelado numa abertura clássica. Você tem ${TIME_STOP} turnos para estilhaçar peças (+50% de dano). Quando o gelo derrete, todas acordam e as estilhaçadas voltam à vida: só elas deixam saque, e o Rei estilhaçado dá um Selo de Xeque.</div>`;
-    else if (item.riftGate) html += `<div class="tn" style="color:#b48cff">Fenda</div><div class="tr">Pise para abri-la: 5 turnos de ondas crescentes de crias, que deixam Estilhaços. A cada 3 abates perto dela, +1 turno (até +3).</div>`;
+    else if (item.riftGate) html += `<div class="tn" style="color:#b48cff">Fenda</div><div class="tr"><b>Pise nesta casa para abri-la:</b> 5 turnos de ondas crescentes de crias, que deixam Estilhaços. A cada 3 abates perto dela, +1 turno (até +3).</div>`;
     else if (item.rune) html += `<div class="tn" style="color:#c9a0ff">${RUNES[item.rune].name}</div><div class="tr">${RUNES[item.rune].d}</div><div class="tr">Pise para pegar. Encaixe numa habilidade no acampamento.</div>`;
     else html += `<div class="tn rc-${item.item.rar}">${esc(item.item.name)}</div><div class="tr">${RAR[item.item.rar].label} · ${SLOTS[item.item.slot].label} · nível ${item.item.ilvl||1}</div><ul class="tafx">${item.item.affixes.map(affixLine).join('')}</ul>${diffHtml(swapDiff(HERO, item.item))}`;
   }
@@ -802,7 +803,7 @@ function updateUI(){
   const st = stats(), c = CLASSES[S.cls];
   if (cv.parentElement && cv.parentElement.dataset.biome!==S.biome) cv.parentElement.dataset.biome = S.biome;
   $('floorLabel').textContent = floorTitle();
-  $('turnLabel').textContent = S.timeStop>0 ? `Gelo derrete em ${S.timeStop} ${S.timeStop===1?'turno':'turnos'}` : S.phase==='enemy' ? 'Turno inimigo' : S.phase==='allies' ? 'Turno dos aliados'
+  $('turnLabel').textContent = S.tut ? 'Treino' : S.timeStop>0 ? `Gelo derrete em ${S.timeStop} ${S.timeStop===1?'turno':'turnos'}` : S.phase==='enemy' ? 'Turno inimigo' : S.phase==='allies' ? 'Turno dos aliados'
     : S.exp.kind==='daily' ? `Turno ${S.turn} de ${S.turnLimit}` : S.enemies.length ? `Turno ${S.turn}` : 'Andar limpo';
   updateHeader();
   $('clsName').textContent = c.name;
@@ -855,6 +856,8 @@ function updateUI(){
   $('bossInfo').hidden = !bosses.length;
   if (bosses.length) $('bossInfo').innerHTML = bossSheet(bosses);
   hoverHint();
+  $('hint').classList.toggle('tut', !!S.tut);
+  if (S.tut){ const step = TUT_STEPS[S.tut.step]; $('hint').innerHTML = `<b>Treino ${S.tut.step+1} de ${TUT_STEPS.length}: ${step.title}.</b> ${step.text(S.cls)}`; }
   // frozen match: swap the skill bar for the puzzle bar
   const ch = S.chess;
   $('hotbar').hidden = !!ch; $('chessBar').hidden = !ch;

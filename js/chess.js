@@ -122,4 +122,24 @@ const MATES = [
    tip:'Um peão avançado protege a Dama na casa ao lado do rei.',
    power:'Ao matar, 25% de chance de reduzir em 1 a recarga de todas as habilidades.'}
 ];
-const mateById = id => MATES.find(m => m.id===id);
+/* Longer problems (mate in 3 or 4), found by search and verified: each has exactly one key move.
+   They don't teach Grimório powers, but pay more. */
+const PROBLEMS = [
+  {id:'prob1', name:'Problema I', fen:'2N4k/4n1p1/Q3pp1r/6B1/7P/8/6PP/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},
+  {id:'prob2', name:'Problema II', fen:'2Rn2k1/4b2p/6p1/8/8/4RB1B/6P1/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},
+  {id:'prob3', name:'Problema III', fen:'2n3k1/6B1/N6p/2P5/8/5Q2/6P1/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},
+  {id:'prob4', name:'Problema IV', fen:'3r2k1/6p1/8/R7/Q7/8/1B3RP1/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate.'},
+  {id:'prob5', name:'Problema V', fen:'6k1/5p1p/2N3pb/8/8/1R2B3/4B1P1/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},
+  {id:'prob6', name:'Problema VI', fen:'6kB/5p2/1N3p2/8/8/3R4/7P/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate.'},
+  {id:'prob7', name:'Problema VII', fen:'7k/3b1p2/7p/2R1P2Q/8/3B4/5PPP/6K1', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},
+  {id:'prob8', name:'Problema VIII', fen:'7k/7p/1Pnr1pb1/8/7Q/1B1R4/5PP1/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate.'},
+  {id:'prob9', name:'Problema IX', fen:'N5k1/3q2pp/R7/8/8/8/3Q1PPP/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},
+  {id:'prob10', name:'Problema X', fen:'7k/4pp2/R7/2N5/3R4/8/5P1P/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate.'},
+  {id:'prob11', name:'Problema XI', fen:'1b1B3k/5p1r/4Q2p/8/8/8/5PPP/7K', n:3, problem:true, tip:'Comece com um xeque que força a resposta do rei.'},
+  {id:'prob12', name:'Problema XII', fen:'2N2rkb/6pp/8/8/4N2P/4Q3/5P1P/7K', n:3, problem:true, tip:'Comece com um xeque que força a resposta do rei.'},
+  {id:'prob13', name:'Problema XIII', fen:'2b3k1/p4pp1/6Rp/5R2/P7/8/2Q3PP/7K', n:3, problem:true, tip:'Comece com um xeque que força a resposta do rei. Ele começa capturando uma peça.'},
+  {id:'prob14', name:'Problema XIV', fen:'6nk/2n1Npp1/7N/1Q6/8/8/8/6K1', n:3, problem:true, tip:'Comece com um xeque que força a resposta do rei. Ele começa capturando uma peça.'},
+  {id:'prob15', name:'Problema XV', fen:'7k/2q3p1/8/5Q2/3R4/8/4NPPP/7K', n:3, problem:true, tip:'Comece com um xeque que força a resposta do rei.'},
+  {id:'prob16', name:'Problema XVI', fen:'r6k/n3Qppp/8/6P1/1R5N/8/5P1P/6K1', n:4, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'}
+];
+const mateById = id => MATES.find(m => m.id===id) || PROBLEMS.find(m => m.id===id);

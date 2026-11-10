@@ -91,6 +91,7 @@ function skillHit(e, amt){
   if (r==='trovao') stun(e);
 }
 function startCd(id){
+  if (S.tut) S.tut.skillUsed = true;
   S.cds[id] = skillCd(id);
   if (runeOf(id)==='eco' && rnd()<.3){ S.cds[id] = 0; floatText(S.player.x, S.player.y-0.4, 'eco', '#c9a0ff'); }
 }
@@ -729,6 +730,7 @@ async function playerAct(fn){
   const run = S;
   S.phase = 'busy'; S.killsThisAction = 0; S.actions--; S.moveOnly = false;
   fn();
+  if (S.tut) tutCheck('action');
   if (S!==run || S.dead) return;
   refreshDanger();
   if (stats().chain && S.killsThisAction>0 && S.enemies.length && S.chainUsed<2){
@@ -749,7 +751,7 @@ async function afterAction(){
   if (S.rift && !S.enemies.length) riftSpawn(Math.min(3, riftMaxAlive()));
   // everything left was shattered: the ice melts right away so the army comes back
   if (!S.enemies.length && S.timeStop>0 && (S.shattered||[]).length){ S.timeStop = 1; frozenTick(); planIntents(false); }
-  if (!S.enemies.length && !S.floorCleared){
+  if (!S.enemies.length && !S.floorCleared && !S.tut){
     S.floorCleared = true;
     if (S.exp.kind==='campaign' && S.bossKilledThisFloor){
       // each world difficulty keeps its own campaign progress; finishing Act 4 at the highest one opens the next
@@ -764,7 +766,7 @@ async function afterAction(){
     if (S.stairs) log('O andar está limpo.'); else spawnStairs();
   }
   // a single straggler can't stall the floor: the stairs open early
-  if (S.enemies.length===1 && !S.bossId && !S.stairs && S.exp.kind!=='daily') spawnStairs(true);
+  if (S.enemies.length===1 && !S.bossId && !S.stairs && S.exp.kind!=='daily' && !S.tut) spawnStairs(true);
   if (S.goDown){ S.goDown = false; await stairsChoice(); return; }
   if (!S.enemies.length){ for (const id in S.cds) S.cds[id] = 0; S.actions = Math.max(1,S.actions); S.phase = 'player'; updateUI(); return; }
   if (S.actions>0){ S.phase = 'player'; updateUI(); return; }
@@ -943,6 +945,7 @@ async function enemyPhase(){
   newRound();
   if (S.exp.kind==='daily' && S.enemies.length && S.turn > S.turnLimit){ dailyFail(); return; }
   planIntents(false);
+  if (S.tut) tutCheck('enemy');
   if (!S.enemies.length){ await afterAction(); return; }
   S.phase = 'player';
   updateUI();
@@ -994,6 +997,7 @@ async function useSkill(i){
     const run = S;
     startCd(id); S.phase = 'busy'; S.killsThisAction = 0;
     S.curSkill = id; await sk.run(); S.curSkill = null;
+    if (S.tut) tutCheck('action');
     if (S!==run || S.dead) return;
     refreshDanger();
     if (!S.enemies.length || S.pendingLoot.length) await afterAction();
