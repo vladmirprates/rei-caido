@@ -517,6 +517,11 @@ async function dailyWin(){
 }
 function dailyFail(){ S.dead = true; endExpedition('fail'); }
 async function stairsChoice(){
+  // training yard: the stairs always lead back to camp
+  if (S.exp.kind==='tutorial'){
+    await openModal({title:'Treino concluído', body:'<p class="mtext">Você aprendeu o básico: mover, atacar, desviar das casas vermelhas, usar habilidades e descer a escada.</p>', actions:[{label:'Ir ao acampamento', primary:true, value:'camp'}]});
+    endExpedition('return'); return;
+  }
   const last = isLastFloor(), opts = [];
   if (!last) opts.push({label: S.exp.kind==='campaign' && S.af===3 ? `Seguir para o Ato ${S.act+2}` : 'Descer', primary:true, value:'down'});
   opts.push({label:'Voltar ao acampamento', primary:last, value:'camp'});
@@ -700,6 +705,8 @@ function renderTip(){
 function hoverHint(){
   renderTip();
   const h = $('hint');
+  // training: the step guide stays in the box while you move the mouse (the tooltip still shows the piece)
+  if (S && S.tut && S.phase!=='over'){ const step = TUT_STEPS[S.tut.step]; h.classList.add('tut'); h.innerHTML = `<b>Treino ${S.tut.step+1} de ${TUT_STEPS.length}: ${step.title}.</b> ${step.text(S.cls)}`; return; }
   if (!S || !S.walls || !hover || S.phase==='over'){ h.textContent = defaultHint(); return; }
   const [x,y] = hover, e = enemyAt(x,y), st = stats(), parts = [];
   if (e && !intentVisible(e)) parts.push('Algo se move na névoa.');

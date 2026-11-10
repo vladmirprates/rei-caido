@@ -767,6 +767,8 @@ async function afterAction(){
   }
   // a single straggler can't stall the floor: the stairs open early
   if (S.enemies.length===1 && !S.bossId && !S.stairs && S.exp.kind!=='daily' && !S.tut) spawnStairs(true);
+  // training: a skill that moves you can land right on the stairs
+  if (S.tut && S.stairs && S.player.x===S.stairs.x && S.player.y===S.stairs.y) S.goDown = true;
   if (S.goDown){ S.goDown = false; await stairsChoice(); return; }
   if (!S.enemies.length){ for (const id in S.cds) S.cds[id] = 0; S.actions = Math.max(1,S.actions); S.phase = 'player'; updateUI(); return; }
   if (S.actions>0){ S.phase = 'player'; updateUI(); return; }

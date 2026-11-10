@@ -71,6 +71,8 @@ function tutCheck(kind){
   let done = false;
   if (st.step===0) done = st.target && S.player.x===st.target[0] && S.player.y===st.target[1];
   else if (st.step===1) done = !S.enemies.length;
+  // killing the rook also passes this step (with no enemies left, there is no enemy turn)
+  else if (st.step===2 && !S.enemies.length) done = true;
   else if (st.step===2 && kind==='enemy'){
     done = S.player.hp >= st.hp0;
     if (!done){ log('Você ficou numa casa vermelha. Tente de novo: saia das casas vermelhas antes de passar o turno.'); st.hp0 = S.player.hp; }

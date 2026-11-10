@@ -38,6 +38,7 @@ function isLastFloor(){
   const ex = S.exp;
   if (ex.kind==='campaign') return S.act===3 && S.af===3;
   if (ex.kind==='map') return S.floor>=3;
+  if (ex.kind==='tutorial') return true;
   if (ex.kind==='abyss') return false;
   return true;
 }
