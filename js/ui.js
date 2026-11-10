@@ -706,7 +706,7 @@ function hoverHint(){
   renderTip();
   const h = $('hint');
   // training: the step guide stays in the box while you move the mouse (the tooltip still shows the piece)
-  if (S && S.tut && S.phase!=='over'){ const step = TUT_STEPS[S.tut.step]; h.classList.add('tut'); h.innerHTML = `<b>Treino ${S.tut.step+1} de ${TUT_STEPS.length}: ${step.title}.</b> ${step.text(S.cls)}`; return; }
+  if (S && S.tut && S.phase!=='over'){ const step = TUT_STEPS[S.tut.step]; h.classList.add('tut'); h.innerHTML = `<b>${step.title}.</b> ${step.text(S.cls)}`; return; }
   if (!S || !S.walls || !hover || S.phase==='over'){ h.textContent = defaultHint(); return; }
   const [x,y] = hover, e = enemyAt(x,y), st = stats(), parts = [];
   if (e && !intentVisible(e)) parts.push('Algo se move na névoa.');
@@ -864,7 +864,15 @@ function updateUI(){
   if (bosses.length) $('bossInfo').innerHTML = bossSheet(bosses);
   hoverHint();
   $('hint').classList.toggle('tut', !!S.tut);
-  if (S.tut){ const step = TUT_STEPS[S.tut.step]; $('hint').innerHTML = `<b>Treino ${S.tut.step+1} de ${TUT_STEPS.length}: ${step.title}.</b> ${step.text(S.cls)}`; }
+  if (S.tut){ const step = TUT_STEPS[S.tut.step]; $('hint').innerHTML = `<b>${step.title}.</b> ${step.text(S.cls)}`; }
+  // training: the current goal sits right above the board, the skill button blinks on the skill step
+  $('tutBar').hidden = !S.tut;
+  if (S.tut){
+    $('ttStep').textContent = `Treino ${S.tut.step+1}/${TUT_STEPS.length}`;
+    $('ttGoal').textContent = TUT_STEPS[S.tut.step].goal;
+    $('ttDots').innerHTML = TUT_STEPS.map((_,i) => `<i class="${i<=S.tut.step?'on':''}"></i>`).join('');
+  }
+  $('btnS0').classList.toggle('tutpulse', !!(S.tut && S.tut.step===4));
   // frozen match: swap the skill bar for the puzzle bar
   const ch = S.chess;
   $('hotbar').hidden = !!ch; $('chessBar').hidden = !ch;

@@ -84,6 +84,17 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .vbtns{display:flex;flex-direction:column;gap:4px}
 .hint.tut{color:var(--bone);background:linear-gradient(90deg,rgba(227,180,86,.12),transparent);border-left:3px solid var(--gold);padding:8px 12px}
 .hint.tut b{color:var(--gold)}
+.tutbar{width:100%;max-width:640px;margin:0 auto 8px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 14px;border:1px solid var(--gold);border-radius:6px;background:linear-gradient(90deg,rgba(227,180,86,.16),rgba(227,180,86,.04));box-shadow:0 0 18px rgba(227,180,86,.12)}
+.tutbar .tt-step{font-family:var(--f-display);color:var(--gold);font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.tutbar b{color:var(--bone);font-size:1.05rem;font-weight:600}
+.tutbar .tt-dots{display:flex;gap:5px}
+.tutbar .tt-dots i{width:8px;height:8px;border-radius:50%;background:rgba(227,180,86,.25)}
+.tutbar .tt-dots i.on{background:var(--gold)}
+.tutbar.flash{animation:tutFlash .6s ease-out}
+@keyframes tutFlash{from{background:rgba(143,209,138,.35)}}
+.hk.tutpulse{outline:2px solid var(--gold);animation:tutPulse 1s ease-in-out infinite alternate}
+@keyframes tutPulse{from{box-shadow:0 0 0 rgba(227,180,86,0)}to{box-shadow:0 0 16px rgba(227,180,86,.7)}}
+@media (max-width:560px){.tutbar{grid-template-columns:minmax(0,1fr) auto}.tutbar b{grid-column:1/-1;grid-row:2}}
 .tidebar{width:100%;max-width:640px;margin:0 auto 6px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;color:#ff8a7a;font-family:var(--f-display);font-size:1rem}
 .tb-bar{height:10px;background:#1a0b09;border:1px solid #6b1a12;position:relative}
 .tb-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#6e1612,#e0402f);transition:width .3s}
@@ -383,6 +394,7 @@ canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipula
         <div class="bb-sub" id="bbSub"></div>
       </div>
       <div class="tidebar" id="tideBar" hidden><span>Ira da Maré</span><div class="tb-bar"><i id="tbFill"></i></div><small id="tbSub"></small></div>
+      <div class="tutbar" id="tutBar" hidden><span class="tt-step" id="ttStep"></span><b id="ttGoal"></b><span class="tt-dots" id="ttDots"></span></div>
       <div class="board-frame">
         <canvas id="cv" aria-label="Tabuleiro do andar"></canvas>
         <div class="tip" id="tip" hidden></div>

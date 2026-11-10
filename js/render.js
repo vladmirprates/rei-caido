@@ -756,6 +756,15 @@ function draw(time){
     ctx.fillStyle = `rgba(${col},.95)`; ctx.strokeStyle = 'rgba(10,6,4,.9)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(cx - tile*.11, top - tile*.12); ctx.lineTo(cx + tile*.11, top - tile*.12); ctx.lineTo(cx, top); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
+  // training: a gold arrow points at the thing the current step is about
+  if (S.tut && S.phase==='player'){
+    const st = S.tut.step, pts = st===0 && S.tut.target ? [S.tut.target] : st===5 && S.stairs ? [[S.stairs.x,S.stairs.y]] : [1,3,4].includes(st) ? S.enemies.map(e => [e.x,e.y]) : [];
+    for (const [x,y] of pts){
+      const cx = (x+.5)*tile, top = y*tile + tile*.04 + (reduce ? 0 : Math.sin(time*4)*tile*.06);
+      ctx.fillStyle = '#e3b456'; ctx.strokeStyle = 'rgba(10,6,4,.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx - tile*.14, top - tile*.16); ctx.lineTo(cx + tile*.14, top - tile*.16); ctx.lineTo(cx, top); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+  }
   drawAmb(time);
   if (S.tide && !reduce) for (const d of fx.rain || []){ ctx.strokeStyle = `rgba(200,30,20,${.55*Math.min(1,d.life)})`; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(d.x*tile, d.y*tile); ctx.lineTo((d.x-.04)*tile, (d.y-.28)*tile); ctx.stroke(); }
   for (const b of fx.beams){

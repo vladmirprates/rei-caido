@@ -8,12 +8,12 @@ const MOVE_TEXT = {
   K:'O Rei anda uma casa em qualquer direção e convoca peões aliados que lutam por ele.'
 };
 const TUT_STEPS = [
-  {title:'Movimento', text:c => `${MOVE_TEXT[c]} As casas marcadas mostram para onde você pode ir. Clique na casa com o anel dourado.`},
-  {title:'Ataque', text:() => 'Mover-se para a casa de um inimigo é atacar. Ataque o boneco de treino (o marcador laranja mostra quem você alcança).'},
-  {title:'Casas vermelhas', text:() => 'Os inimigos avisam antes onde vão bater: as casas vermelhas. Saia delas antes de passar o turno. O triângulo amarelo marca quem está na linha de fogo.'},
-  {title:'Contra-ataque', text:() => 'Agora derrote a Torre de treino: ela aguenta dois golpes. Se o golpe não matar, você não ocupa a casa dela. Passe o mouse sobre uma peça para ver vida, dano e o que ela vai fazer.'},
-  {title:'Habilidades', text:() => 'As habilidades ficam na barra embaixo do tabuleiro. Use a habilidade 1 (clique no botão ou tecle 1); um ataque normal não conta. Algumas pedem que você escolha uma casa depois.'},
-  {title:'Escada', text:() => 'Treino concluído. Pise na escada para voltar ao acampamento. Nas expedições, a escada aparece quando o andar fica limpo.'}
+  {title:'Movimento', goal:'Mova sua peça até o anel dourado', text:c => `${MOVE_TEXT[c]} As casas marcadas mostram para onde você pode ir. Clique na casa com o anel dourado.`},
+  {title:'Ataque', goal:'Ataque o boneco: clique na casa dele', text:() => 'Mover-se para a casa de um inimigo é atacar. O marcador laranja mostra quem você alcança.'},
+  {title:'Casas vermelhas', goal:'Saia das casas vermelhas antes que a Torre ataque', text:() => 'Os inimigos avisam antes onde vão bater: as casas vermelhas. Mova-se para uma casa que não esteja vermelha (ou derrube a Torre antes).'},
+  {title:'Contra-ataque', goal:'Derrote a Torre de treino (ela aguenta dois golpes)', text:() => 'Se o golpe não matar, você fica onde está e ataca de novo. Passe o mouse sobre uma peça para ver vida, dano e o que ela vai fazer.'},
+  {title:'Habilidades', goal:'Aperte 1 (o botão piscando) e use a habilidade no boneco', text:() => 'As habilidades ficam na barra embaixo do tabuleiro. Use a habilidade 1 (clique no botão ou tecle 1); um ataque normal não conta. Algumas pedem que você escolha uma casa depois.'},
+  {title:'Escada', goal:'Pise na escada para terminar o treino', text:() => 'Nas expedições, a escada aparece quando o andar fica limpo.'}
 ];
 function genTutorial(){
   W = H = 6;
@@ -31,6 +31,7 @@ function tutDummy(t, x, y, o){
 function tutSetup(){
   const st = S.tut, step = st.step, p = S.player;
   const moves = classMoves(p.x, p.y, false).filter(o => o.kind==='move' && !o.slide);
+  st.target = null;
   if (step===0){
     const far = moves.filter(o => cheb(o.x,o.y,p.x,p.y)>=2);
     const t = (far.length ? far : moves)[0];
@@ -85,6 +86,7 @@ function tutCheck(kind){
   }
   if (!done) return;
   floatText(S.player.x, S.player.y-0.4, 'muito bem', '#8fd18a');
+  const bar = document.getElementById('tutBar'); if (bar){ bar.classList.remove('flash'); void bar.offsetWidth; bar.classList.add('flash'); }
   st.step++;
   tutSetup();
 }
