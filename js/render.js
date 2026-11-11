@@ -786,8 +786,6 @@ function draw(time){
   if (!S.dead) drawPiece(S.cls, S.player.rx+S.player.lx, S.player.ry+S.player.ly, S.color, {player:true});
   // interactive events: a bouncing marker says "step here"
   for (const it of S.items) if (it.frozen || it.riftGate || it.tideChest) stepMarker(it.x, it.y, it.frozen ? '207,230,245' : it.riftGate ? '200,170,255' : '255,110,90', time);
-  // floor clear: the same marker on the stairs, in gold, so you know where to go
-  if (S.stairs && !S.enemies.length && !S.tut && !isPlayer(S.stairs.x, S.stairs.y)) stepMarker(S.stairs.x, S.stairs.y, '227,180,86', time, true);
   // training: a gold arrow points at the thing the current step is about
   if (S.tut && S.phase==='player'){
     const st = S.tut.step, pts = st===0 && S.tut.target ? [S.tut.target] : st===5 && S.stairs ? [[S.stairs.x,S.stairs.y]] : [1,3,4].includes(st) ? S.enemies.map(e => [e.x,e.y]) : [];
