@@ -98,6 +98,7 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .tidebar{width:100%;max-width:640px;margin:0 auto 6px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;color:#ff8a7a;font-family:var(--f-display);font-size:1rem}
 .tb-bar{height:10px;background:#1a0b09;border:1px solid #6b1a12;position:relative}
 .tb-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#6e1612,#e0402f);transition:width .3s}
+.hordebar{color:#ffb26a}.hordebar .tb-bar{border-color:#7a3a12;background:#1d0f07}.hordebar .tb-bar i{background:linear-gradient(90deg,#8a3a10,#ffa040)}
 .tidebar small{font-family:var(--f-body);color:var(--ash);font-size:.78rem;font-variant-numeric:tabular-nums}
 .aprog{display:grid;grid-template-columns:96px minmax(0,1fr) 34px;gap:6px;align-items:center;font-size:.8rem;color:var(--ash)}
 .adots{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
@@ -504,6 +505,7 @@ canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none
         <div class="bb-bar"><i id="bbFill"></i><span class="bb-mark"></span></div>
         <div class="bb-sub" id="bbSub"></div>
       </div>
+      <div class="tidebar hordebar" id="hordeBar" hidden><span data-en="Horde">Horda</span><div class="tb-bar"><i id="hbFill"></i></div><small id="hbSub"></small></div>
       <div class="tidebar" id="tideBar" hidden><span data-en="Tide's Wrath">Ira da Maré</span><div class="tb-bar"><i id="tbFill"></i></div><small id="tbSub"></small></div>
       <div class="tutbar" id="tutBar" hidden><span class="tt-step" id="ttStep"></span><b id="ttGoal"></b><span class="tt-dots" id="ttDots"></span></div>
       <div class="board-frame">

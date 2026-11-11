@@ -1081,6 +1081,10 @@ function updateUI(){
   $('log').innerHTML = S.log.map(l => `<li>${l}</li>`).join('');
   const bosses = S.enemies.filter(e=>e.boss);
   $('bossBar').hidden = !bosses.length;
+  { const hb = $('hordeBar'); if (hb){ hb.hidden = !S.horde;
+    if (S.horde){ const H0 = S.horde, left = Math.max(0, H0.total - H0.killed), turnsLeft = H0.par - (S.turn - H0.start);
+      $('hbFill').style.width = (100*H0.killed/H0.total)+'%';
+      $('hbSub').textContent = $t(`${left} restantes · ${turnsLeft>0 ? 'bônus: '+turnsLeft+' turnos' : 'bônus perdido'}`, `${left} left · ${turnsLeft>0 ? 'bonus: '+turnsLeft+' turns' : 'bonus lost'}`); } } }
   $('tideBar').hidden = !S.tide;
   if (S.tide){ const goal = S.tideGoal||8, ira = S.tideIra||0; $('tbFill').style.width = (100*Math.min(1, ira/goal))+'%'; $('tbSub').textContent = $t(`${ira}/${goal} · Brasas ${HERO.embers||0}`, `${ira}/${goal} · Embers ${HERO.embers||0}`); }
   if (bosses.length){

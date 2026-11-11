@@ -14,6 +14,13 @@ function stepMarker(x, y, col, time, solid){
   const s = solid ? 1.3 : 1;
   ctx.beginPath(); ctx.moveTo(cx - tile*.11*s, top - tile*.12*s); ctx.lineTo(cx + tile*.11*s, top - tile*.12*s); ctx.lineTo(cx, top); ctx.closePath(); ctx.fill(); ctx.stroke();
 }
+// floor clear: a bouncing gold arrow above the stairs points the way down
+function stairsArrow(x, y, time){
+  const cx = (x+.5)*tile, bob = reduce ? 0 : Math.sin(time*4)*tile*.06, top = y*tile - tile*.06 + bob, w = tile*.21, h = tile*.3;
+  ctx.fillStyle = 'rgba(227,180,86,.97)'; ctx.strokeStyle = 'rgba(10,6,4,.92)'; ctx.lineWidth = Math.max(1.5, tile*.03); ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - w*.5, top - h); ctx.lineTo(cx + w*.5, top - h); ctx.lineTo(cx + w*.5, top - h*.45); ctx.lineTo(cx + w, top - h*.45);
+  ctx.lineTo(cx, top); ctx.lineTo(cx - w, top - h*.45); ctx.lineTo(cx - w*.5, top - h*.45); ctx.closePath(); ctx.fill(); ctx.stroke();
+}
 // stairs going down: steps that shrink and darken into the hole
 function drawStairs(x, y, time){
   const px = x*tile, py = y*tile, m = tile*.1, w = tile - m*2;
@@ -143,9 +150,9 @@ function drawPiece(type, x, y, side, o){
     ctx.fillStyle = g; ctx.fillRect(cx-tile*1.2, cy-tile*1.1, tile*2.4, tile*2.4);
     ctx.strokeStyle = o.holy ? 'rgba(240,214,140,.8)' : 'rgba(227,180,86,.8)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(cx, cy+tile*.32, tile*.46, tile*.14, 0, 0, Math.PI*2); ctx.stroke();
-  } else if (o.player || o.elite || o.rift || o.spectral){
+  } else if (o.player || o.elite || o.rift || o.spectral || o.horde){
     const g = ctx.createRadialGradient(cx,cy+tile*.15,0,cx,cy+tile*.15,tile*.6);
-    g.addColorStop(0, o.player ? 'rgba(224,122,50,.42)' : o.rift ? 'rgba(180,140,255,.45)' : o.spectral ? 'rgba(170,205,240,.35)' : 'rgba(227,180,86,.42)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    g.addColorStop(0, o.horde ? `rgba(255,110,40,${reduce ? .4 : .3+.14*Math.sin(time*5+x*1.7+y)})` : o.player ? 'rgba(224,122,50,.42)' : o.rift ? 'rgba(180,140,255,.45)' : o.spectral ? 'rgba(170,205,240,.35)' : 'rgba(227,180,86,.42)'); g.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle = g; ctx.fillRect(cx-tile*.6, cy-tile*.45, tile*1.2, tile*1.2);
   }
   if (o.attacking){
@@ -163,11 +170,12 @@ function drawPiece(type, x, y, side, o){
   let fill, stroke;
   if (o.boss){ fill = o.holy ? '#efe3bf' : '#7d1414'; stroke = o.holy ? '#8a6a1f' : '#e3b456'; }
   else if (o.frozen){ fill = side==='w' ? '#eef6fc' : '#3a5068'; stroke = '#cfe6f5'; }
-  else { const white = side==='w'; fill = o.spectral ? '#dbe8f5' : white ? '#f1e7d3' : '#1b1411'; stroke = o.herald ? '#ff4a3a' : o.rival ? '#8fd18a' : o.rift ? '#b48cff' : o.elite ? '#e3b456' : o.spectral ? '#5a7a9e' : white ? '#2a1f18' : '#cdbb9c'; }
+  else { const white = side==='w'; fill = o.spectral ? '#dbe8f5' : white ? '#f1e7d3' : '#1b1411'; stroke = o.horde ? '#ff8a4a' : o.herald ? '#ff4a3a' : o.rival ? '#8fd18a' : o.rift ? '#b48cff' : o.elite ? '#e3b456' : o.spectral ? '#5a7a9e' : white ? '#2a1f18' : '#cdbb9c'; }
   if (o.flash) fill = '#fff4e0';   // hit flash
   ctx.strokeStyle = stroke; ctx.strokeText(GLYPH[type], cx, cy-lift+down);
   ctx.fillStyle = fill; ctx.fillText(GLYPH[type], cx, cy-lift+down);
   if (o.prop) drawAscProp(o.prop, o.propColor, cx, cy, sz, down, time);   // ascension: each subclass carries its own emblem
+  if (o.horde && !reduce && Math.random()<.012) fx.embers.push({x:x+.3+Math.random()*.4, y:y+.6, vy:-(.5+Math.random()*.6), life:.8, c:'255,120,50'});
   if (o.boss && !reduce && Math.random()<.35){
     fx.embers.push({x:x+.2+Math.random()*.6, y:y+.7, vy:-(.6+Math.random()*.8), life:1, c:o.holy ? '240,214,140' : '240,110,50'});
   }
@@ -621,9 +629,24 @@ function drawClockMark(x, y, kind, time){
     ctx.stroke();
   }
 }
-function drawRift(time){
-  const r = S.rift, [cx,cy] = sqCenter(r.x, r.y);
-  for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (cheb(x,y,r.x,r.y)<=3){ ctx.fillStyle = 'rgba(150,100,255,.07)'; ctx.fillRect(x*tile, y*tile, tile, tile); }
+// the Rift open: a round dark well that fades into violet light (nothing is cut off at the edge of the square), with turning ellipses and a bright core
+function riftSwirl(x, y, time){
+  const T = tile, cx = (x+.5)*T, cy = (y+.5)*T, tt = reduce ? 0 : time;
+  glow(cx, cy, T*3.2, 'rgba(150,90,255,'+(reduce?.34:.32+.08*Math.sin(time*2.2+x+y))+')');
+  glow(cx, cy, T*1.4, 'rgba(200,150,255,'+(reduce?.3:.28+.08*Math.sin(time*3+x))+')');
+  const well = ctx.createRadialGradient(cx, cy, 0, cx, cy, T*.62); well.addColorStop(0, 'rgba(14,6,26,.92)'); well.addColorStop(.55, 'rgba(24,10,44,.6)'); well.addColorStop(1, 'rgba(24,10,44,0)');
+  ctx.fillStyle = well; ctx.beginPath(); ctx.arc(cx, cy, T*.62, 0, Math.PI*2); ctx.fill();   // (drawn over the wide glow, so the well stays dark)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let k=0;k<4;k++){
+    const a = tt*(.9+k*.35) + k*1.7, r = T*(.12+.08*k);
+    ctx.strokeStyle = 'rgba('+(150+k*25)+','+(90+k*15)+',255,'+(.6-k*.1)+')'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(cx, cy, r*1.5, r, a, 0, Math.PI*1.5); ctx.stroke();
+  }
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, T*.45); g.addColorStop(0, 'rgba(255,240,255,.7)'); g.addColorStop(.4, 'rgba(160,90,255,.4)'); g.addColorStop(1, 'rgba(90,30,170,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, T*.45, 0, Math.PI*2); ctx.fill(); ctx.restore();
+}
+// the Rift still closed (the gate you step on to open it): slowly turning arcs in a violet glow
+function riftArcs(cx, cy, time){
   glow(cx, cy, tile*1.4, `rgba(170,120,255,${reduce?.4:.35+.12*Math.sin(time*3)})`);
   ctx.save(); ctx.translate(cx, cy);
   for (let i=0;i<3;i++){
@@ -632,6 +655,11 @@ function drawRift(time){
     ctx.beginPath(); ctx.arc(0, 0, tile*(.18+i*.09), 0, Math.PI*1.3); ctx.stroke();
   }
   ctx.restore();
+}
+function drawRift(time){
+  const r = S.rift, [cx,cy] = sqCenter(r.x, r.y);
+  glow(cx, cy, tile*4.6, 'rgba(150,100,255,.2)');   // the zone where kills count: a soft round halo, no squares
+  riftSwirl(r.x, r.y, time);
   ctx.fillStyle = '#e6d6ff'; ctx.font = `700 ${tile*.22}px ${BF}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.strokeStyle = 'rgba(10,6,4,.9)'; ctx.lineWidth = 3; ctx.strokeText(r.turns, cx, cy-tile*.42); ctx.fillText(r.turns, cx, cy-tile*.42);
 }
@@ -705,9 +733,7 @@ function drawSpecial(it, time){
     for (let j=0;j<3;j++) for (let i=0;i<3;i++){ ctx.fillStyle = (i+j)%2 ? '#6c7f93' : '#dfeaf5'; ctx.fillRect(cx-s*1.5+i*s, cy-s*1.5+j*s, s, s); }
     ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(223,234,245,.9)'; ctx.lineWidth = 1.5; ctx.strokeRect(cx-s*1.5, cy-s*1.5, s*3, s*3);
   } else if (it.riftGate){
-    ctx.shadowColor = '#b48cff'; ctx.shadowBlur = tile*.5;
-    ctx.strokeStyle = `rgba(200,170,255,${.6+.3*Math.sin(time*4)})`; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(cx-tile*.05, cy-tile*.28); ctx.lineTo(cx+tile*.07, cy-tile*.05); ctx.lineTo(cx-tile*.06, cy+tile*.05); ctx.lineTo(cx+tile*.04, cy+tile*.28); ctx.stroke();
+    riftArcs(cx, cy, time);
   } else if (it.rune){
     ctx.shadowColor = '#c9a0ff'; ctx.shadowBlur = tile*.4;
     ctx.fillStyle = '#3a2758'; ctx.strokeStyle = '#c9a0ff'; ctx.lineWidth = 2;
@@ -850,10 +876,11 @@ function draw(time){
   if (S.phase==='player'){
     const skillMode = S.mode!=='move';
     const list = skillMode ? SKILLS[S.mode].targets().map(([x,y])=>({x,y,kind:'move'})) : playerTargets();
+    const roam = !skillMode && freeRoam();   // floor clear: every square is walkable, so no dot on each one (the hovered square is still outlined)
     for (const t of list){
       const fin = t.slide || [t.x,t.y], [cx,cy] = sqCenter(t.x,t.y), danger = S.dangerSeen.has(key(fin[0],fin[1])) || isLava(fin[0],fin[1]);
       const isHover = hover && hover[0]===t.x && hover[1]===t.y;
-      if (t.slide){
+      if (t.slide && !roam){
         const [ex,ey] = sqCenter(fin[0],fin[1]), an = Math.atan2(ey-cy, ex-cx), hd = tile*.13;
         ctx.strokeStyle = `rgba(207,230,245,${isHover?.9:.35})`; ctx.lineWidth = isHover ? 2 : 1.2; ctx.setLineDash([3,3]);
         ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(ex,ey); ctx.stroke(); ctx.setLineDash([]);
@@ -870,7 +897,7 @@ function draw(time){
       } else if (t.kind==='swap'){
         ctx.strokeStyle = isHover ? '#ffe2a0' : 'rgba(227,180,86,.8)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
         ctx.beginPath(); ctx.arc(cx,cy,tile*.4,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
-      } else {
+      } else if (!roam){
         if (skillMode){ ctx.strokeStyle='rgba(224,122,50,.7)'; ctx.lineWidth=1.5; ctx.strokeRect(t.x*tile+4,t.y*tile+4,tile-8,tile-8); }
         ctx.fillStyle = danger ? '#d0473a' : skillMode ? '#e07a32' : '#e3b456';
         ctx.globalAlpha = isHover ? 1 : .8;
@@ -899,7 +926,7 @@ function draw(time){
         return;
       }
       const attacking = u.intent && u.intent.kind==='attack' && S.phase!=='enemy';
-      drawPiece(u.type, x, y, foe, {boss:u.boss, holy:u.side==='holy', elite:u.elite, fodder:u.fodder, rift:u.rift, herald:u.herald, rival:u.rival, frozen:u.frozenPiece && S.timeStop>0, attacking, flash:u.flash>0});
+      drawPiece(u.type, x, y, foe, {boss:u.boss, horde:u.horde, holy:u.side==='holy', elite:u.elite, fodder:u.fodder, rift:u.rift, herald:u.herald, rival:u.rival, frozen:u.frozenPiece && S.timeStop>0, attacking, flash:u.flash>0});
       hpBar(u, x, y, u.boss ? '#e04a3a' : u.elite ? '#e3b456' : '#c2402f', attackPreview(u), time);
       if (u.role==='protector'){
         for (const [dx,dy] of ALL){ const o = S.enemies.find(q => q.x===u.x+dx && q.y===u.y+dy && !q.boss); if (!o) continue;
@@ -934,6 +961,7 @@ function draw(time){
     defer((px+.5)*tile, (py+.5)*tile, py+.5, () => { playerAura(px, py, time); drawPiece(S.cls, px, py, S.color, {player:true, prop: skinId(), propColor: skinId()==="arcane" ? scepterColor() : null}); }); }
   // interactive events: a bouncing marker says "step here"
   for (const it of S.items) if (it.frozen || it.riftGate || it.tideChest) stepMarker(it.x, it.y, it.frozen ? '207,230,245' : it.riftGate ? '200,170,255' : '255,110,90', time);
+  if (S.stairs && !S.enemies.length && !S.tut && !isPlayer(S.stairs.x, S.stairs.y)) stairsArrow(S.stairs.x, S.stairs.y, time);
   // training: a gold arrow points at the thing the current step is about
   if (S.tut && S.phase==='player'){
     const st = S.tut.step, pts = st===0 && S.tut.target ? [S.tut.target] : st===5 && S.stairs ? [[S.stairs.x,S.stairs.y]] : [1,3,4].includes(st) ? S.enemies.map(e => [e.x,e.y]) : [];
