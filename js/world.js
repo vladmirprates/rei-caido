@@ -490,10 +490,13 @@ function planIntents(moveOnly){
     if (e.dummy){ e.intent = {kind:'wait'}; reserved.add(key(e.x,e.y)); continue; }
     if (e.frozenPiece && S.timeStop>0){ e.intent = {kind:'wait', frozen:true}; reserved.add(key(e.x,e.y)); continue; }
     e.t++;
+    // bosses breathe after each attack: exposed (no attack, +50% damage taken) for 1 turn, or 2 after an attack that covers
+    // every line or a big zone (you had to leave all its lines, so you need a turn to line up again and one to hit)
+    if (e.boss && e.recover>0 && !moveOnly){ e.recover--; e.intent = {kind:'wait', recover:true}; floatText(e.x, e.y-0.5, 'exposto', '#ecd36a'); reserved.add(key(e.x,e.y)); continue; }
     const sp = !moveOnly && e.boss ? bossSpecial(e) : null;
-    if (sp){ e.intent = {kind:'attack', sq:sp.sq, special:sp.name}; reserved.add(key(e.x,e.y)); continue; }
+    if (sp){ e.intent = {kind:'attack', sq:sp.sq, special:sp.name}; e.recover = 2; reserved.add(key(e.x,e.y)); continue; }
     const atk = moveOnly ? null : attackPlan(e);
-    if (atk){ e.intent = {kind:'attack', sq:atk, star: e.bossId==='queen' && e.phase===2}; reserved.add(key(e.x,e.y)); continue; }
+    if (atk){ e.intent = {kind:'attack', sq:atk, star: e.bossId==='queen' && e.phase===2}; if (e.boss) e.recover = e.intent.star ? 2 : 1; reserved.add(key(e.x,e.y)); continue; }
     const every = summonEvery(e);
     if (every && e.t % every === 0 && S.enemies.filter(o => !o.boss).length < 4){
       const free = shuffle(ALL.map(([dx,dy])=>[e.x+dx,e.y+dy]).filter(([x,y]) => inb(x,y) && !occupied(x,y) && !reserved.has(key(x,y))));
@@ -540,7 +543,7 @@ function bossSpecial(e){
 // A boss periodically marks the square you stand on: stay there and it hits you
 function bossMark(){
   const b = S.enemies.find(e => e.boss);
-  if (!b || b.t % 4 !== 1 || (b.intent && (b.intent.special || b.intent.kind==='summon'))) return;
+  if (!b || b.t % 4 !== 1 || (b.intent && (b.intent.special || b.intent.recover || b.intent.kind==='summon'))) return;
   const p = [S.player.x, S.player.y];
   if (b.intent && b.intent.kind==='attack'){ if (!b.intent.sq.some(([x,y]) => x===p[0] && y===p[1])) b.intent.sq.push(p); }
   else b.intent = {kind:'attack', sq:[p]};

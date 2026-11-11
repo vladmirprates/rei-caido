@@ -769,7 +769,8 @@ function hoverHint(){
   const [x,y] = hover, e = enemyAt(x,y), st = stats(), parts = [];
   if (e && !intentVisible(e)) parts.push('Algo se move na névoa.');
   else if (e){
-    if (e.boss) parts.push('Chefe: deixa duas relíquias únicas para você escolher uma.');
+    if (e.boss && e.intent && e.intent.recover) parts.push('Exposto: recuperando-se do ataque, não ataca neste turno e recebe +50% de dano. Bata agora!');
+    if (e.boss) parts.push('Chefe: depois de cada ataque fica exposto por 1 turno (2 depois de um golpe especial ou em estrela). Deixa duas relíquias únicas para você escolher uma.');
     else if (e.elite) parts.push('Inimigo de elite: sempre deixa um item, quase sempre raro.');
     if (S.cls==='B' && (e.x+e.y)%2 !== (S.player.x+S.player.y)%2) parts.push('Está numa casa de outra cor: suas diagonais nunca o alcançam. Use Troca de Cor.');
   } else if (allyAt(x,y)) parts.push('Aliados agem depois do seu turno. Clique para trocar de lugar.');
@@ -833,6 +834,7 @@ function bossSheet(bosses){
     const spId = b.origId==='pawn' && id==='queen' ? 'queen' : id;
     const stunned = b.intent && b.intent.stunned;
     const rows = [];
+    rows.push(`<div class="bi-row"><b>${b.intent && b.intent.recover ? 'Exposto agora' : 'Ritmo'}</b>Depois de cada ataque fica exposto: sem atacar e recebendo +50% de dano por 1 turno, ou 2 depois de um golpe especial ou em estrela. Desvie, depois bata.</div>`);
     rows.push(`<div class="bi-row"><b>${p2 ? 'Fase 2' : 'Fase 1'}</b>${p2 ? B.p2 : B.p1}${!p2 && id!=='twins' ? ' Muda de fase com metade da vida.' : ''}${p2 ? '' : `<br><i>Fase 2: ${B.p2}</i>`}</div>`);
     rows.push(b.uber ? `<div class="bi-row"><b>Golpe supremo · ${whenTxt(sp)}</b>${UBERS[spId==='queen'&&b.origId!=='queen'?'pawn':spId].special} A cada 2 turnos.</div>`
       : `<div class="bi-row"><b>${BOSS_SPECIAL[spId]} · ${whenTxt(sp)}</b>${SPECIAL_DESC[spId]} A cada ${every} turnos.</div>`);

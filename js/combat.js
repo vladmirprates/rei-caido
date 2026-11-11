@@ -395,6 +395,7 @@ function damageEnemy(e, amt, src){
   if (!S.enemies.includes(e)) return;
   if (e.mods.includes('armor')) amt = Math.max(1, amt-1);
   if (e.mods.includes('submerge') && isWater(e.x,e.y)) amt = Math.max(1, Math.ceil(amt/2));
+  if (e.boss && e.intent && e.intent.recover && src!=='enemy'){ amt = Math.ceil(amt*1.5); floatText(e.x, e.y-0.35, 'exposto', '#ecd36a'); }
   if (e.boss && e.phase===2) amt = bossObjective(e, amt, src);
   if (e.judged) amt = Math.ceil(amt*1.5);
   if (e.frozenPiece && S.timeStop>0){ if (src==='enemy') return; amt = Math.ceil(amt * (atlasRank('kWinter') ? 1.25 : 1.5)); }   // only you can break the ice
