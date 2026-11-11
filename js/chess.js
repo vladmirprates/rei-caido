@@ -122,9 +122,33 @@ const MATES = [
    tip:'Um peão avançado protege a Dama na casa ao lado do rei.',
    power:'Ao matar, 25% de chance de reduzir em 1 a recarga de todas as habilidades.'}
 ];
-/* Longer problems (mate in 3 or 4), found by search and verified: each has exactly one key move.
-   They don't teach Grimório powers, but pay more. */
+/* Problems found by search and verified: each has exactly one key move. Short ones (mate in 1 or 2) for the
+   start of the game, longer ones (mate in 3 or 4) later on. They don't teach Grimório powers. */
 const PROBLEMS = [
+  {id:'easy1_1', name:'Mate em 1 · I', fen:'2rb3k/1r4pp/8/5Q2/8/8/5BPP/6K1', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar.'},
+  {id:'easy1_2', name:'Mate em 1 · II', fen:'6k1/5ppr/n7/Q4B2/1P6/8/R4P2/6K1', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar.'},
+  {id:'easy1_3', name:'Mate em 1 · III', fen:'6k1/5ppp/4p3/8/8/8/1Q1N3P/7K', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar.'},
+  {id:'easy1_4', name:'Mate em 1 · IV', fen:'7k/5ppp/4R2p/7R/8/8/5PPP/6K1', n:1, problem:true, tip:'Use a Torre: dê um xeque do qual o rei preto não consiga escapar.'},
+  {id:'easy1_5', name:'Mate em 1 · V', fen:'2N3k1/2p2ppp/4B2r/3Q4/8/8/5PPP/6K1', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar.'},
+  {id:'easy1_6', name:'Mate em 1 · VI', fen:'1B4k1/5pBp/6Pp/5Q2/8/8/6PP/7K', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar. O lance captura uma peça.'},
+  {id:'easy1_7', name:'Mate em 1 · VII', fen:'6kB/5pp1/N2q2np/8/8/8/1Q3P1P/6K1', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar. O lance captura uma peça.'},
+  {id:'easy1_8', name:'Mate em 1 · VIII', fen:'Q5qk/2q3p1/4B1P1/8/2N5/8/5PPP/6K1', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar. O lance captura uma peça.'},
+  {id:'easy1_9', name:'Mate em 1 · IX', fen:'2r3kq/R1Q2ppp/2q5/8/8/8/N5PP/7K', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar. O lance captura uma peça.'},
+  {id:'easy1_10', name:'Mate em 1 · X', fen:'b3p1k1/2R2ppp/6P1/8/Q7/8/1B3P2/6K1', n:1, problem:true, tip:'Use a Rainha: dê um xeque do qual o rei preto não consiga escapar. O lance captura uma peça.'},
+  {id:'easy1_11', name:'Mate em 1 · XI', fen:'6k1/r4ppp/8/4R3/2N5/8/5P1P/7K', n:1, problem:true, tip:'Use a Torre: dê um xeque do qual o rei preto não consiga escapar.'},
+  {id:'easy1_12', name:'Mate em 1 · XII', fen:'1b4k1/5ppp/2R5/8/8/5R2/5PPP/7K', n:1, problem:true, tip:'Use a Torre: dê um xeque do qual o rei preto não consiga escapar.'},
+  {id:'easy2_1', name:'Mate em 2 · I', fen:'7k/7p/P2rb3/8/2Q5/6R1/3N1PPP/6K1', n:2, problem:true, tip:'Comece com a Rainha: um xeque. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_2', name:'Mate em 2 · II', fen:'7k/2B4p/n4p2/8/3Q4/8/4R2P/6K1', n:2, problem:true, tip:'Comece com a Rainha: um xeque capturando uma peça. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_3', name:'Mate em 2 · III', fen:'r5k1/5ppp/2q5/Q6B/8/5B2/R4PPP/6K1', n:2, problem:true, tip:'Comece com a Rainha: um xeque capturando uma peça. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_4', name:'Mate em 2 · IV', fen:'7k/5ppp/1r6/R7/8/8/5PPN/6K1', n:2, problem:true, tip:'Comece com a Torre: um xeque. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_5', name:'Mate em 2 · V', fen:'7k/2n2p2/p2Q2p1/7P/8/5NR1/5PP1/6K1', n:2, problem:true, tip:'Comece com a Rainha: um xeque. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_6', name:'Mate em 2 · VI', fen:'6k1/5ppp/P1R1r2r/8/8/8/6PP/6K1', n:2, problem:true, tip:'Comece com a Torre: um xeque. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_7', name:'Mate em 2 · VII', fen:'7k/5ppp/3P2n1/R4N2/8/8/5P1Q/7K', n:2, problem:true, tip:'Comece com a Torre: um xeque. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_8', name:'Mate em 2 · VIII', fen:'6k1/5ppp/1b1p4/5N2/8/8/2R2P1P/6K1', n:2, problem:true, tip:'Comece com a Torre: um xeque. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_9', name:'Mate em 2 · IX', fen:'1qN3k1/5ppp/2N5/1R3P2/8/8/5P1P/6K1', n:2, problem:true, tip:'Comece com o Cavalo: um xeque. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_10', name:'Mate em 2 · X', fen:'n3b1k1/1B2Rpp1/8/P3Q3/8/8/5P1P/7K', n:2, problem:true, tip:'Comece com a Torre: um xeque capturando uma peça. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_11', name:'Mate em 2 · XI', fen:'6k1/5p1p/8/3B4/2N5/5R2/R5P1/7K', n:2, problem:true, tip:'Comece com a Torre: um lance silencioso, sem xeque, capturando uma peça. Depois o mate vem no lance seguinte.'},
+  {id:'easy2_12', name:'Mate em 2 · XII', fen:'1n4k1/q4ppp/1N1r4/8/6Q1/8/7P/6K1', n:2, problem:true, tip:'Comece com a Rainha: um xeque. Depois o mate vem no lance seguinte.'},
   {id:'prob1', name:'Problema I', fen:'2N4k/4n1p1/Q3pp1r/6B1/7P/8/6PP/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},
   {id:'prob2', name:'Problema II', fen:'2Rn2k1/4b2p/6p1/8/8/4RB1B/6P1/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},
   {id:'prob3', name:'Problema III', fen:'2n3k1/6B1/N6p/2P5/8/5Q2/6P1/7K', n:3, problem:true, tip:'O lance-chave não é xeque: é um lance silencioso que prepara a rede de mate. Ele começa capturando uma peça.'},

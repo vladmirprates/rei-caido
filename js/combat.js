@@ -36,6 +36,8 @@ function statsFor(cls, color, equip){
   return st;
 }
 function attackDmg(st, target){
+  // in the camp (skill descriptions) there is no expedition: show the base damage
+  if (!S) return st.dmg + (st.gambit ? 3 : 0);
   let d = st.dmg + (S.nextBonus||0) + (S.turnBonus||0) + (S.floorBonus||0);
   if (st.fury && S.player.hp*2 < st.hp) d += 2;
   if (st.granite && !S.movedThisTurn) d += 2;

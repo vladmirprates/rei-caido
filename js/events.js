@@ -13,6 +13,11 @@ function startTide(cont){
   log(cont ? 'A Maré de Sangue continua.' : 'A Maré de Sangue sobe.');
   S.eventNote = [cont ? 'A Maré continua' : 'Maré de Sangue', 'Poças de sangue sobem: inimigos nelas batem mais forte, mas abates ali dão Brasas em dobro.' + more];
 }
+// how many moves the checkmate takes follows progress: 1 in Act 1, up to 3 or 4 in Torment and maps
+function puzzleDepths(){
+  const p = S.lvl + 3*(S.torment||0);
+  return p<=3 ? [1] : p<=6 ? [1,2] : p<=9 ? [2] : p<=12 ? [2,3] : p<=18 ? [3] : [3,4];
+}
 function placeEvent(force){
   if (S.exp.kind==='daily' || S.exp.kind==='uber' || S.exp.kind==='tutorial') return;
   // Atlas keystone: every map floor has the tide, on top of any other event
@@ -38,9 +43,11 @@ function placeEvent(force){
     log('Um tabuleiro congelado brilha neste andar.');
     S.eventNote = ['Exército Congelado', 'Um tabuleiro de gelo brilha neste andar. Pise nele para revelar o exército.'];
   } else if (kind==='frozen'){
-    const unknown = MATES.filter(m => !(HERO.grimoire||{})[m.id]);
+    const depths = puzzleDepths(), maxN = Math.max(...depths);
+    const unknown = MATES.filter(m => !(HERO.grimoire||{})[m.id] && m.n<=maxN);
+    const pool = PROBLEMS.filter(m => depths.includes(m.n));
     // mostly the longer problems; now and then a pattern you haven't learned yet (it teaches a Grimório power)
-    const P = unknown.length && rnd()<.35 ? pick(unknown) : pick(PROBLEMS);
+    const P = unknown.length && (rnd()<.35 || !pool.length) ? pick(unknown) : pick(pool.length ? pool : PROBLEMS);
     S.items.push({x:spot[0], y:spot[1], frozen:P.id});
     log('Um tabuleiro congelado brilha neste andar.');
     S.eventNote = ['Partida Congelada', 'Um tabuleiro de gelo brilha neste andar. Pise nele para jogar.'];
@@ -212,8 +219,9 @@ function frozenReward(c){
   HERO.checkSeals = (HERO.checkSeals||0) + seals;
   lines.push(`+${seals} ${seals===1 ? 'Selo' : 'Selos'} de Xeque`);
   if (!c.hints){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; lines.push(`${RUNES[r].name} (bônus por não usar dicas)`); }
-  const items = [rollItem(c.hints>=2 ? 'magic' : 'rare', areaIlvl())];
-  if (c.P.problem) items.push(rollItem(c.P.n>=4 || !c.hints ? 'rare' : 'magic', areaIlvl() + (c.P.n>=4 ? 2 : 0)));
+  const n = c.P.n;
+  const items = [rollItem(c.hints>=2 || n===1 ? 'magic' : 'rare', areaIlvl())];
+  if (n>=3) items.push(rollItem(n>=4 || !c.hints ? 'rare' : 'magic', areaIlvl() + (n>=4 ? 2 : 0)));
   const spots = [[c.at[0],c.at[1]], ...ALL.map(([dx,dy]) => [c.at[0]+dx, c.at[1]+dy])].filter(([x,y]) => inb(x,y) && !isWall(x,y) && !isPit(x,y) && !S.items.some(i => i.x===x && i.y===y));
   for (const it of items){ const s = spots.shift() || c.at; S.items.push({x:s[0], y:s[1], item:it}); lines.push(`<span class="rc-${it.rar}">${esc(it.name)}</span> no chão`); }
   log(`Xeque-mate: ${c.P.name}.`);
