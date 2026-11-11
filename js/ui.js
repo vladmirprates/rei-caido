@@ -314,6 +314,24 @@ function treeTip(ev){
   tip.style.left = x + 'px'; tip.style.top = y + 'px';
 }
 $('scrCamp').addEventListener('mousemove', treeTip);
+// hover tooltip for the equipment icons on the game screen
+function gearTip(ev){
+  const g = ev.target.closest && ev.target.closest('[data-gslot]');
+  let tip = document.getElementById('gearTip');
+  if (!g || !S || !S.equip){ if (tip) tip.hidden = true; return; }
+  if (!tip){ tip = document.createElement('div'); tip.id = 'gearTip'; tip.className = 'ttip'; document.body.appendChild(tip); }
+  const slot = g.dataset.gslot, it = S.equip[slot];
+  tip.innerHTML = it
+    ? `<span class="k">${SLOTS[slot].label} · ${RAR[it.rar].label}${it.ilvl ? $t(` · nível ${it.ilvl}`, ` · level ${it.ilvl}`) : ''}</span><b style="color:${RAR[it.rar].c}">${esc(it.name)}</b>${affixList(it)}`
+    : `<span class="k">${SLOTS[slot].label}</span><p>${$t('Espaço vazio', 'Empty slot')}</p>`;
+  tip.hidden = false;
+  const r = tip.getBoundingClientRect(), x = Math.min(ev.clientX + 16, innerWidth - r.width - 8), y = Math.min(ev.clientY + 16, innerHeight - r.height - 8);
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+}
+$('scrGame').addEventListener('mousemove', gearTip);
+$('scrGame').addEventListener('mouseleave', () => { const t = document.getElementById('gearTip'); if (t) t.hidden = true; });
+$('scrGame').addEventListener('focusin', ev => { const g = ev.target.closest && ev.target.closest('[data-gslot]'); if (g){ const r = g.getBoundingClientRect(); gearTip({target:g, clientX:r.right, clientY:r.top}); } });
+$('scrGame').addEventListener('focusout', () => { const t = document.getElementById('gearTip'); if (t) t.hidden = true; });
 $('scrCamp').addEventListener('mouseleave', () => { const t = document.getElementById('treeTip'); if (t) t.hidden = true; });
 // draws any radial tree (hero passives or Atlas) as SVG; nodes carry data-act="<nodeAct>:<id>"
 function renderTree(T, on, can, nodeAct, branches, sel){
@@ -336,20 +354,41 @@ function nodeDetail(sel, on, can, pts, learnAct){
 }
 let campANode = null;
 function campTree(h){
-  const T = treeFor(h.cls), on = new Set(['start', ...(h.tree||[])]), pts = treePoints(h), can = id => canLearn(h, id);
-  return `<div class="thead"><p class="muted">${pts>0 ? `${$t('Você tem', 'You have')} <b class="pts">${pts}</b> ${pts===1?'ponto':'pontos'} ${$t('para gastar.', 'to spend.')}` : $t('Sem pontos livres.', 'No free points.')} ${$t('Ganha 1 por nível. Comece pelo centro e avance pelos ramos.', 'You gain 1 per level. Start from the center and work out along the branches.')}</p>
+  const T = treeFor(h.cls), pts = treePoints(h), learned = (h.tree||[]).map(id => T[id]).filter(Boolean), total = Object.keys(T).length - 1;
+  const big = learned.filter(n => n.kind!=='small');
+  const list = big.length
+    ? `<div class="sgrid">${big.map(n => `<div class="scard onbar"><div class="tt"><b>${esc(n.name)}</b><span class="muted small">${NODE_KIND[n.kind]} · ${esc(n.branch||'')}</span></div><p>${esc(n.d)}</p></div>`).join('')}</div>`
+    : `<p class="muted">${$t('Nenhuma regra aprendida ainda. Abra a árvore para escolher o seu caminho.', 'No rules learned yet. Open the tree to choose your path.')}</p>`;
+  return `<div class="thead"><p class="muted">${pts>0 ? `${$t('Você tem', 'You have')} <b class="pts">${pts}</b> ${pts===1?$t('ponto', 'point'):$t('pontos', 'points')} ${$t('para gastar.', 'to spend.')}` : $t('Sem pontos livres.', 'No free points.')} ${$t('Ganha 1 por nível (até o 50) e até 8 no endgame: 2 pela campanha, 1 pelo Reflexo, 1 por chefe supremo e 1 pelo Rei Caído. A árvore tem mais nós do que pontos: escolha.', 'You gain 1 per level (up to 50) and up to 8 in the endgame: 2 for the campaign, 1 for the Reflection, 1 per uber boss and 1 for the Fallen King. The tree has more nodes than points: choose.')}</p>
+      <button class="primary sm" type="button" data-act="treeopen">${$t('Abrir a árvore', 'Open the tree')}</button>
       <button class="ghost sm" type="button" data-act="respec">${$t('Redistribuir pontos (grátis)', 'Reset points (free)')}</button></div>
-    <div class="treewrap">${renderTree(T, on, can, 'node', TREE_BRANCHES, campNode)}<div class="tdet">${nodeDetail(campNode && T[campNode], on, can, pts, 'learn')}</div></div>`;
+    <div class="xcard"><span class="xk">${$t('Sua árvore', 'Your tree')}</span><b>${learned.length} / ${total} ${$t('nós', 'nodes')}</b></div>
+    ${list}`;
+}
+// Appearance: the emblems worn by the piece, earned by using each skill
+function campSkins(h){
+  const cards = skinsOf(h.cls).map(A => {
+    const n = skinUses(h, A), ok = n >= SKIN_FEAT, on = h.skin===A.id, pct = Math.min(100, Math.round(100*n/SKIN_FEAT));
+    return `<div class="scard ${on?'onbar':''} ${ok?'':'locked'}"><div class="tt"><b>${esc(A.name)}</b><span class="muted small">${ok ? $t('desbloqueada', 'unlocked') : $t('bloqueada', 'locked')}</span></div>
+      <p>${$t('Feito: usar', 'Feat: use')} <b>${esc(SKILLS[A.skill].name)}</b> ${SKIN_FEAT} ${$t('vezes', 'times')} (${Math.min(n, SKIN_FEAT)}/${SKIN_FEAT}).</p>
+      <div class="bar xp"><i style="width:${pct}%"></i></div>
+      ${ok ? (on ? `<button class="ghost sm" type="button" data-act="skin:none">${$t('Tirar', 'Remove')}</button>` : `<button class="primary sm" type="button" data-act="skin:${A.id}">${$t('Usar', 'Wear')}</button>`) : ''}</div>`;
+  }).join('');
+  return `<div class="thead"><p class="muted">${$t('Skins são só aparência: um adereço que a sua peça carrega no tabuleiro. Cada uma é liberada ao usar a habilidade correspondente 25 vezes, em qualquer expedição.', 'Skins are cosmetic only: an emblem your piece carries on the board. Each is unlocked by using the matching skill 25 times, in any expedition.')}</p></div><div class="sgrid">${cards}</div>`;
 }
 function campAtlas(h){
   if (h.actDone<4) return $t('<p class="muted">Conclua o Ato 4 para liberar os mapas e o Atlas.</p>', '<p class="muted">Complete Act 4 to unlock maps and the Atlas.</p>');
-  const T = atlasTree(), on = new Set(['start', ...(h.atlasTree||[])]), pts = atlasPoints(h), can = id => canLearnAtlas(h, id);
+  const T = atlasTree(), pts = atlasPoints(h), learned = (h.atlasTree||[]).map(id => T[id]).filter(Boolean), total = Object.keys(T).length - 1;
   const col = {crypt:'#8a6a48', swamp:'#5f8a55', forge:'#d0602a', cathedral:'#8fb0d8'};
   const prog = ACTS.map(b => { const n = [...Array(10).keys()].filter(i => (h.atlas||{})[b+'-'+(i+1)]).length;
     return `<div class="aprog"><span>${BIOMES[b].name}</span><div class="adots">${[...Array(10).keys()].map(i => `<i class="${(h.atlas||{})[b+'-'+(i+1)] ? 'done' : ''}" style="--bc:${col[b]}" title="${$t('Nível', 'Tier')} ${i+1}${(h.atlas||{})[b+'-'+(i+1)] ? $t(': concluído', ': completed') : ''}"></i>`).join('')}</div><small>${n}/10</small></div>`; }).join('');
-  return `<div class="thead"><p class="muted">${$t('Cada bioma e nível de mapa concluído pela primeira vez (matando o chefe do mapa) dá 1 ponto. Os efeitos do Atlas valem dentro dos mapas.', 'Each biome and map tier completed for the first time (by killing the map boss) gives 1 point. Atlas effects apply inside maps.')} ${pts>0 ? `<b class="pts">${pts}</b> ${pts===1?$t('ponto livre', 'free point'):$t('pontos livres', 'free points')}.` : $t('Sem pontos livres.', 'No free points.')}</p>
+  const big = learned.filter(n => n.kind!=='small');
+  const list = big.length ? `<div class="sgrid">${big.map(n => `<div class="scard onbar"><div class="tt"><b>${esc(n.name)}</b><span class="muted small">${NODE_KIND[n.kind]} · ${esc(n.branch||'')}</span></div><p>${esc(n.d)}</p></div>`).join('')}</div>` : '';
+  return `<div class="thead"><p class="muted">${$t('Cada bioma e nível de mapa concluído pela primeira vez (matando o chefe do mapa) dá 1 ponto, até 40. O Atlas tem mais de 90 nós: cada mecânica (Fenda, Xeque-mate, Maré, Horda) tem um tronco e dois sub-ramos, e você não pega tudo. Os efeitos valem dentro dos mapas.', 'Each biome and map tier completed for the first time (by killing the map boss) gives 1 point, up to 40. The Atlas has over 90 nodes: each mechanic (Rift, Checkmate, Tide, Horde) has a trunk and two sub-branches, and you cannot take everything. Effects apply inside maps.')} ${pts>0 ? `<b class="pts">${pts}</b> ${pts===1?$t('ponto livre', 'free point'):$t('pontos livres', 'free points')}.` : $t('Sem pontos livres.', 'No free points.')}</p>
+      <button class="primary sm" type="button" data-act="treeopen:atlas">${$t('Abrir o Atlas', 'Open the Atlas')}</button>
       <button class="ghost sm" type="button" data-act="atlasReset">${$t('Redistribuir (grátis)', 'Reset (free)')}</button></div>
-    <div class="treewrap">${renderTree(T, on, can, 'anode', ATLAS_BRANCHES, campANode)}<div class="tdet">${nodeDetail(campANode && T[campANode], on, can, pts, 'alearn')}<h4 class="dh">${$t('Conclusões', 'Completions')}</h4>${prog}</div></div>`;
+    <div class="xcard"><span class="xk">${$t('Seu Atlas', 'Your Atlas')}</span><b>${learned.length} / ${total} ${$t('nós', 'nodes')}</b></div>
+    ${list}<h4 class="dh">${$t('Conclusões', 'Completions')}</h4>${prog}`;
 }
 function campTalents(h, pts){
   const cards = talentList(h.cls).map(t => {
@@ -462,27 +501,28 @@ function expMaps(h, side){
     </div>`;
 }
 function campSkills(h){
-  const pool = CLASSES[h.cls].skills, st = statsFor(h.cls, h.color, h.equip);
+  const pool = classPool(h.cls), st = statsFor(h.cls, h.color, h.equip);
   barSkills();   // initialises h.skills for older heroes
-  const onBar = h.skills.filter(id => pool.indexOf(id)>=0 && h.level >= SKILL_UNLOCK[pool.indexOf(id)]);
+  const onBar = h.skills.filter(id => pool.includes(id) && h.level >= skillUnlock(h.cls, id)).slice(0, BAR_MAX);
   h.runes = h.runes || {}; h.skillRunes = h.skillRunes || {};
   const bag = Object.keys(RUNES).filter(r => h.runes[r]>0).map(r => `<span class="rchip" title="${RUNES[r].d}">${RUNES[r].name}<b>×${h.runes[r]}</b></span>`).join('');
-  const card = (id, i) => {
-    const sk = SKILLS[id], lock = i>=0 && h.level < SKILL_UNLOCK[i], on = onBar.includes(id), fixed = id==='shift';
+  const card = id => {
+    const sk = SKILLS[id], fixed = id==='shift', lv = fixed ? 0 : skillUnlock(h.cls, id), lock = h.level < lv, on = onBar.includes(id);
     const r = h.skillRunes[id];
     const fits = Object.keys(RUNES).filter(k => h.runes[k]>0 && (!RUNES[k].hit || sk.hits));
     const rune = lock ? '' : r
       ? `<div class="rslot"><span><b>${RUNES[r].name}</b>: ${RUNES[r].d}</span><div class="rpick"><button class="ghost sm" type="button" data-act="unrune:${id}">${$t('Remover runa', 'Remove rune')}</button></div></div>`
       : `<div class="rslot"><span>${$t('Encaixe de runa vazio', 'Empty rune socket')}${fits.length ? '' : $t(' · nenhuma runa que sirva', ' · no rune that fits')}</span>${fits.length ? `<div class="rpick">${fits.map(k => `<button class="ghost sm" type="button" data-act="rune:${id}|${k}" title="${RUNES[k].d}">${RUNES[k].name}</button>`).join('')}</div>` : ''}</div>`;
     const btn = fixed ? $t('<span class="muted small">Sempre na barra (Bispo)</span>', '<span class="muted small">Always on the bar (Bishop)</span>')
-      : lock ? `<span class="muted small">${$t('Libera no nível', 'Unlocks at level')} ${SKILL_UNLOCK[i]}</span>`
+      : lock ? `<span class="muted small">${$t('Libera no nível', 'Unlocks at level')} ${lv}</span>`
       : on ? `<button class="ghost sm" type="button" data-act="skillOff:${id}" ${onBar.length<=1?'disabled':''}>${$t('Tirar da barra', 'Remove from bar')}</button>`
       : `<button class="primary sm" type="button" data-act="skillOn:${id}" ${onBar.length>=BAR_MAX?'disabled':''}>${$t('Pôr na barra', 'Put on bar')}</button>`;
-    return `<div class="scard ${on||fixed?'onbar':''} ${lock?'locked':''}"><div class="tt"><b>${sk.name}</b><span class="muted small">${$t('recarga', 'cooldown')} ${sk.cd}${sk.free?$t(' · não gasta ação', ' · costs no action'):''}</span></div>
-      <p>${sk.desc(st)}.</p>${btn}${rune}</div>`;
+    const tag = isAscSkill(id) ? `${$t('endgame', 'endgame')} · ` : '';
+    return `<div class="scard ${on||fixed?'onbar':''} ${lock?'locked':''}"><div class="tt"><b>${sk.name}</b><span class="muted small">${tag}${$t('recarga', 'cooldown')} ${sk.cd}${sk.free?$t(' · não gasta ação', ' · costs no action'):''}</span></div>
+      <p>${sk.desc(skillView(st, id))}.</p>${btn}${rune}</div>`;
   };
-  const cards = pool.map((id,i) => card(id,i)).join('') + (h.cls==='B' ? card('shift', -1) : '');
-  return `<div class="thead"><p class="muted">${$t('Escolha até', 'Choose up to')} ${BAR_MAX} ${$t('habilidades para a barra (', 'skills for the bar (')}${onBar.length}/${BAR_MAX}${$t('). Runas mudam uma habilidade; caem de elites, chefes e baús.', '). Runes change a skill; they drop from elites, bosses and chests.')}</p></div>
+  const cards = pool.map(card).join('') + (h.cls==='B' ? card('shift') : '');
+  return `<div class="thead"><p class="muted">${$t('Escolha até', 'Choose up to')} ${BAR_MAX} ${$t('habilidades para a barra (', 'skills for the bar (')}${onBar.length}/${BAR_MAX}${$t('), de qualquer parte da lista. Os aprimoramentos de cada habilidade ficam na Árvore. Runas mudam uma habilidade; caem de elites, chefes e baús.', '), from anywhere in the list. Each skill\'s upgrades are in the Tree. Runes change a skill; they drop from elites, bosses and chests.')}</p></div>
     <div class="runebag">${bag || $t('<span class="muted small">Você ainda não tem runas.</span>', '<span class="muted small">You have no runes yet.</span>')}</div>
     <div class="sgrid">${cards}</div>`;
 }
@@ -502,13 +542,14 @@ function showCamp(notice){
   if (legacyNotice){ campNotice = legacyNotice; legacyNotice = ''; }
   if (HERO.actDone>=4 && !HERO.maps.length){ HERO.maps.push(makeMap(1)); campNotice = (campNotice ? campNotice+' ' : '') + $t('Você estava sem mapas: um mapa de nível 1 foi deixado no acampamento.', 'You had no maps: a tier 1 map was left at camp.'); persist(); }
   S = null; rng = Math.random;
+  migrateHero(HERO);
   const h = HERO, pts = talentPoints(h);
   if (campSel && campSel.from==='stash' && !h.stash[campSel.i]) campSel = null;
   if (campSel && campSel.from==='equip' && !h.equip[campSel.slot]) campSel = null;
   const runeN = Object.values(h.runes||{}).reduce((a,b)=>a+b,0);
-  const tabs = [['exp',$t('Expedições', 'Expeditions')],['gear',$t('Equipamento', 'Gear')],['forge',$t('Forja', 'Forge')],['skl', $t(`Habilidades${runeN?` <span class="badge">${runeN}</span>`:''}`, `Skills${runeN?` <span class="badge">${runeN}</span>`:''}`)],['tal', $t(`Árvore${pts>0?` <span class="badge">${pts}</span>`:''}`, `Tree${pts>0?` <span class="badge">${pts}</span>`:''}`)],['atl', $t(`Atlas${h.actDone>=4 && atlasPoints(h)>0 ? ` <span class="badge">${atlasPoints(h)}</span>` : ''}`, `Atlas${h.actDone>=4 && atlasPoints(h)>0 ? ` <span class="badge">${atlasPoints(h)}</span>` : ''}`)],['gri', `${$t('Grimório', 'Grimoire')} <span class="muted small">${MATES.filter(m=>(h.grimoire||{})[m.id]).length}/${MATES.length}</span>`]]
+  const tabs = [['exp',$t('Expedições', 'Expeditions')],['gear',$t('Equipamento', 'Gear')],['forge',$t('Forja', 'Forge')],['skl', $t(`Habilidades${runeN?` <span class="badge">${runeN}</span>`:''}`, `Skills${runeN?` <span class="badge">${runeN}</span>`:''}`)],['tal', $t(`Árvore${pts>0?` <span class="badge">${pts}</span>`:''}`, `Tree${pts>0?` <span class="badge">${pts}</span>`:''}`)],['skn', $t('Aparência', 'Appearance')],['atl', $t(`Atlas${h.actDone>=4 && atlasPoints(h)>0 ? ` <span class="badge">${atlasPoints(h)}</span>` : ''}`, `Atlas${h.actDone>=4 && atlasPoints(h)>0 ? ` <span class="badge">${atlasPoints(h)}</span>` : ''}`)],['gri', `${$t('Grimório', 'Grimoire')} <span class="muted small">${MATES.filter(m=>(h.grimoire||{})[m.id]).length}/${MATES.length}</span>`]]
     .map(([k,l]) => `<button class="tab ${campTab===k?'on':''}" type="button" role="tab" aria-selected="${campTab===k}" data-act="tab:${k}">${l}</button>`).join('');
-  const body = campTab==='gear' ? campGear(h) : campTab==='forge' ? campForge(h) : campTab==='tal' ? campTree(h) : campTab==='skl' ? campSkills(h) : campTab==='gri' ? campGrimoire(h) : campTab==='atl' ? campAtlas(h) : campExpeditions(h);
+  const body = campTab==='gear' ? campGear(h) : campTab==='forge' ? campForge(h) : campTab==='tal' ? campTree(h) : campTab==='skn' ? campSkins(h) : campTab==='skl' ? campSkills(h) : campTab==='gri' ? campGrimoire(h) : campTab==='atl' ? campAtlas(h) : campExpeditions(h);
   $('scrCamp').innerHTML = `
     <div class="camphead">
       <span class="g ${h.color} big">${GLYPH[h.cls]}</span>
@@ -544,7 +585,7 @@ $('scrCamp').addEventListener('click', ev => {
   else if (act==='node'){ campNode = arg; }
   else if (act==='learn'){ h.tree = h.tree || []; if (canLearn(h, arg)) h.tree.push(arg); }
   else if (act==='fmode'){ SAVE.opts = SAVE.opts || {}; SAVE.opts.frozenMode = arg; }
-  else if (act==='skillOn'){ barSkills(); if (!h.skills.includes(arg) && h.skills.length<BAR_MAX) h.skills.push(arg); }
+  else if (act==='skillOn'){ barSkills(); if (!h.skills.includes(arg) && barSkills().filter(i => i!=='shift').length<BAR_MAX) h.skills.push(arg); }
   else if (act==='skillOff'){ barSkills(); if (h.skills.length>1) h.skills = h.skills.filter(id => id!==arg); }
   else if (act==='rune'){ const [id, r] = arg.split('|'); h.runes = h.runes||{}; h.skillRunes = h.skillRunes||{};
     if (h.runes[r]>0){ const old = h.skillRunes[id]; if (old) h.runes[old] = (h.runes[old]||0)+1; h.runes[r]--; h.skillRunes[id] = r; campNotice = $t(`${RUNES[r].name} encaixada em ${SKILLS[id].name}.`, `${RUNES[r].name} socketed into ${SKILLS[id].name}.`); } }
@@ -562,6 +603,8 @@ $('scrCamp').addEventListener('click', ev => {
     h.stash = h.stash.filter(it => it.rar!=='common'); h.gold += g; campSel = null;
     campNotice = $t(`${c.length} ${c.length===1?'item comum vendido':'itens comuns vendidos'} (+${g} de ouro).`, `${c.length} ${c.length===1?'common item sold':'common items sold'} (+${g} gold).`);
   }
+  else if (act==='treeopen'){ openTree(arg); }
+  else if (act==='skin'){ if (arg==='none') delete h.skin; else if (ASC[arg] && ASC[arg].cls===h.cls && skinUnlocked(h, ASC[arg])) h.skin = arg; }
   else if (act==='switch'){ persist(); showHeroes(); return; }
   else if (act==='act'){ startExpedition({kind:'campaign', act:+arg}); return; }
   else if (act==='abyss'){ startExpedition({kind:'abyss'}); return; }
@@ -856,7 +899,7 @@ function renderTip(){
     if (ff.length) html += `<div class="tw">${$t('Na linha de fogo:', 'In the line of fire:')} ${ff.map(enemyName).join(', ')}</div>`;
     if (!full && (e.mods.length || tags.length || e.boss)) html += `<div class="thint">${$t('Segure Shift para os detalhes', 'Hold Shift for details')}</div>`;
   } else if (a){
-    html += `<div class="tn ally">${a.type==='P'?$t('Peão', 'Allied Pawn'):$t('Rainha', 'Allied Queen')}${$t(' aliado', '')}</div><div class="tbar"><i class="ally" style="width:${100*a.hp/a.maxHp}%"></i></div><div class="tr">${a.hp}/${a.maxHp} ${$t('de vida · bate', 'health · hits')} ${allyDmg(a)}</div>`;
+    html += `<div class="tn ally">${a.raised ? $t(`${EDEF[a.type].name} morto-vivo`, `Undead ${EDEF[a.type].name}`) : a.type==='P'?$t('Peão', 'Allied Pawn'):$t('Rainha', 'Allied Queen')}${a.raised ? '' : $t(' aliado', '')}</div><div class="tbar"><i class="ally" style="width:${100*a.hp/a.maxHp}%"></i></div><div class="tr">${a.hp}/${a.maxHp} ${$t('de vida · bate', 'health · hits')} ${allyDmg(a)}</div>`;
     if (S.dangerSeen.has(key(x,y))) html += `<div class="tw">${$t('Vai ser atacado', 'Will be attacked')}</div>`;
   } else if (item){
     if (item.potion) html += `<div class="tn" style="color:#8fd18a">${$t('Frasco de vida', 'Health flask')}</div><div class="tr">${$t('Cura', 'Heals')} ${POTION_HEAL} ${$t('ao pisar', 'when stepped on')}</div>`;
@@ -1019,7 +1062,7 @@ function updateUI(){
     const sk = SKILLS[id], b = $('btnS'+i);
     $('sName'+i).textContent = sk.name + (runeOf(id) ? ' ✦' : '');
     b.title = runeOf(id) ? RUNES[runeOf(id)].name + ': ' + RUNES[runeOf(id)].d : '';
-    $('sDesc'+i).textContent = S.mode===id ? $t('Escolha onde pousar (Esc cancela)', 'Choose where to land (Esc cancels)') : sk.desc(st);
+    $('sDesc'+i).textContent = S.mode===id ? $t('Escolha onde pousar (Esc cancela)', 'Choose where to land (Esc cancels)') : sk.desc(skillView(st, id));
     $('sCd'+i).textContent = S.cds[id] ? `${S.cds[id]}` : '';
     const free = id==='shift' && S.phase==='player';
     b.disabled = !(canAct || free) || S.moveOnly || S.cds[id]>0 || (sk.can && !sk.can());
@@ -1032,10 +1075,9 @@ function updateUI(){
   $('btnPact').disabled = !canAct || S.pactUsed || S.player.hp<=4;
   $('pactDesc').textContent = S.pactUsed ? $t('Já usado neste andar', 'Already used on this floor') : $t('Paga 4 de vida e zera as recargas', 'Pay 4 health and reset cooldowns');
   $('btnWait').disabled = !canAct;
-  $('gear').innerHTML = Object.keys(SLOTS).map(s => {
-    const it = S.equip[s];
-    return `<div class="slot"><span class="lbl">${SLOTS[s].label}</span><div>${it ? `<div class="nm rc-${it.rar}">${esc(it.name)}</div>${affixList(it)}` : $t('<div class="empty">vazio</div>', '<div class="empty">empty</div>')}</div></div>`;
-  }).join('');
+  // the build at a glance: one chip per named rule you carry
+  const ruleChips = []; for (const s in S.equip){ const it = S.equip[s]; if (!it) continue; for (const a of it.affixes){ const d = AFX[a.k]; if (!d || !d.rule) continue; const txt = d.t(a.v), nm = txt.includes(':') ? txt.split(':')[0] : null; if (nm && nm.length<=20 && !ruleChips.some(r => r[0]===nm)) ruleChips.push([nm, txt]); } }
+  $('gear').innerHTML = (ruleChips.length ? `<div class="chips2 rulechips">${ruleChips.map(([n,t]) => `<span class="mchip" style="--mc:#e3b456" title="${esc(t)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 6 6.4.6-4.9 4.2 1.5 6.4L12 17l-5.6 3.2 1.5-6.4L3 9.6 9.4 9z" fill="#e3b45655"/></svg>${esc(n)}</span>`).join('')}</div>` : '') + `<div class="gearicons">${Object.keys(SLOTS).map(s => { const it = S.equip[s]; return `<div class="itile gt ${it ? 'r-'+it.rar : 'empty'}" data-gslot="${s}" tabindex="0" aria-label="${esc(it ? it.name : SLOTS[s].label)}">${slotIcon(s)}</div>`; }).join('')}</div>`;
   $('log').innerHTML = S.log.map(l => `<li>${l}</li>`).join('');
   const bosses = S.enemies.filter(e=>e.boss);
   $('bossBar').hidden = !bosses.length;
@@ -1106,10 +1148,7 @@ document.addEventListener('keydown', ev => {
   else if (ev.key===' ' && !(ev.target instanceof HTMLButtonElement)){ ev.preventDefault(); waitTurn(); }
   else if (ev.key==='Escape' && S.mode!=='move'){ S.mode = 'move'; updateUI(); }
 });
-function tileAt(ev){
-  const r = cv.getBoundingClientRect();
-  return [Math.floor((ev.clientX-r.left)/r.width*W), Math.floor((ev.clientY-r.top)/r.height*H)];
-}
+function tileAt(ev){ return screenToTile(ev.clientX, ev.clientY); }
 cv.addEventListener('click', ev => {
   if (S && S.chess){ const r = cv.getBoundingClientRect(); chessClick(Math.floor((ev.clientX-r.left)/r.width*8), Math.floor((ev.clientY-r.top)/r.height*8)); return; }
   if (!S || !S.walls) return; const [x,y] = tileAt(ev); if (inb(x,y)) onClick(x,y);

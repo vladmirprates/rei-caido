@@ -1,0 +1,365 @@
+--- a/js/events.js
++++ b/js/events.js
+@@ -396,7 +396,9 @@
+   pawn:[{slot:'elmo', name:$t('Coroa do Peão Supremo', 'Crown of the Supreme Pawn'), affixes:[{k:'supremePromo'},{k:'hp',v:8},{k:'eliteDmg',v:25}]},
+         {slot:'anel', name:$t('Anel do En Passant', 'En Passant Ring'), affixes:[{k:'enPassant'},{k:'dmg',v:1},{k:'mf',v:20}]}]
+ };
+-const canUber = h => (h.riftShards||0) >= UBER_COST.shards && (h.checkSeals||0) >= UBER_COST.seals;
++const UBER_COSTS = {};   // per-boss costs (the Rift Lord's lives in riftlord.js)
++const uberCost = id => UBER_COSTS[id] || UBER_COST;
++const canUber = (h, id) => { const c = uberCost(id || 'queen'); return (h.riftShards||0) >= c.shards && (h.checkSeals||0) >= c.seals; };
+ 
+ /* ---------- Pinnacle: the Fallen King ----------
+    Every uber boss drops a Crown Fragment of its own; one of each (4) opens the throne room. */
+--- a/js/world.js
++++ b/js/world.js
+@@ -27,7 +27,7 @@
+   }
+   if (ex.kind==='map') return {biome:ex.map.biome, boss: f===3 ? ex.map.boss : null, lvl: 12 + ex.map.tier*2 + f};
+   if (ex.kind==='tutorial') return {biome:'crypt', boss:null, lvl:1};
+-  if (ex.kind==='uber'){ const id = ex.boss || 'queen'; return {biome:UBERS[id].biome, boss:id, lvl: Math.max(30, HERO.level+5)}; }
++  if (ex.kind==='uber'){ const id = ex.boss || 'queen', lvl = Math.max(30, HERO.level+5); if (id==='rift' && f===1) return {biome:'crypt', boss:null, corridor:true, lvl}; return {biome:UBERS[id].biome, boss:id, lvl}; }
+   if (ex.kind==='pinnacle') return {biome:'crypt', boss:'fallen', lvl: Math.max(32, HERO.level+6)};
+   if (ex.kind==='hunt'){
+     const i = BOSS_ORDER.indexOf(ex.boss);
+@@ -41,6 +41,7 @@
+   if (ex.kind==='map') return S.floor>=3;
+   if (ex.kind==='tutorial') return true;
+   if (ex.kind==='abyss') return false;
++  if (ex.kind==='uber' && ex.boss==='rift') return S.floor>=2;
+   return true;
+ }
+ function floorTitle(){ const t = floorTitleBase(); return t + (S.torment ? $t(` · Tormento ${S.torment}`, ` · Torment ${S.torment}`) : '') + (S.tide ? $t(' · Maré de Sangue', ' · Blood Tide') : ''); }
+@@ -51,7 +52,7 @@
+   if (ex.kind==='map') return $t(`Mapa nível ${ex.map.tier}, andar ${S.floor} de 3: ${b}`, `Map tier ${ex.map.tier}, floor ${S.floor} of 3: ${b}`);
+   if (ex.kind==='hunt') return $t(`Caça ao chefe: ${b}`, `Boss hunt: ${b}`);
+   if (ex.kind==='tutorial') return $t('Pátio de Treino', 'Training Yard');
+-  if (ex.kind==='uber') return $t(`Chefe supremo: ${UBERS[ex.boss||'queen'].name}`, `Uber boss: ${UBERS[ex.boss||'queen'].name}`);
++  if (ex.kind==='uber') return $t(`Chefe supremo: ${UBERS[ex.boss||'queen'].name}`, `Uber boss: ${UBERS[ex.boss||'queen'].name}`) + (ex.boss==='rift' ? (S.floor===1 ? $t(' · a Esteira', ' · the Conveyor') : $t(' · a Arena', ' · the Arena')) : '');
+   if (ex.kind==='pinnacle') return $t('Sala do Trono: o Rei Caído', 'Throne Room: the Fallen King');
+   return $t('Desafio do dia', 'Daily Challenge');
+ }
+@@ -263,6 +264,7 @@
+   S.bossRelics = bossRelics(id);
+   for (const [x,y] of A.boss) S.enemies.push(makeBoss(id, x, y));
+   for (const [t,x,y] of A.guards) if (!occupied(x,y)) S.enemies.push(makeEnemy(t, x, y));
++  if (id==='rift') riftArenaSetup();
+ }
+ function placeSpecial(){
+   if (S.exp.kind==='daily') return;
+@@ -314,7 +316,8 @@
+     walls:new Set(), terrain:new Map(), items:[], stairs:null, enemies:[], linked:null, fleeUsed:false, untouchable:false, supPromoUsed:false, crownReady:true, crownAt:0, fire:new Map(), burn:new Map(),
+     env:null, rise:null, clock:null, clocks:0, tide:false, loneSince:null, tideRise:null, bloodRain:null, tideIra:0, tideGoal:8, horde:null, corpses:[], sight:0, risen:0, rift:null, riftShardsRun:0, firstHitDone:false, chess:null, hits:[], timeStop:0, fseed:Math.floor(Math.random()*1e9), bossRelics:null, floorCleared:false, bossKilledThisFloor:false});
+   const keep = S.allies.filter(a => !a.spectral); S.allies = [];
+-  if (plan.boss) genArena(plan.boss); else if (S.exp.kind==='tutorial') genTutorial(); else genRandomFloor();
++  S.corr = null; S.rb = null;
++  if (plan.boss) genArena(plan.boss); else if (plan.corridor) genCorridor(); else if (S.exp.kind==='tutorial') genTutorial(); else genRandomFloor();
+   placeAllies(keep);
+   const st = stats();
+   if (S.floor>1) S.player.hp = Math.min(st.hp, S.player.hp+5);
+@@ -589,6 +592,7 @@
+   else if (id==='twins'){ for (const [dx,dy] of ORTH){ let x=e.x+dx, y=e.y+dy; while (inb(x,y) && !isWall(x,y)){ add(x,y); x+=dx; y+=dy; } } }
+   else if (id==='pawn'){ if (e.uber) name = $t('Avanço Supremo', 'Supreme Advance'); for (let y=e.y+1; y<=e.y+(e.uber?3:2); y++) for (let x=0;x<W;x++) add(x,y); }
+   else if (id==='mirror'){ for (const t of classMoves(p.x, p.y, true)) add(t.x,t.y); }
++  else if (id==='rift'){ name = $t('Fissura Suprema', 'Supreme Fissure'); for (const [dx,dy] of DIAG){ let x=e.x+dx, y=e.y+dy; while (inb(x,y) && !isWall(x,y)){ add(x,y); x+=dx; y+=dy; } } }
+   else if (id==='fallen'){
+     const line = dirs => { for (const [dx,dy] of dirs){ let x=e.x+dx, y=e.y+dy; while (inb(x,y) && !isWall(x,y)){ add(x,y); x+=dx; y+=dy; } } };
+     if (e.fphase!==2){
+@@ -639,7 +643,7 @@
+ // Forge: an unstable pillar explodes every 4 turns (telegraphed one turn ahead)
+ function planEnvironment(){
+   S.env = null; S.rise = null; S.clock = null;
+-  planTide();
++  planTide(); planCorridor(); planRiftBoss();
+   const uber = S.exp.kind==='uber' || S.exp.kind==='pinnacle';
+   if (S.bossId && S.enemies.some(e => e.boss) && S.turn%(uber?4:5)===(uber?3:4) && (S.clocks||0)<(uber?8:4)) planClock();
+   if (S.biome==='crypt' && S.turn%4===3 && (S.risen||0)<3){
+@@ -657,14 +661,16 @@
+ // frozen army pieces stay visible while time is stopped, so the strike can be planned
+ const intentVisible = e => inSight(e.x, e.y) || (e.frozenPiece && S.timeStop>0);
+ function refreshDanger(){
+-  S.danger = new Set(); S.dangerSeen = new Set();
++  S.danger = new Set(); S.dangerSeen = new Set(); S.dangerPurple = new Set();
+   for (const e of S.enemies) if (e.intent && e.intent.kind==='attack'){
+     const vis = intentVisible(e);
+-    for (const [x,y] of e.intent.sq){ S.danger.add(key(x,y)); if (vis) S.dangerSeen.add(key(x,y)); }
++    for (const [x,y] of e.intent.sq){ S.danger.add(key(x,y)); if (vis) S.dangerSeen.add(key(x,y)); if (e.bossId==='rift') S.dangerPurple.add(key(x,y)); }
+   }
+   if (S.env) for (const [x,y] of S.env.sq){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
+   if (S.clock && S.clock.kind==='collapse') for (const [x,y] of S.clock.sq){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
+   if (S.bloodRain) for (const [x,y] of S.bloodRain.sq){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
++  if (S.rb) for (const [x,y] of S.rb.danger||[]){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); S.dangerPurple.add(key(x,y)); }
++  if (S.corr && S.corr.warn) for (const [x,y] of S.corr.warn){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
+   for (const k of S.burn.keys()){ S.danger.add(k); S.dangerSeen.add(k); }
+   const fk = S.enemies.find(e => e.bossId==='fallen' && e.fphase===3);
+   S.kingEscapes = fk ? fallenEscapes(fk) : null;
+--- a/js/combat.js
++++ b/js/combat.js
+@@ -65,6 +65,7 @@
+   if (st.vigor && S.player.hp >= st.hp) d += 2;
+   if (st.crowd) d += Math.min(3, ALL.filter(([dx,dy]) => enemyAt(S.player.x+dx, S.player.y+dy)).length);
+   if (st.mercenary) d += Math.min(3, Math.floor((HERO.gold||0)/100));
++  if (target && st.fissure && cheb(target.x,target.y,S.player.x,S.player.y)>=2) d += 3;
+   if (st.ironSkin) d += Math.min(4, Math.floor(S.shield/5));
+   if (target && st.lone && !S.enemies.some(o => o!==target && cheb(o.x,o.y,target.x,target.y)<=1)) d += 2;
+   if (st.arcRes) d += (st.fireDmg>0 ? 1 : 0) + (st.coldDmg>0 ? 1 : 0) + (st.lightDmg>0 ? 1 : 0);
+@@ -463,6 +464,7 @@
+   if (e.mods.includes('submerge') && isWater(e.x,e.y)) amt = Math.max(1, Math.ceil(amt/2));
+   if (e.boss && e.intent && e.intent.recover && src!=='enemy'){ amt = Math.ceil(amt*1.5); floatText(e.x, e.y-0.35, $t('exposto', 'exposed'), '#ecd36a'); }
+   if (e.boss && e.phase===2) amt = bossObjective(e, amt, src);
++  if (e.bossId==='rift') amt = riftBossArmor(e, amt, src);
+   if (e.bossId==='fallen' && e.fphase===3 && src!=='enemy') amt = fallenGuard(e, amt);
+   if (e.judged) amt = Math.ceil(amt*1.5);
+   if (src==='player'){
+@@ -494,12 +496,14 @@
+     checkPhase(e);
+     if (e.bossId==='knight' && e.phase===2 && src!=='enemy' && !e.jumped && !e.exhausted) knightEscape(e);
+     if (e.bossId==='fallen' && src==='player') fallenCastle(e);
++    if (e.bossId==='rift' && src==='player') riftBossHit(e);
+     return;
+   }
+   S.enemies = S.enemies.filter(o => o!==e);
+   addCorpse(e);
+   sfx(e.boss ? 'boss' : 'kill');
+   riftKill(e);
++  corridorKill(e); riftBossKill(e);
+   hordeKill(e);
+   currencyDrop(e);
+   tideKill(e);
+@@ -518,9 +522,9 @@
+     } else {
+       S.bossKilledThisFloor = true;
+       if (e.uber){ HERO.ubersKilled = (HERO.ubersKilled||0)+1; HERO.gold += 200; S.goldFound += 200; dropRune(e); dropRune(e); log($t(`${e.name} caiu. +200 de ouro e duas runas.`, `${e.name} fell. +200 gold and two runes.`));
+-        const id = S.exp.boss || 'queen'; HERO.crownFrags = HERO.crownFrags || {}; HERO.crownFrags[id] = (HERO.crownFrags[id]||0) + 1;
++        const id = S.exp.boss || 'queen'; HERO.crownFrags = HERO.crownFrags || {}; if (BOSS_ORDER.includes(id)) HERO.crownFrags[id] = (HERO.crownFrags[id]||0) + 1;
+         HERO.ubersBeaten = [...new Set([...(HERO.ubersBeaten||[]), id])];
+-        log($t(`${fragName(id)} obtido. Um de cada abre a sala do trono do Rei Caído.`, `${fragName(id)} obtained. One of each opens the Fallen King's throne room.`)); }
++        if (BOSS_ORDER.includes(id)) log($t(`${fragName(id)} obtido. Um de cada abre a sala do trono do Rei Caído.`, `${fragName(id)} obtained. One of each opens the Fallen King's throne room.`)); }
+       if (e.bossId==='fallen'){ HERO.fallenKills = (HERO.fallenKills||0)+1; HERO.gold += 500; S.goldFound += 500; for (let i=0;i<3;i++) dropRune(e);
+         showBanner($t('O Rei Caído tombou', 'The Fallen King has toppled'), $t('A coroa está vazia. Por enquanto.', 'The crown is empty. For now.'));
+         log($t('O Rei Caído caiu. +500 de ouro e três runas.', 'The Fallen King fell. +500 gold and three runes.')); }
+@@ -769,6 +773,7 @@
+   const st = stats(), p = S.player;
+   if (p.x!==x || p.y!==y) S.movedThisTurn = true;
+   p.x = x; p.y = y;
++  if (terrainAt(x,y)==='rift'){ riftPortal(x,y); x = p.x; y = p.y; }
+   if (st.trample) for (const [dx,dy] of ALL){ const e=enemyAt(x+dx,y+dy); if (e) damageEnemy(e, st.trample, 'player'); }
+   for (let i=S.items.length-1; i>=0; i--){
+     const en = S.items[i];
+@@ -976,9 +981,10 @@
+   }
+   if (S.dead) return;
+   if (S.rift && !S.enemies.length) riftSpawn(Math.min(3, riftMaxAlive()));
++  if (S.corr && !S.corr.open && !S.enemies.length) corridorWave(true);
+   // everything left was shattered: the ice melts right away so the army comes back
+   if (!S.enemies.length && S.timeStop>0 && (S.shattered||[]).length){ S.timeStop = 1; frozenTick(); planIntents(false); }
+-  if (!S.enemies.length && !S.floorCleared && !S.tut){
++  if (!S.enemies.length && !S.floorCleared && !S.tut && !(S.corr && !S.corr.open)){
+     S.floorCleared = true;
+     if (S.exp.kind==='campaign' && S.bossKilledThisFloor){
+       // each world difficulty keeps its own campaign progress; finishing Act 4 at the highest one opens the next
+@@ -995,7 +1001,7 @@
+   // a single straggler can't stall the floor: the stairs open early
+   // a single straggler that can't be reached (say, on the other colour) can't stall the floor: after 4 turns alone the stairs open
+   if (S.enemies.length===1){ if (S.loneSince==null) S.loneSince = S.turn; } else S.loneSince = null;
+-  if (S.enemies.length===1 && S.turn - S.loneSince >= 4 && !S.bossId && !S.stairs && S.exp.kind!=='daily' && !S.tut) spawnStairs(true);
++  if (S.enemies.length===1 && S.turn - S.loneSince >= 4 && !S.bossId && !S.corr && !S.stairs && S.exp.kind!=='daily' && !S.tut) spawnStairs(true);
+   // training: a skill that moves you can land right on the stairs
+   if (S.tut && S.stairs && S.player.x===S.stairs.x && S.player.y===S.stairs.y) S.goDown = true;
+   if (S.goDown){ S.goDown = false; await stairsChoice(); return; }
+@@ -1040,6 +1046,8 @@
+   }
+   resolveTide();
+   if (!alive()) return;
++  resolveRiftBoss();
++  if (!alive()) return;
+   // boss arena clock
+   if (S.clock){
+     const {kind, sq} = S.clock; S.clock = null; S.clocks = (S.clocks||0) + 1;
+@@ -1192,7 +1200,7 @@
+   if (!alive()) return;
+   // regeneration only works on a turn the unit was not hit
+   for (const e of S.enemies) if (e.mods.includes('regen') && e.hurtTurn!==S.turn) healEnemy(e, 2);
+-  riftTick();
++  riftTick(); corridorTick(); riftBossTick();
+   frozenTick();
+   protectorTick();
+   if (S.tide) bloodRegen();
+--- a/js/render.js
++++ b/js/render.js
+@@ -141,11 +141,11 @@
+   if (asc > room) sz = Math.min(sz, Math.max(sz*room/asc, tile*.88));
+   if (o.boss){
+     const pulse = reduce ? .5 : .5+.2*Math.sin(time*3);
+-    const col = o.holy ? `rgba(240,214,140,${pulse})` : `rgba(200,40,30,${pulse})`;
++    const col = o.holy ? `rgba(240,214,140,${pulse})` : o.purple ? `rgba(150,80,230,${pulse})` : `rgba(200,40,30,${pulse})`;
+     const g = ctx.createRadialGradient(cx,cy+tile*.2,0,cx,cy+tile*.2,tile*1.15);
+     g.addColorStop(0,col); g.addColorStop(1,'rgba(0,0,0,0)');
+     ctx.fillStyle = g; ctx.fillRect(cx-tile*1.2, cy-tile*1.1, tile*2.4, tile*2.4);
+-    ctx.strokeStyle = o.holy ? 'rgba(240,214,140,.8)' : 'rgba(227,180,86,.8)'; ctx.lineWidth = 2;
++    ctx.strokeStyle = o.holy ? 'rgba(240,214,140,.8)' : o.purple ? 'rgba(190,140,255,.9)' : 'rgba(227,180,86,.8)'; ctx.lineWidth = 2;
+     ctx.beginPath(); ctx.ellipse(cx, cy+tile*.32, tile*.46, tile*.14, 0, 0, Math.PI*2); ctx.stroke();
+   } else if (o.player || o.elite || o.rift || o.spectral){
+     const g = ctx.createRadialGradient(cx,cy+tile*.15,0,cx,cy+tile*.15,tile*.6);
+@@ -165,7 +165,7 @@
+   ctx.font = `${sz}px ${GF}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+   ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(1.5, tile*(o.boss?.06:.035));
+   let fill, stroke;
+-  if (o.boss){ fill = o.holy ? '#efe3bf' : '#7d1414'; stroke = o.holy ? '#8a6a1f' : '#e3b456'; }
++  if (o.boss){ fill = o.holy ? '#efe3bf' : o.purple ? '#4a1d8c' : '#7d1414'; stroke = o.holy ? '#8a6a1f' : o.purple ? '#d8c0ff' : '#e3b456'; }
+   else if (o.frozen){ fill = side==='w' ? '#eef6fc' : '#3a5068'; stroke = '#cfe6f5'; }
+   else { const white = side==='w'; fill = o.spectral ? '#dbe8f5' : white ? '#f1e7d3' : '#1b1411'; stroke = o.herald ? '#ff4a3a' : o.rival ? '#8fd18a' : o.rift ? '#b48cff' : o.elite ? '#e3b456' : o.spectral ? '#5a7a9e' : white ? '#2a1f18' : '#cdbb9c'; }
+   if (o.flash) fill = '#fff4e0';   // hit flash
+@@ -173,7 +173,7 @@
+   ctx.fillStyle = fill; ctx.fillText(GLYPH[type], cx, cy-lift+down);
+   if (o.prop) drawAscProp(o.prop, o.propColor, cx, cy, sz, down, time);   // ascension: each subclass carries its own emblem
+   if (o.boss && !reduce && Math.random()<.35){
+-    fx.embers.push({x:x+.2+Math.random()*.6, y:y+.7, vy:-(.6+Math.random()*.8), life:1, c:o.holy ? '240,214,140' : '240,110,50'});
++    fx.embers.push({x:x+.2+Math.random()*.6, y:y+.7, vy:-(.6+Math.random()*.8), life:1, c:o.holy ? '240,214,140' : o.purple ? '180,120,255' : '240,110,50'});
+   }
+ }
+ // Modifier icons: vector line icons (24x24 paths), one per modifier, drawn in a row above the piece.
+@@ -458,6 +458,29 @@
+     if (!isLava(x-1,y)) ctx.fillRect(px,py,T*.05,T);
+     if (!isLava(x+1,y)) ctx.fillRect(px+T*.95,py,T*.05,T);
+     glow(px+T/2, py+T/2, T*1.05, `rgba(255,90,20,${reduce?.14:.12+.04*Math.sin(time*2.5+x+y)})`);
++  } else if (t==='belt'){
++    ctx.fillStyle='#1d1a1f'; ctx.fillRect(px,py,T,T);
++    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(px,py,T*.07,T); ctx.fillRect(px+T*.93,py,T*.07,T);
++    const off = reduce ? 0 : (time*.5 % 1);
++    ctx.save(); ctx.beginPath(); ctx.rect(px,py,T,T); ctx.clip();
++    for (let k=-1;k<3;k++){
++      const cy = py + (k+off)*T*.5 + T*.12, a = .16 + .08*((k+2)%2);
++      ctx.strokeStyle='rgba(170,150,200,'+a+')'; ctx.lineWidth=Math.max(2,T*.05); ctx.lineCap='round';
++      ctx.beginPath(); ctx.moveTo(px+T*.28, cy); ctx.lineTo(px+T*.5, cy+T*.14); ctx.lineTo(px+T*.72, cy); ctx.stroke();
++    }
++    ctx.restore();
++  } else if (t==='rift'){
++    ctx.fillStyle='#150a24'; ctx.fillRect(px,py,T,T);
++    const tt = reduce ? 0 : time;
++    ctx.save(); ctx.beginPath(); ctx.rect(px,py,T,T); ctx.clip(); ctx.globalCompositeOperation='lighter';
++    for (let k=0;k<4;k++){
++      const a = tt*(.9+k*.35) + k*1.7, r = T*(.12+.09*k);
++      ctx.strokeStyle='rgba('+(150+k*25)+','+(90+k*15)+',255,'+(.6-k*.1)+')'; ctx.lineWidth=2;
++      ctx.beginPath(); ctx.ellipse(px+T/2, py+T/2, r*1.5, r, a, 0, Math.PI*1.5); ctx.stroke();
++    }
++    const g=ctx.createRadialGradient(px+T/2,py+T/2,0,px+T/2,py+T/2,T*.5); g.addColorStop(0,'rgba(255,240,255,.7)'); g.addColorStop(.35,'rgba(160,90,255,.45)'); g.addColorStop(1,'rgba(90,30,170,0)');
++    ctx.fillStyle=g; ctx.fillRect(px,py,T,T); ctx.restore();
++    glow(px+T/2, py+T/2, T*1.1, 'rgba(150,90,255,'+(reduce?.16:.14+.05*Math.sin(time*2.2+x+y))+')');
+   } else if (t==='ice'){
+     const g=ctx.createLinearGradient(px,py,px+T,py+T); g.addColorStop(0,'rgba(170,225,250,.62)'); g.addColorStop(1,'rgba(90,160,210,.5)');
+     ctx.fillStyle=g; ctx.fillRect(px,py,T,T);
+@@ -887,8 +910,9 @@
+     for (const k of S.dangerSeen){
+       const [x,y] = unkey(k);
+       const env = S.env && S.env.sq.some(([a,b])=>a===x&&b===y);
+-      ctx.fillStyle = env ? 'rgba(230,120,40,.3)' : 'rgba(184,51,43,.3)'; ctx.fillRect(x*tile, y*tile, tile, tile);
+-      ctx.strokeStyle = env ? 'rgba(240,140,60,.8)' : 'rgba(226,78,60,.75)'; ctx.lineWidth = 1.5;
++      const pur = !env && S.dangerPurple && S.dangerPurple.has(k);
++      ctx.fillStyle = env ? 'rgba(230,120,40,.3)' : pur ? 'rgba(130,70,220,.32)' : 'rgba(184,51,43,.3)'; ctx.fillRect(x*tile, y*tile, tile, tile);
++      ctx.strokeStyle = env ? 'rgba(240,140,60,.8)' : pur ? 'rgba(190,140,255,.85)' : 'rgba(226,78,60,.75)'; ctx.lineWidth = 1.5;
+       ctx.strokeRect(x*tile+2, y*tile+2, tile-4, tile-4);
+     }
+     if (S.clock) for (const [x,y] of S.clock.sq) drawClockMark(x, y, S.clock.kind, time);
+@@ -972,7 +996,7 @@
+         return;
+       }
+       const attacking = u.intent && u.intent.kind==='attack' && S.phase!=='enemy';
+-      drawPiece(u.type, x, y, foe, {boss:u.boss, holy:u.side==='holy', elite:u.elite, fodder:u.fodder, rift:u.rift, herald:u.herald, rival:u.rival, frozen:u.frozenPiece && S.timeStop>0, attacking, flash:u.flash>0});
++      drawPiece(u.type, x, y, foe, {boss:u.boss, purple:u.bossId==='rift', holy:u.side==='holy', elite:u.elite, fodder:u.fodder, rift:u.rift, herald:u.herald, rival:u.rival, frozen:u.frozenPiece && S.timeStop>0, attacking, flash:u.flash>0});
+       hpBar(u, x, y, u.boss ? '#e04a3a' : u.elite ? '#e3b456' : '#c2402f', attackPreview(u), time);
+       if (u.role==='protector'){
+         for (const [dx,dy] of ALL){ const o = S.enemies.find(q => q.x===u.x+dx && q.y===u.y+dy && !q.boss); if (!o) continue;
+--- a/js/ui.js
++++ b/js/ui.js
+@@ -396,7 +396,7 @@
+   const portals = `<div class="portals">
+     ${portal('camp', $t('Campanha', 'Campaign'), prog>=4 ? $t('Concluída', 'Completed') : $t(`Ato ${nextAct+1}: ${BIOMES[ACTS[nextAct]].name}`, `Act ${nextAct+1}: ${BIOMES[ACTS[nextAct]].name}`), prog>=4 ? $t('Suba o Tormento ou repita um ato', 'Raise the Torment or replay an act') : $t('Continue a história', 'Continue the story'), false)}
+     ${portal('maps', $t('Mapas', 'Maps'), mapsOpen(h) ? `${h.maps.length} ${h.maps.length===1?$t('mapa', 'map'):$t('mapas', 'maps')}` : $t('Bloqueado', 'Locked'), mapsOpen(h) ? $t('Dispositivo de Mapas', 'Map Device') : $t('Conclua o Ato 4 da campanha', 'Complete Act 4 of the campaign'), !mapsOpen(h))}
+-    ${portal('bosses', $t('Chefes Supremos', 'Uber Bosses'), `${Object.keys(UBERS).length} ${$t('supremos', 'ubers')}`, canUber(h) ? $t('Você pode enfrentar um agora', 'You can face one now') : $t(`${h.riftShards||0}/${UBER_COST.shards} Estilhaços · ${h.checkSeals||0}/${UBER_COST.seals} Selos`, `${h.riftShards||0}/${UBER_COST.shards} Shards · ${h.checkSeals||0}/${UBER_COST.seals} Seals`), false)}
++    ${portal('bosses', $t('Chefes Supremos', 'Uber Bosses'), `${Object.keys(UBERS).length} ${$t('supremos', 'ubers')}`, Object.keys(UBERS).some(id => canUber(h, id)) ? $t('Você pode enfrentar um agora', 'You can face one now') : $t(`${h.riftShards||0}/${UBER_COST.shards} Estilhaços · ${h.checkSeals||0}/${UBER_COST.seals} Selos`, `${h.riftShards||0}/${UBER_COST.shards} Shards · ${h.checkSeals||0}/${UBER_COST.seals} Seals`), false)}
+     ${portal('chal', $t('Desafios', 'Challenges'), $t('Abismo e Desafio do dia', 'Abyss and Daily Challenge'), $t(`Recorde no Abismo: andar ${h.record||0}`, `Abyss record: floor ${h.record||0}`), false)}
+   </div>`;
+   const torm = `<div class="tormbar"><div><span class="xk">${$t('Dificuldade · vale para tudo, menos o desafio do dia', 'Difficulty · applies to everything except the daily challenge')}</span><b>${h.torment ? $t('Tormento ', 'Torment')+h.torment : $t('Normal', 'Normal')}</b><p class="muted small">${tormentDesc(h.torment||0)}</p></div>
+@@ -428,9 +428,9 @@
+   return `<p class="muted small">${$t('Cada chefe supremo custa', 'Each uber boss costs')} ${UBER_COST.shards} ${$t('Estilhaços (você tem', 'Shards (you have')} ${h.riftShards||0}) e ${UBER_COST.seals} ${$t('Selos (você tem', 'Seals (you have')} ${h.checkSeals||0}${$t('). Estilhaços vêm das Fendas; Selos, das Partidas Congeladas.', '). Shards come from Rifts; Seals, from Frozen Matches.')}</p>
+     <div class="xgrid">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard bio-${U.biome}"><span class="xk">${$t('Supremo', 'Uber')}</span><b>${U.name}</b>
+       <p>${U.special}</p>
+-      <ul class="uown">${UBER_OWN[id].map(o => `<li class="${ownsUnique(h, o.name)?'have':''}" title="${esc(AFX[o.affixes[0].k].t())}">${ownsUnique(h, o.name)?'✓ ':''}<span class="rc-legend">${esc(o.name)}</span></li>`).join('')}</ul>
+-      <p class="muted small">${$t('Deixa um destes ou um único supremo comum, e um Fragmento da Coroa.', 'Drops one of these or a common uber unique, and a Crown Fragment.')} ${((h.crownFrags||{})[id]||0) ? $t(`Fragmentos: ${h.crownFrags[id]}.`, `Fragments: ${h.crownFrags[id]}.`) : ''}</p>
+-      <button class="${canUber(h)?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${canUber(h)?'':'disabled'}>${$t('Enfrentar', 'Face')}</button></div>`).join('')}</div>
++      <p class="muted small">${$t('Custo:', 'Cost:')} ${uberCost(id).shards} ${$t('Estilhaços', 'Shards')}${uberCost(id).seals ? ` + ${uberCost(id).seals} ${$t('Selos', 'Seals')}` : ''}</p><ul class="uown">${UBER_OWN[id].map(o => `<li class="${ownsUnique(h, o.name)?'have':''}" title="${esc(AFX[o.affixes[0].k].t())}">${ownsUnique(h, o.name)?'✓ ':''}<span class="rc-legend">${esc(o.name)}</span></li>`).join('')}</ul>
++      <p class="muted small">${id==='rift' ? $t('Deixa um destes ou um único supremo comum. Não dá Fragmento da Coroa.', 'Drops one of these or a common uber unique. Gives no Crown Fragment.') : $t('Deixa um destes ou um único supremo comum, e um Fragmento da Coroa.', 'Drops one of these or a common uber unique, and a Crown Fragment.')} ${((h.crownFrags||{})[id]||0) ? $t(`Fragmentos: ${h.crownFrags[id]}.`, `Fragments: ${h.crownFrags[id]}.`) : ''}</p>
++      <button class="${canUber(h,id)?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${canUber(h,id)?'':'disabled'}>${$t('Enfrentar', 'Face')}</button></div>`).join('')}</div>
+     <div class="xcard pinnacle"><span class="xk">${$t('Pináculo', 'Pinnacle')}</span><b>${$t('O Rei Caído', 'The Fallen King')}</b>
+       <p>${BOSSES.fallen.p1}</p><p>${BOSSES.fallen.p2}</p><p>${BOSSES.fallen.p3}</p>
+       <div class="frags">${BOSS_ORDER.map(id => `<span class="${((h.crownFrags||{})[id]||0)>0?'have':''}">${UBERS[id].name}<b>${(h.crownFrags||{})[id]||0}</b></span>`).join('')}</div>
+@@ -591,7 +591,7 @@
+   else if (act==='act'){ startExpedition({kind:'campaign', act:+arg}); return; }
+   else if (act==='abyss'){ startExpedition({kind:'abyss'}); return; }
+   else if (act==='tutorial'){ startExpedition({kind:'tutorial'}); return; }
+-  else if (act==='uber'){ if (canUber(h)){ h.riftShards -= UBER_COST.shards; h.checkSeals -= UBER_COST.seals; persist(); startExpedition({kind:'uber', boss:arg||'queen'}); return; } }
++  else if (act==='uber'){ if (canUber(h, arg||'queen')){ const cost = uberCost(arg||'queen'); h.riftShards -= cost.shards; h.checkSeals -= cost.seals; persist(); startExpedition({kind:'uber', boss:arg||'queen'}); return; } }
+   else if (act==='daily'){ startExpedition({kind:'daily'}); return; }
+   else if (act==='pinnacle'){ if (canFallen(h)){ for (const id of BOSS_ORDER) h.crownFrags[id]--; persist(); startExpedition({kind:'pinnacle'}); return; } }
+   else if (act==='forge'){ const [op, ai] = arg.split('|'); campNotice = forgeDo(h, op, +ai); }
+@@ -924,6 +924,8 @@
+   else if (isPlayer(x,y)) parts.push($t('Você.', 'You.'));
+   const t = terrainAt(x,y);
+   if (t==='pit') parts.push($t('Fosso: ninguém pisa aqui, mas ataques em linha passam por cima. Inimigo empurrado para cá cai e morre.', 'Pit: no one steps here, but line attacks pass over it. An enemy pushed in falls and dies.'));
++  if (t==='belt') parts.push($t('Esteira: a cada 2 turnos carrega tudo um passo para baixo. Peças inimigas que chegam à borda caem.', 'Conveyor: every 2 turns it carries everything one step down. Enemy pieces that reach the edge fall off.'));
++  if (t==='rift') parts.push($t('Fenda: pisar aqui leva você a outra Fenda. Cria inimigos. Abata as crias ao redor (4) para selar.', 'Rift: stepping here sends you to another Rift. It spawns minions. Kill the spawn around it (4) to seal it.'));
+   if (t==='grave') parts.push(S.rise && S.rise[0]===x && S.rise[1]===y ? $t('Túmulo se abrindo: um esqueleto se ergue no fim do turno, se a casa estiver livre.', 'Grave opening: a skeleton rises at the end of the turn, if the square is free.') : $t('Túmulo: de tempos em tempos um esqueleto se ergue daqui. Ficar em cima impede.', 'Grave: from time to time a skeleton rises from here. Standing on it prevents that.'));
+   if (t==='water') parts.push($t('Água: quem ataca daqui causa 1 de dano a menos. Ninguém desliza através dela.', 'Water: attacking from here deals 1 less damage. Nothing slides through it.'));
+   if (t==='lava') parts.push($t('Lava: quem termina o turno aqui leva 2 de dano.', 'Lava: whoever ends the turn here takes 2 damage.'));
+@@ -1071,7 +1073,8 @@
+   if (bosses.length){
+     const hpT = bosses.reduce((a,e)=>a+Math.max(0,e.hp),0), mx = bosses.reduce((a,e)=>a+e.maxHp,0), b0 = bosses[0];
+     $('bbName').textContent = bosses.length>1 ? BOSSES.twins.names[b0.side] : b0.name;
+-    $('bbName').className = 'bb-name ' + (b0.side==='holy' ? 'holy' : '');
++    $('bbName').className = 'bb-name ' + (b0.side==='holy' ? 'holy' : '') + (b0.bossId==='rift' ? ' rift' : '');
++    { const bar = $('bbFill').parentElement; if (bar) bar.classList.toggle('rift', b0.bossId==='rift'); }
+     $('bbFill').style.width = (100*hpT/mx)+'%';
+     $('bbSub').textContent = `${hpT} / ${mx}` + (b0.phase===2 || b0.mods.includes('enraged') ? $t(' · segunda fase', ' · second phase') : '');
+   }
+--- a/js/dev.js
++++ b/js/dev.js
+@@ -79,7 +79,7 @@
+     <div><select id="devU" style="width:100%"></select></div>
+     <div><button class="b" data-d="give">Pegar</button><button class="b" data-d="giveset:uber">Todos supremos</button><button class="b" data-d="giveset:fallen">Rei Caído</button><button class="b" data-d="giveset:class">Da classe</button><button class="b" data-d="clearstash">Esvaziar baú</button></div>
+     <h4>Lutas diretas (sem custo)</h4>
+-    <div>${BOSS_ORDER.map(id => `<button class="b" data-d="uber:${id}">${UBERS[id].name}</button>`).join('')}<button class="b" data-d="pinnacle">Rei Caído</button></div>
++    <div>${BOSS_ORDER.map(id => `<button class="b" data-d="uber:${id}">${UBERS[id].name}</button>`).join('')}<button class="b" data-d="uber:rift">Senhor da Fenda</button><button class="b" data-d="pinnacle">Rei Caído</button></div>
+     <div>${BOSS_ORDER.map(id => `<button class="b" data-d="hunt:${id}">caça ${id}</button>`).join('')}<button class="b" data-d="map10">Mapa nv.10</button><button class="b" data-d="abyss">Abismo</button></div>
+     <h4>Na expedição</h4>
+     <div><button class="b" data-d="god">Invencível: <span id="devGod">não</span></button><button class="b" data-d="heal">Curar</button><button class="b" data-d="cds">Zerar recargas</button>
+--- a/index.html
++++ b/index.html
+@@ -361,6 +361,9 @@
+ .bossbar{width:100%;max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:3px}
+ .bb-name{font-family:var(--f-display);font-size:1.4rem;color:#e04a3a;text-align:center;line-height:1.1}
+ .bb-name.holy{color:#f0d68c}
++.bb-name.rift{color:#b48cff}
++.bb-bar.rift{border-color:#4c2a8a}
++.bb-bar.rift i{background:linear-gradient(#a070ff,#3d1a7a)}
+ .bb-bar{position:relative;height:14px;background:#110d0b;border:1px solid #6b2a20}
+ .bb-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(#d0452f,#6e1612);transition:width .25s}
+ .bb-mark{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:var(--gold)}
+@@ -557,6 +560,7 @@
+ <script src="js/ascend.js"></script>
+ <script src="js/ascend2.js"></script>
+ <script src="js/skilltree.js"></script>
++<script src="js/riftlord.js"></script>
+ <script src="js/tutorial.js"></script>
+ <script src="js/render.js"></script>
+ <script src="js/vfx.js"></script>
+--- a/dev.html
++++ b/dev.html
+@@ -565,6 +565,7 @@
+ <script src="js/ascend.js"></script>
+ <script src="js/ascend2.js"></script>
+ <script src="js/skilltree.js"></script>
++<script src="js/riftlord.js"></script>
+ <script src="js/tutorial.js"></script>
+ <script src="js/render.js"></script>
+ <script src="js/vfx.js"></script>

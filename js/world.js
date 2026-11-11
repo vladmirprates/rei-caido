@@ -81,7 +81,9 @@ function makeAlly(type, x, y, fromX, fromY){
   // allies grow with the hero: level (life and damage) and half of the hero's bonus damage from gear and talents
   const lv = HERO ? HERO.level : 1, bonusDmg = Math.floor(Math.max(0, st.dmg-2)/2);
   const hp = (type==='P' ? 4+(sturdy?3:0) : 9) + Math.floor(lv*.6);
-  return {id:++uid, type, x, y, rx:fromX??x, ry:fromY??y, lx:0, ly:0, hp, maxHp:hp, dmg: (type==='P' ? 2+(sturdy?1:0) : 3) + Math.floor(lv/6) + bonusDmg};
+  const fury = st.undeadFury, hpF = fury ? Math.round(hp*1.25) : hp;
+  if (st.soulTithe && S && S.player){ heal(4); S.shield += 2; }
+  return {id:++uid, type, x, y, rx:fromX??x, ry:fromY??y, lx:0, ly:0, hp:hpF, maxHp:hpF, dmg: (type==='P' ? 2+(sturdy?1:0) : 3) + Math.floor(lv/6) + bonusDmg + (fury ? 2 : 0)};
 }
 function makeBoss(id, x, y){
   const B = BOSSES[id], side = S.color==='w' ? 'dark' : 'holy';
@@ -135,7 +137,7 @@ function placePack(){
     if (spots.length<3) continue;
     for (const [x,y] of spots.slice(0, 3+rint(2))){
       const e = makeEnemy('P', x, y);
-      e.fodder = true; e.label = $t('Lacaio', 'Minion'); e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp*.4)); e.dmg = Math.max(1, e.dmg-1);
+      e.fodder = true; e.label = $t('Lacaio', 'Minion'); e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp*.4)); e.dmg = Math.max(1, Math.round(e.dmg*.5));   // minions are fodder: half the damage
       e.mods = e.mods.filter(m => m!=='submerge');
       S.enemies.push(e);
     }
@@ -310,21 +312,21 @@ function nextFloor(){
   const plan = floorPlan();
   Object.assign(S, {biome:plan.biome, bossId:plan.boss, lvl:plan.lvl, act:plan.act, af:plan.af,
     walls:new Set(), terrain:new Map(), items:[], stairs:null, enemies:[], linked:null, fleeUsed:false, untouchable:false, supPromoUsed:false, crownReady:true, crownAt:0, fire:new Map(), burn:new Map(),
-    env:null, rise:null, clock:null, clocks:0, tide:false, loneSince:null, tideRise:null, bloodRain:null, tideIra:0, tideGoal:8, horde:null, sight:0, risen:0, rift:null, riftShardsRun:0, firstHitDone:false, chess:null, hits:[], timeStop:0, fseed:Math.floor(Math.random()*1e9), bossRelics:null, floorCleared:false, bossKilledThisFloor:false});
+    env:null, rise:null, clock:null, clocks:0, tide:false, loneSince:null, tideRise:null, bloodRain:null, tideIra:0, tideGoal:8, horde:null, corpses:[], sight:0, risen:0, rift:null, riftShardsRun:0, firstHitDone:false, chess:null, hits:[], timeStop:0, fseed:Math.floor(Math.random()*1e9), bossRelics:null, floorCleared:false, bossKilledThisFloor:false});
   const keep = S.allies.filter(a => !a.spectral); S.allies = [];
   if (plan.boss) genArena(plan.boss); else if (S.exp.kind==='tutorial') genTutorial(); else genRandomFloor();
   placeAllies(keep);
   const st = stats();
   if (S.floor>1) S.player.hp = Math.min(st.hp, S.player.hp+5);
   if (st.gambit) S.player.hp = Math.max(1, Math.min(S.player.hp, Math.ceil(st.hp/2)));
-  Object.assign(S, {nullHit:!!st.aegisFirst, nextBonus:0, floorBonus:0, pactUsed:false, promoted:false, lastStandUsed:false});
+  Object.assign(S, {nullHit:!!st.aegisFirst, nextBonus:0, floorBonus:st.vanguard ? 2 : 0, pactUsed:false, promoted:false, lastStandUsed:false, lastBreathUsed:false});
   S.shield = st.shield + (st.bulwark ? 6 : 0) + (st.g_dragona ? 3 : 0);
   S.cds = {}; for (const id of barSkills()) S.cds[id] = 0;
   S.actions = 1 + (st.firstStrike ? 1 : 0); S.mode = 'move'; S.turn = 1;
   newRound();
-  if (st.royalGuard) for (let i=0;i<2 && S.allies.length<MAX_ALLIES;i++){ const f = freeAdj(); if (f.length) S.allies.push(makeAlly('P', f[0][0], f[0][1])); }
+  if (st.royalGuard) for (let i=0;i<2 && S.allies.length<allyCap();i++){ const f = freeAdj(); if (f.length) S.allies.push(makeAlly('P', f[0][0], f[0][1])); }
   // Veil of the Royal Guard: two spectral pawns that only last this floor
-  if (st.spectralGuard) for (let i=0;i<2 && S.allies.length<MAX_ALLIES;i++){ const f = freeAdj(); if (f.length) S.allies.push(Object.assign(makeAlly('P', f[0][0], f[0][1]), {spectral:true})); }
+  if (st.spectralGuard) for (let i=0;i<2 && S.allies.length<allyCap();i++){ const f = freeAdj(); if (f.length) S.allies.push(Object.assign(makeAlly('P', f[0][0], f[0][1]), {spectral:true})); }
   if (S.exp.kind==='daily') S.turnLimit = S.enemies.length*2 + 3;
   planIntents(S.color==='w');
   S.phase = 'player';

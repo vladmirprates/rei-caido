@@ -116,6 +116,8 @@ const RES_KEY = {fire:'resFire', cold:'resCold', light:'resLight'};
    Runes are support modifiers found as loot and socketed into one skill each, in the camp. */
 const SKILL_UNLOCK = [1, 1, 4, 8];
 const BAR_MAX = 3;
+// the three ascension skills of each class join its pool (level unlocks, picked freely like any other skill)
+const ASC_UNLOCK = [2, 5, 10];
 const RUNES = {
   pressa:  {name:$t('Runa da Pressa', 'Rune of Haste'),  d:$t('A habilidade recarrega 1 turno mais rápido.', 'The skill recharges 1 turn faster.')},
   eco:     {name:$t('Runa do Eco', 'Rune of Echo'),     d:$t('30% de chance de a habilidade não entrar em recarga.', '30% chance the skill does not go on cooldown.')},

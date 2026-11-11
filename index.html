@@ -330,13 +330,21 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 
 /* ----- game ----- */
 .game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
-.bossinfo{display:flex;flex-direction:column;gap:12px;min-width:0;grid-column:1/-1;order:3}
+.leftcol{display:flex;flex-direction:column;gap:18px;min-width:0;grid-column:1/-1;order:3}
+.bossinfo{display:flex;flex-direction:column;gap:12px;min-width:0}
 .board-col{order:1} .panel{order:2}
-@media (min-width:1240px){
-  .wrap:has(.game.has-boss:not([hidden])){max-width:1420px}
-  .game.has-boss{grid-template-columns:260px minmax(0,1fr) 300px}
-  .game.has-boss .bossinfo{grid-column:auto;order:0}
+@media (min-width:1100px){
+  .wrap:has(.game:not([hidden])){max-width:1420px}
+  .game{grid-template-columns:260px minmax(0,1fr) 300px}
+  .leftcol{grid-column:auto;order:0}
 }
+.gearicons{display:flex;gap:8px;flex-wrap:wrap}
+.itile.gt{width:48px;height:48px;min-height:0;padding:0;justify-content:center;cursor:help;gap:0}
+.itile.gt .sicon{width:28px;height:28px}
+.itile.gt .iname{display:none}
+.ttip ul{margin:2px 0 0;padding:0;list-style:none;color:var(--ash);font-size:.82rem;display:flex;flex-direction:column;gap:2px}
+.ttip li.rule{color:var(--ember)}
+.leftcol .log h2{font-family:var(--f-display);font-weight:400;font-size:1.1rem;color:var(--bone);margin:0 0 10px}
 .bi-card{border:1px solid #4a2a22;background:linear-gradient(var(--stone-2),var(--stone));padding:12px;display:flex;flex-direction:column;gap:8px}
 .bi-card h2{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:0;color:#e04a3a;line-height:1.1}
 .bi-card h2.holy{color:#f0d68c}
@@ -442,6 +450,7 @@ canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipula
 .tip .to{color:var(--ember);font-weight:500} .tip .to.kill{color:#ffb27a}
 .tip .tw{color:#ecd36a}
 .chips2{display:flex;flex-wrap:wrap;gap:4px}
+.rulechips{margin-bottom:8px}
 .mchip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--mc,#4a3b30);padding:1px 7px 1px 3px;font-size:.74rem;color:var(--bone);background:rgba(10,6,4,.5)}
 .mchip svg{width:15px;height:15px;stroke:var(--mc,#cdbb9c);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;fill:none}
 .tip .thint{font-size:.68rem;color:#6d6156;letter-spacing:.06em}
@@ -479,7 +488,13 @@ canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipula
   <section class="screen" id="scrCamp" hidden></section>
 
   <div class="game" id="scrGame" hidden>
-    <aside class="bossinfo" id="bossInfo" hidden aria-label="Informações do chefe" data-en-aria="Boss information"></aside>
+    <div class="leftcol">
+      <aside class="bossinfo" id="bossInfo" hidden aria-label="Informações do chefe" data-en-aria="Boss information"></aside>
+      <section class="log">
+        <h2 data-en="Chronicle">Crônica</h2>
+        <ol id="log"></ol>
+      </section>
+    </div>
     <div class="board-col">
       <div class="bossbar" id="bossBar" hidden>
         <div class="bb-name" id="bbName"></div>
@@ -524,10 +539,6 @@ canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipula
         <h2 data-en="Gear">Equipamento</h2>
         <div id="gear"></div>
       </section>
-      <section class="log">
-        <h2 data-en="Chronicle">Crônica</h2>
-        <ol id="log"></ol>
-      </section>
       <button class="ghost sm quit" id="btnQuit" type="button" data-en="Abandon expedition">Desistir da expedição</button>
       <button class="ghost sm" id="btnSound" type="button">Som: ligado (M)</button>
     </aside>
@@ -552,8 +563,13 @@ canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipula
 <script src="js/combat.js"></script>
 <script src="js/chess.js"></script>
 <script src="js/events.js"></script>
+<script src="js/ascend.js"></script>
+<script src="js/ascend2.js"></script>
+<script src="js/skilltree.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/render.js"></script>
+<script src="js/vfx.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/treeui.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-/* Rei Caído — sound effects, synthesized with Web Audio (no audio files).
+/* Rei Caído — sound effects: recorded impact samples (sfx/) plus sounds synthesized with Web Audio.
    sfx(name, opt) plays a short sound; the same sound is not repeated within 35 ms (area attacks stay clean). */
 let AC = null, master = null;
 const lastPlay = {};
@@ -52,7 +52,28 @@ const SFX = {
   level:   (t, o) => { [523, 659, 784, 1047].forEach((f,i) => tone(t + i*.08, 'triangle', f, 0, .4, .16)); },
   win:     (t, o) => { [392, 523, 659, 784].forEach((f,i) => tone(t + i*.1, 'triangle', f, 0, .5, .17)); }
 };
+// recorded impact sounds (sfx/, Kenney CC0) on top of the synthesized ones: anything without a sample, or whose file fails to load, stays synthesized
+const sfxSet = (n, k) => Array.from({length:k}, (_, i) => `sfx/${n}_00${i}.ogg`);
+const SAMPLES = {
+  move:{f:sfxSet('impactWood_light',5), vol:.7}, emove:{f:sfxSet('impactWood_light',5), vol:.35, rate:.85},
+  jump:{f:sfxSet('impactWood_medium',3), vol:.7, delay:.1}, slide:{f:sfxSet('footstep_wood',2), vol:.5},
+  chess:{f:sfxSet('impactWood_light',5), vol:.7, rate:1.1}, hit:{f:sfxSet('impactPunch_medium',3), vol:.55},
+  crit:{f:sfxSet('impactPunch_heavy',2), vol:.7}, kill:{f:sfxSet('impactWood_heavy',3), vol:.75},
+  hurt:{f:sfxSet('impactSoft_heavy',2), vol:.7}, boss:{f:sfxSet('impactBell_heavy',1), vol:.8}, block:{f:sfxSet('impactMetal_light',2), vol:.55}
+};
+const badSample = {};
 function sfx(name, o){
+  const s = SAMPLES[name];
+  if (!s || badSample[name] || !soundOn()) return synthSfx(name, o);
+  const t = performance.now();
+  if (lastPlay['s:'+name] && t - lastPlay['s:'+name] < 35) return;
+  lastPlay['s:'+name] = t;
+  const src = s.f[Math.floor(Math.random()*s.f.length)], d = ((o && o.delay) || 0) + (s.delay || 0);
+  const go = () => { try { const el = new Audio(src); el.volume = s.vol*.9; if (s.rate){ el.preservesPitch = false; el.playbackRate = s.rate; }
+    const p = el.play(); if (p && p.catch) p.catch(() => { badSample[name] = true; synthSfx(name, o); }); } catch(e){ badSample[name] = true; synthSfx(name, o); } };
+  if (d > 0) setTimeout(go, d*1000); else go();
+}
+function synthSfx(name, o){
   if (!soundOn() || !SFX[name]) return;
   const ac = audio(); if (!ac) return;
   if (ac.state==='suspended') ac.resume();

@@ -1,0 +1,38 @@
+(async()=>{
+ const sl = (n=10)=>new Promise(r=>{let k=0;const f=()=>{if(++k>=n)r();else setImmediate(f)};setImmediate(f)});
+ const ok = (c, m) => console.log(c ? 'OK  ' : 'FALHA', m);
+ const h = newHero('R', 'Q', 'w', 'normal'); Object.assign(h, {level:40, tutorialDone:true, actDone:4, riftShards:100, checkSeals:0}); SAVE.heroes.push(h); HERO = h;
+ ok(canUber(h,'rift') && !canUber(h,'queen'), 'custo: Fenda (60 estilhacos) liberada, Rainha (45 + 3 selos) nao');
+ // ---- the conveyor
+ startExpedition({kind:'uber', boss:'rift'}); await sl();
+ const belts = [...S.terrain.values()].filter(t => t==='belt').length;
+ ok(W===9 && !!S.corr && S.corr.belt && !S.bossId, 'andar 1 e a Esteira: ' + W + 'x' + H + ', casas de esteira ' + belts + ', minions ' + S.enemies.length + ', quota ' + S.corr.need);
+ ok(S.enemies.every(e => e.corr), 'todos os inimigos sao lacaios da Esteira (hp ' + [...new Set(S.enemies.map(e=>e.hp))].join(',') + ')');
+ ok(S.player.y===H-2 && S.player.x===4, 'jogador comeca embaixo: ' + S.player.x + ',' + S.player.y);
+ // belt carries things down every 2 turns
+ S.enemies = []; S.player.y = 4; const e1 = corrMinionStats(makeEnemy('P', 1, 1)); S.enemies.push(e1); const y0 = e1.y, py0 = S.player.y;
+ corridorTick(); ok(e1.y===y0 && S.player.y===py0, 'turno 1: a esteira ainda nao andou');
+ corridorTick(); ok(e1.y===y0+1 && S.player.y===py0+1, 'turno 2: a esteira carrega todos 1 casa: lacaio ' + y0 + '->' + e1.y + ', jogador ' + py0 + '->' + S.player.y);
+ // bottom row: player stays, minions fall
+ S.player.y = H-1; const e2 = corrMinionStats(makeEnemy('P', 6, H-1)); S.enemies.push(e2); const k0 = S.corr.killed;
+ corridorTick(); corridorTick();
+ ok(S.player.y===H-1 && !S.enemies.includes(e2) && S.corr.killed===k0+1, 'na borda de baixo o jogador fica e o lacaio cai (conta como abate: ' + k0 + '->' + S.corr.killed + ')');
+ // waves come from the top
+ S.enemies = []; S.player.x = 4; S.player.y = H-2; S.corr.spawned = 0; corridorWave(false);
+ ok(S.enemies.length>=4 && S.enemies.every(e => e.y<=2), 'ondas nascem no topo: ' + S.enemies.length + ' lacaios nas linhas ' + [...new Set(S.enemies.map(e=>e.y))].join(','));
+ // exit
+ S.corr.killed = S.corr.need - 1; const e3 = corrMinionStats(makeEnemy('P', 2, 5)); S.enemies.push(e3); damageEnemy(e3, 99, 'player');
+ ok(S.corr.open && S.stairs && S.stairs.y===0, 'a saida abre no topo ao chegar na quota: escada em ' + (S.stairs && S.stairs.x + ',' + S.stairs.y));
+ // ---- the arena
+ nextFloor(); await sl();
+ ok(S.bossId==='rift' && W===8 && !S.corr && !!S.rb, 'andar 2 e a Arena: ' + W + 'x' + H + ', fendas ' + S.rb.rifts.length);
+ const boss = S.enemies.find(e => e.bossId==='rift'); ok(!!boss && boss.type==='B' && boss.uber, 'boss: hp ' + boss.hp + ' dano ' + boss.dmg + ' (antes ~675 de vida)');
+ const hp0 = boss.hp; S.turn = 10; damageEnemy(boss, 100, 'player'); const lost = hp0 - boss.hp;
+ ok(lost===55, 'armadura da Fenda (3 Fendas = -45%): 100 virou ' + lost);
+ S.rb.phase = 2; S.rb.turn = 1; while (S.rb.rifts.length<2) openBossRift(2+S.rb.rifts.length, 6); planRiftBoss();
+ ok(S.rb.beam && S.rb.danger.length>=2, 'fase 2: linha telegrafada');
+ const hpP = S.player.hp; S.player.x = S.rb.beam[1][0]; S.player.y = S.rb.beam[1][1]; resolveRiftBoss(); ok(S.player.hp < hpP, 'a linha causa dano: ' + hpP + ' -> ' + S.player.hp + ' (menor que antes: ~10)');
+ refreshDanger(); ok(S.dangerPurple instanceof Set, 'casas de perigo do boss sao roxas: ' + S.dangerPurple.size + ' (inclui ' + (S.rb.danger||[]).length + ' da Fenda)');
+ boss.intent = {kind:'attack', sq:[[1,1],[2,2]]}; refreshDanger(); ok(S.dangerPurple.has(key(1,1)) && S.dangerPurple.has(key(2,2)), 'o ataque do proprio boss tambem e roxo');
+ process.exit(0);
+})().catch(e=>{console.log('FATAL', e.stack); process.exit(1)});
