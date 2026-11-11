@@ -53,7 +53,8 @@ const SFX = {
   win:     (t, o) => { [392, 523, 659, 784].forEach((f,i) => tone(t + i*.1, 'triangle', f, 0, .5, .17)); }
 };
 // recorded impact sounds (sfx/, Kenney CC0) on top of the synthesized ones: anything without a sample, or whose file fails to load, stays synthesized
-const sfxSet = (n, k) => Array.from({length:k}, (_, i) => `sfx/${n}_00${i}.ogg`);
+// WAV (not Ogg): every browser decodes it, including phones that cannot play Ogg Vorbis (they used to fall back to the synthesized sounds)
+const sfxSet = (n, k) => Array.from({length:k}, (_, i) => `sfx/${n}_00${i}.wav`);
 const SAMPLES = {
   move:{f:sfxSet('impactWood_light',5), vol:.7}, emove:{f:sfxSet('impactWood_light',5), vol:.35, rate:.85},
   jump:{f:sfxSet('impactWood_medium',3), vol:.7, delay:.1}, slide:{f:sfxSet('footstep_wood',2), vol:.5},
@@ -72,6 +73,14 @@ function loadSample(f){
 }
 function preloadSamples(){ for (const k in SAMPLES) for (const f of SAMPLES[k].f) loadSample(f); }
 if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', preloadSamples);
+const _el = {};
+function playEl(f, s, o, name){
+  try {
+    const base = _el[f] || (_el[f] = new Audio(f)), el = base.cloneNode();
+    el.volume = s.vol*.9; if (s.rate){ el.preservesPitch = false; el.playbackRate = s.rate; }
+    const p = el.play(); if (p && p.catch) p.catch(() => { badSample[name] = true; synthSfx(name, o); });
+  } catch(e){ badSample[name] = true; synthSfx(name, o); }
+}
 const _ready = b => b && b !== 'loading' && b !== 'bad';
 function sfx(name, o){
   const s = SAMPLES[name];
@@ -82,7 +91,11 @@ function sfx(name, o){
   const ready = s.f.filter(f => _ready(_buf[f]));
   if (!ready.length){
     preloadSamples();
-    if (s.f.every(f => _buf[f]==='bad')){ badSample[name] = true; return synthSfx(name, o); }
+    if (s.f.every(f => _buf[f]==='bad')){   // decoding is not possible here (for example a page opened from a file): play it through an audio element instead
+      lastPlay['s:'+name] = t;
+      const f = s.f[Math.floor(Math.random()*s.f.length)], d = ((o && o.delay) || 0) + (s.delay || 0), go = () => playEl(f, s, o, name);
+      if (d > 0) setTimeout(go, d*1000); else go();
+    }
     return;   // still decoding: stay silent instead of playing a different sound
   }
   lastPlay['s:'+name] = t;

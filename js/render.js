@@ -298,7 +298,7 @@ const hh = (x,y,i) => {
 };
 const LOOK = {
   crypt:    {a:'#40352b', b:'#2c241d', dark:'8,5,3',  dim:.6,  reach:.68},
-  swamp:    {a:'#323d2b', b:'#222b1e', dark:'4,10,7', dim:.66, reach:.62},
+  swamp:    {a:'#3b4a32', b:'#2a3624', dark:'5,12,8', dim:.52, reach:.74},
   forge:    {a:'#382821', b:'#241914', dark:'16,3,0', dim:.6,  reach:.72},
   cathedral:{a:'#5b6573', b:'#2c333e', dark:'6,10,22',dim:.42, reach:.95},
   storm:    {a:'#3d475b', b:'#283042', dark:'3,7,18',  dim:.6,  reach:.8},
@@ -337,8 +337,20 @@ function paintFloor(c){
     c.fillStyle = light ? L.a : L.b; c.fillRect(px,py,T,T);
     const v = r(1)-.5;
     c.fillStyle = v>0 ? `rgba(255,240,220,${v*.08})` : `rgba(0,0,0,${-v*.22})`; c.fillRect(px,py,T,T);
+    // a soft light from the upper left on every square (real depth instead of a flat color)
+    { const bg = c.createLinearGradient(px, py, px+T, py+T); bg.addColorStop(0, 'rgba(255,248,235,.06)'); bg.addColorStop(1, 'rgba(0,0,0,.14)'); c.fillStyle = bg; c.fillRect(px, py, T, T); }
+    // a little grain on everything
+    c.fillStyle = 'rgba(255,255,255,.05)'; for (let i=0;i<6;i++) c.fillRect(px + T*r(100+i), py + T*r(110+i), 1.2, 1.2);
+    c.fillStyle = 'rgba(0,0,0,.18)'; for (let i=0;i<6;i++) c.fillRect(px + T*r(120+i), py + T*r(130+i), 1.4, 1.4);
     if (b==='crypt'){
+      // flagstones: a split slab, chips, cracks, lichen in the joints, damp sheen, rubble, old blood, the odd bone or skull
+      if (r(60)<.45){ const sx = px + T*(.3 + r(61)*.4), dx = (r(62)-.5)*T*.1; c.strokeStyle = 'rgba(0,0,0,.42)'; c.lineWidth = 1.3; c.beginPath(); c.moveTo(sx, py); c.lineTo(sx+dx, py+T); c.stroke(); c.strokeStyle = 'rgba(255,240,220,.07)'; c.beginPath(); c.moveTo(sx+1.6, py); c.lineTo(sx+1.6+dx, py+T); c.stroke(); }
       if (r(2)<.5){ c.strokeStyle='rgba(0,0,0,.5)'; c.lineWidth=1; crackPath(c,px,py,i=>r(20+i),3); c.stroke(); }
+      for (let i=0;i<2;i++) if (r(140+i)<.5){ const cx0 = px + T*(.1 + r(142+i)*.8), cy0 = py + T*(.1 + r(144+i)*.8), s = T*(.03 + r(146+i)*.04);
+        c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.moveTo(cx0, cy0 - s); c.lineTo(cx0 + s*1.2, cy0 + s*.3); c.lineTo(cx0 - s*.6, cy0 + s); c.closePath(); c.fill();
+        c.fillStyle = 'rgba(255,240,220,.1)'; c.fillRect(cx0 - s*.6, cy0 - s*.6, s*.5, 1); }
+      if (r(63)<.3){ const lx = px + T*r(64), ly = py + T*r(65); blot(c, lx, ly, T*(.18 + r(66)*.2), '92,112,72', .3); c.fillStyle = 'rgba(130,160,90,.5)'; for (let i=0;i<5;i++) c.fillRect(lx + (r(150+i)-.5)*T*.3, ly + (r(155+i)-.5)*T*.3, 1.6, 1.6); }
+      if (r(67)<.25){ c.fillStyle = 'rgba(170,195,210,.07)'; c.beginPath(); c.ellipse(px + T*(.3 + r(68)*.4), py + T*(.3 + r(69)*.4), T*.22, T*.09, r(70)*3, 0, Math.PI*2); c.fill(); }
       if (r(13)<.12) blot(c, px+T*r(14), py+T*r(15), T*.35, '70,14,8', .4);
       if (r(12)<.14){
         const bx=px+T*(.25+r(16)*.5), by=py+T*(.25+r(17)*.5), a=r(18)*Math.PI, l=T*.11;
@@ -346,6 +358,10 @@ function paintFloor(c){
         c.beginPath(); c.moveTo(bx-Math.cos(a)*l,by-Math.sin(a)*l); c.lineTo(bx+Math.cos(a)*l,by+Math.sin(a)*l); c.stroke();
         c.fillStyle='rgba(196,182,156,.55)';
         for (const s of [-1,1]){ c.beginPath(); c.arc(bx+s*Math.cos(a)*l, by+s*Math.sin(a)*l, T*.03, 0, Math.PI*2); c.fill(); }
+      } else if (r(68)<.035){
+        const sx = px + T*(.3 + r(160)*.4), sy = py + T*(.35 + r(161)*.3), s = T*.07;   // a small skull
+        c.fillStyle = 'rgba(200,190,168,.6)'; c.beginPath(); c.arc(sx, sy, s, 0, Math.PI*2); c.fill(); c.fillRect(sx - s*.55, sy + s*.5, s*1.1, s*.7);
+        c.fillStyle = 'rgba(20,14,10,.8)'; c.beginPath(); c.arc(sx - s*.35, sy, s*.26, 0, Math.PI*2); c.arc(sx + s*.35, sy, s*.26, 0, Math.PI*2); c.fill();
       }
       c.fillStyle='rgba(0,0,0,.25)';
       for (let i=0;i<4;i++) c.fillRect(px+T*r(30+i), py+T*r(40+i), T*.04, T*.04);
@@ -360,13 +376,20 @@ function paintFloor(c){
       }
       if (r(20)<.25){ c.fillStyle='rgba(120,120,105,.45)'; c.beginPath(); c.ellipse(px+T*r(21),py+T*r(22),T*.035,T*.025,0,0,Math.PI*2); c.fill(); }
     } else if (b==='forge'){
+      // basalt plates with beveled edges and rivets, glowing cracks, ash and soot, scattered embers, scratched metal
+      c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 1.5; c.strokeRect(px + T*.07, py + T*.07, T*.86, T*.86);
+      c.strokeStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.moveTo(px + T*.07, py + T*.93); c.lineTo(px + T*.93, py + T*.93); c.lineTo(px + T*.93, py + T*.07); c.stroke();
       if (r(2)<.45) blot(c, px+T*r(3), py+T*r(4), T*.4, '0,0,0', .45);
+      if (r(90)<.2) blot(c, px + T*r(91), py + T*r(92), T*.32, '170,160,150', .12);
       if (r(5)<.4){
         c.shadowColor='rgba(255,110,30,.9)'; c.shadowBlur=T*.12;
         c.strokeStyle='rgba(255,110,40,.6)'; c.lineWidth=Math.max(1.2,T*.025); crackPath(c,px,py,i=>r(50+i),4); c.stroke();
         c.shadowBlur=0; c.strokeStyle='rgba(255,220,140,.5)'; c.lineWidth=.8; crackPath(c,px,py,i=>r(50+i),4); c.stroke();
       }
-      if (light){ c.fillStyle='rgba(0,0,0,.45)'; for (const [ax,ay] of [[.1,.1],[.9,.1],[.1,.9],[.9,.9]]){ c.beginPath(); c.arc(px+T*ax,py+T*ay,T*.025,0,Math.PI*2); c.fill(); } }
+      c.fillStyle='rgba(0,0,0,.5)'; c.strokeStyle='rgba(255,255,255,.1)'; c.lineWidth = 1;
+      for (const [ax,ay] of [[.13,.13],[.87,.13],[.13,.87],[.87,.87]]){ c.beginPath(); c.arc(px+T*ax,py+T*ay,T*.028,0,Math.PI*2); c.fill(); c.stroke(); }
+      if (r(93)<.3){ c.strokeStyle = 'rgba(200,200,210,.14)'; c.lineWidth = 1; c.beginPath(); for (let i=0;i<3;i++){ const yy = py + T*(.2 + r(94+i)*.6); c.moveTo(px + T*.2, yy); c.lineTo(px + T*(.45 + r(97+i)*.3), yy + (r(100+i)-.5)*T*.1); } c.stroke(); }
+      if (r(101)<.3){ c.fillStyle = 'rgba(255,150,50,.7)'; for (let i=0;i<3;i++) c.fillRect(px + T*r(102+i), py + T*r(105+i), 1.6, 1.6); }
       if (r(8)<.07){
         const g=c.createRadialGradient(px+T/2,py+T/2,0,px+T/2,py+T/2,T*.35); g.addColorStop(0,'rgba(255,120,30,.55)'); g.addColorStop(1,'rgba(120,20,0,.2)');
         c.fillStyle=g; c.fillRect(px+T*.2,py+T*.2,T*.6,T*.6);
@@ -374,10 +397,14 @@ function paintFloor(c){
         c.beginPath(); for (let k=1;k<4;k++){ c.moveTo(px+T*(.2+k*.15),py+T*.2); c.lineTo(px+T*(.2+k*.15),py+T*.8); } c.stroke();
       }
     } else if (b==='cathedral'){
+      // polished marble: veins, a diagonal sheen, a gold inlay, frost in the corners, the odd carved cross
       c.strokeStyle = light ? 'rgba(255,255,255,.16)' : 'rgba(150,175,210,.12)'; c.lineWidth=1;
       for (let k=0;k<2;k++){ c.beginPath(); c.moveTo(px, py+T*r(2+k)); c.bezierCurveTo(px+T*.3,py+T*r(4+k),px+T*.7,py+T*r(6+k),px+T,py+T*r(8+k)); c.stroke(); }
+      if (r(110)<.55){ c.strokeStyle = 'rgba(95,112,140,.22)'; c.lineWidth = 1.8; c.beginPath(); c.moveTo(px + T*r(111), py); c.bezierCurveTo(px + T*r(112), py + T*.35, px + T*r(113), py + T*.65, px + T*r(114), py + T); c.stroke(); c.strokeStyle = 'rgba(255,255,255,.14)'; c.lineWidth = .8; c.stroke(); }
+      { const sg = c.createLinearGradient(px, py, px + T, py + T); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(.45, light ? 'rgba(255,255,255,.12)' : 'rgba(200,220,255,.07)'); sg.addColorStop(.55, 'rgba(255,255,255,0)'); c.fillStyle = sg; c.fillRect(px, py, T, T); }
       if (r(10)<.5) blot(c, px+(r(11)<.5?0:T), py+(r(12)<.5?0:T), T*.65, '225,240,255', .3);
-      if (light){ c.strokeStyle='rgba(227,200,140,.13)'; c.lineWidth=1; c.strokeRect(px+T*.1,py+T*.1,T*.8,T*.8); }
+      if (light){ c.strokeStyle='rgba(227,200,140,.15)'; c.lineWidth=1; c.strokeRect(px+T*.1,py+T*.1,T*.8,T*.8); }
+      if (r(92)<.06){ c.strokeStyle = 'rgba(227,200,140,.3)'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(px + T*.5, py + T*.3); c.lineTo(px + T*.5, py + T*.7); c.moveTo(px + T*.38, py + T*.42); c.lineTo(px + T*.62, py + T*.42); c.stroke(); }
     } else if (b==='storm'){
       if (r(2)<.35) blot(c, px+T*r(3), py+T*r(4), T*(.25+r(5)*.2), '130,165,220', .2);
       if (r(6)<.45){ c.strokeStyle='rgba(0,0,0,.4)'; c.lineWidth=1; crackPath(c,px,py,i=>r(20+i),3); c.stroke(); }
@@ -451,11 +478,182 @@ function tufts(px, py, T, x, y, col, n){
   for (let i=0;i<n;i++){ const bx = px + T*(x + (i/(n-1||1)-.5)*.34), l = T*(.05 + hh(px|0, py|0, 170+i)*.05); ctx.moveTo(bx, py + T*y); ctx.lineTo(bx + (i%2 ? 1 : -1)*T*.015, py + T*y - l); }
   ctx.stroke();
 }
+/* ---------- walls of the four campaign biomes: three looks each, drawn once into a cached sprite ---------- */
+const mkRng = seed => () => (seed = (seed*1664525 + 1013904223) >>> 0) / 4294967296;
+const _wsCache = new Map();
+// a sprite with the tile's top-left corner at (T*.25, T*.6), so tall things (tree crowns) can rise above their square
+function wallSpr(key, T, paint){
+  const k = key + '|' + Math.round(T*dpr); let s = _wsCache.get(k); if (s) return s;
+  if (_wsCache.size > 90) _wsCache.clear();
+  const w = Math.ceil(T*1.5*dpr), h = Math.ceil(T*1.7*dpr), cvs = document.createElement('canvas'); cvs.width = w; cvs.height = h;
+  const g = cvs.getContext('2d'); g.scale(dpr, dpr); g.translate(T*.25, T*.6); g.lineCap = 'round'; g.lineJoin = 'round';
+  paint(g, T); s = {cv:cvs, ox:T*.25, oy:T*.6, w:w/dpr, h:h/dpr}; _wsCache.set(k, s); return s;
+}
+// a lump of foliage: lit from the upper left, with small leaf marks on it
+function leafBlob(g, T, cx, cy, rad, cols, rnd){
+  const R = rad*T, X = cx*T, Y = cy*T, gr = g.createRadialGradient(X - R*.3, Y - R*.38, R*.08, X, Y, R);
+  gr.addColorStop(0, cols[2]); gr.addColorStop(.55, cols[1]); gr.addColorStop(1, cols[0]);
+  g.fillStyle = gr; g.beginPath(); g.ellipse(X, Y, R, R*.82, 0, 0, Math.PI*2); g.fill();
+  for (let i=0;i<12;i++){ const a = rnd()*6.28, d = Math.sqrt(rnd())*.85; g.fillStyle = rnd() < .5 ? 'rgba(190,230,120,.35)' : 'rgba(10,30,10,.3)'; g.beginPath(); g.ellipse(X + Math.cos(a)*R*d, Y + Math.sin(a)*R*d*.8, R*.13, R*.07, rnd()*3, 0, Math.PI*2); g.fill(); }
+}
+function taperTrunk(g, T, x0, y0, x1, y1, w0, w1, cols){
+  const gg = g.createLinearGradient((x0-w0)*T, 0, (x0+w0)*T, 0); gg.addColorStop(0, cols[0]); gg.addColorStop(.45, cols[1]); gg.addColorStop(1, cols[2]);
+  g.fillStyle = gg; g.beginPath(); g.moveTo((x0-w0)*T, y0*T); g.quadraticCurveTo((x0-w0*.55)*T, (y0+y1)/2*T, (x1-w1)*T, y1*T); g.lineTo((x1+w1)*T, y1*T); g.quadraticCurveTo((x0+w0*.55)*T, (y0+y1)/2*T, (x0+w0)*T, y0*T); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.28)'; g.lineWidth = 1; g.beginPath(); for (const k of [-.45,.05,.5]){ g.moveTo((x0 + w0*k)*T, y0*T); g.quadraticCurveTo((x0 + w0*k*.8)*T, (y0+y1)/2*T, (x1 + w1*k)*T, y1*T); } g.stroke();
+}
+const SW_GREEN = [['#1c3320','#34592c','#7ba64e'], ['#22402a','#3f6d34','#8fbb58'], ['#2a4624','#4a7a36','#a2cc62']];
+const WALLPAINT = {
+  // Drowned Swamp: a weeping willow, a mangrove on its roots, a gnarled oak with vines
+  swamp0(g, T, rnd){
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(T*.5, T*.9, T*.36, T*.08, 0, 0, Math.PI*2); g.fill();
+    g.strokeStyle = '#2b2016'; g.lineWidth = T*.05; g.beginPath(); for (const s of [-1,1]){ g.moveTo((.5 + s*.05)*T, .8*T); g.quadraticCurveTo((.5 + s*.16)*T, .86*T, (.5 + s*.25)*T, .91*T); } g.stroke();
+    taperTrunk(g, T, .5, .9, .5, .34, .11, .07, ['#241a12', '#5e4a32', '#1a120b']);
+    for (const [x,y,r,c] of [[.5,.14,.26,0],[.28,.28,.2,0],[.72,.28,.2,0],[.4,.06,.2,1],[.62,.08,.2,1],[.5,.26,.22,1],[.34,.2,.16,2],[.64,.2,.16,2],[.5,.1,.14,2]]) leafBlob(g, T, x, y, r, SW_GREEN[c], rnd);
+    for (let i=0;i<20;i++){ const x0 = .5 + (rnd()-.5)*.62, y0 = .2 + rnd()*.18, L = .24 + rnd()*.26, sw = (rnd()-.5)*.08;
+      g.strokeStyle = i%3 ? 'rgba(74,120,56,.9)' : 'rgba(120,168,78,.85)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x0*T, y0*T); g.quadraticCurveTo((x0 + sw)*T, (y0 + L*.5)*T, (x0 + sw*1.6)*T, (y0 + L)*T); g.stroke();
+      g.fillStyle = 'rgba(150,200,90,.8)'; for (let k=1;k<=4;k++){ const q = k/4.4; g.beginPath(); g.ellipse((x0 + sw*1.5*q*q)*T, (y0 + L*q)*T, T*.022, T*.011, .8, 0, Math.PI*2); g.fill(); } }
+    g.fillStyle = 'rgba(96,146,64,.8)'; g.beginPath(); g.ellipse(T*.5, T*.88, T*.22, T*.05, 0, 0, Math.PI*2); g.fill();
+  },
+  swamp1(g, T, rnd){   // bald cypress: a flared trunk with knees, tiers of foliage and short hanging moss
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(T*.5, T*.9, T*.36, T*.08, 0, 0, Math.PI*2); g.fill();
+    for (const [kx, kh] of [[.28,.08],[.38,.12],[.64,.1],[.74,.07]]){ g.fillStyle = '#4b3a28'; g.beginPath(); g.moveTo((kx-.03)*T, .9*T); g.lineTo(kx*T, (.9-kh)*T); g.lineTo((kx+.03)*T, .9*T); g.closePath(); g.fill(); }
+    taperTrunk(g, T, .5, .9, .5, .3, .13, .06, ['#22190f', '#5a4630', '#17100a']);
+    for (const [x,y,r,c] of [[.5,.52,.27,0],[.28,.56,.15,0],[.72,.56,.15,0],[.5,.34,.23,1],[.34,.38,.14,1],[.66,.38,.14,1],[.5,.18,.17,1],[.5,.06,.11,2],[.4,.22,.1,2],[.6,.22,.1,2]]) leafBlob(g, T, x, y, r, SW_GREEN[c], rnd);
+    g.strokeStyle = 'rgba(150,170,130,.7)'; g.lineWidth = 1.2;
+    for (let i=0;i<9;i++){ const x0 = .22 + rnd()*.56, y0 = .5 + rnd()*.12, L = .08 + rnd()*.12; g.beginPath(); g.moveTo(x0*T, y0*T); g.quadraticCurveTo((x0 + .015)*T, (y0 + L*.5)*T, (x0 - .01)*T, (y0 + L)*T); g.stroke(); }
+    g.fillStyle = 'rgba(96,146,64,.7)'; g.beginPath(); g.ellipse(T*.5, T*.9, T*.18, T*.04, 0, 0, Math.PI*2); g.fill();
+  },
+  swamp2(g, T, rnd){
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(T*.5, T*.9, T*.34, T*.08, 0, 0, Math.PI*2); g.fill();
+    taperTrunk(g, T, .5, .9, .46, .4, .13, .08, ['#20170f', '#54402b', '#150e08']);
+    g.strokeStyle = '#3a2c1c'; g.lineWidth = T*.045; g.beginPath(); g.moveTo(.46*T, .5*T); g.quadraticCurveTo(.28*T, .44*T, .16*T, .3*T); g.moveTo(.48*T, .46*T); g.quadraticCurveTo(.66*T, .42*T, .84*T, .28*T); g.stroke();
+    for (const [x,y,r,c] of [[.5,.16,.24,0],[.22,.24,.18,0],[.78,.22,.18,0],[.38,.08,.18,1],[.64,.1,.18,1],[.18,.26,.12,2],[.8,.22,.12,2],[.5,.18,.16,2]]) leafBlob(g, T, x, y, r, SW_GREEN[c], rnd);
+    for (const [mx, my, s] of [[.3,.88,.05],[.68,.89,.04]]){ g.fillStyle = '#d8d0b8'; g.fillRect((mx-.008)*T, my*T, T*.016, T*.04); g.fillStyle = '#c4622e'; g.beginPath(); g.ellipse(mx*T, my*T, T*s, T*s*.7, 0, Math.PI, 0); g.fill(); }
+    g.fillStyle = 'rgba(96,146,64,.8)'; g.beginPath(); g.ellipse(T*.5, T*.88, T*.2, T*.045, 0, 0, Math.PI*2); g.fill();
+  },
+  // Crypt: a broken column with rubble and cobwebs, a sarcophagus
+  crypt1(g, T, rnd){
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.ellipse(T*.5, T*.88, T*.38, T*.09, 0, 0, Math.PI*2); g.fill();
+    const sg = g.createLinearGradient(.26*T, 0, .74*T, 0); sg.addColorStop(0, '#2a241f'); sg.addColorStop(.45, '#74685a'); sg.addColorStop(1, '#1d1814');
+    g.fillStyle = '#4c4036'; g.fillRect(.18*T, .8*T, .64*T, .1*T); g.fillStyle = sg; g.fillRect(.28*T, .34*T, .44*T, .46*T);
+    g.beginPath(); g.moveTo(.28*T, .34*T); g.lineTo(.36*T, .22*T); g.lineTo(.44*T, .3*T); g.lineTo(.52*T, .16*T); g.lineTo(.62*T, .28*T); g.lineTo(.72*T, .2*T); g.lineTo(.72*T, .34*T); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = 1; g.beginPath(); for (const sy of [.46,.62]){ g.moveTo(.28*T, sy*T); g.lineTo(.72*T, sy*T); } g.moveTo(.5*T, .46*T); g.lineTo(.5*T, .62*T); g.moveTo(.4*T, .34*T); g.lineTo(.46*T, .56*T); g.lineTo(.4*T, .76*T); g.stroke();
+    for (let i=0;i<6;i++){ const x = .12 + rnd()*.76, y = .84 + rnd()*.07, s = .03 + rnd()*.04; g.fillStyle = rnd() < .5 ? '#6a5e50' : '#483e34'; g.beginPath(); g.moveTo(x*T, (y-s)*T); g.lineTo((x+s)*T, (y+s*.4)*T); g.lineTo((x-s*.8)*T, (y+s*.6)*T); g.closePath(); g.fill(); }
+    g.fillStyle = 'rgba(92,120,70,.55)'; g.beginPath(); g.ellipse(.36*T, .78*T, T*.1, T*.03, 0, 0, Math.PI*2); g.ellipse(.66*T, .5*T, T*.05, T*.07, 0, 0, Math.PI*2); g.fill();
+    g.strokeStyle = 'rgba(230,224,208,.4)'; g.lineWidth = .8; g.beginPath(); for (const [ex,ey] of [[.2,0],[.17,.1],[.1,.17],[0,.2]]){ g.moveTo(.28*T, .34*T); g.lineTo((.28+ex)*T, (.34+ey)*T); } for (const f of [.5,.85]){ g.moveTo((.28+.2*f)*T, .34*T); g.lineTo((.28+.17*f)*T, (.34+.1*f)*T); g.lineTo((.28+.1*f)*T, (.34+.17*f)*T); g.lineTo(.28*T, (.34+.2*f)*T); } g.stroke();
+  },
+  crypt2(g, T, rnd){
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.ellipse(T*.5, T*.88, T*.42, T*.09, 0, 0, Math.PI*2); g.fill();
+    const fg = g.createLinearGradient(0, .52*T, 0, .88*T); fg.addColorStop(0, '#6e6254'); fg.addColorStop(1, '#2c251f');
+    g.fillStyle = fg; g.fillRect(.1*T, .52*T, .8*T, .36*T);
+    g.fillStyle = '#8a7d6c'; g.beginPath(); g.moveTo(.08*T, .52*T); g.lineTo(.2*T, .38*T); g.lineTo(.92*T, .38*T); g.lineTo(.9*T, .52*T); g.closePath(); g.fill();
+    g.fillStyle = '#3a322a'; g.beginPath(); g.moveTo(.9*T, .52*T); g.lineTo(.92*T, .38*T); g.lineTo(.98*T, .46*T); g.lineTo(.98*T, .8*T); g.lineTo(.9*T, .88*T); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(20,14,10,.6)'; g.lineWidth = 1.2; g.strokeRect(.1*T, .52*T, .8*T, .36*T);
+    g.strokeStyle = 'rgba(30,24,18,.7)'; g.lineWidth = T*.035; g.beginPath(); g.moveTo(.56*T, .42*T); g.lineTo(.56*T, .5*T); g.moveTo(.5*T, .45*T); g.lineTo(.62*T, .45*T); g.stroke();
+    g.fillStyle = 'rgba(205,196,176,.75)'; g.beginPath(); g.arc(.5*T, .66*T, T*.085, 0, Math.PI*2); g.fill(); g.fillRect(.46*T, .72*T, .08*T, .06*T);
+    g.fillStyle = 'rgba(16,10,6,.9)'; g.beginPath(); g.arc(.47*T, .65*T, T*.022, 0, Math.PI*2); g.arc(.53*T, .65*T, T*.022, 0, Math.PI*2); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(.2*T, .52*T); g.lineTo(.26*T, .62*T); g.lineTo(.2*T, .72*T); g.moveTo(.8*T, .56*T); g.lineTo(.74*T, .66*T); g.stroke();
+    g.fillStyle = 'rgba(92,120,70,.5)'; g.beginPath(); g.ellipse(.18*T, .86*T, T*.08, T*.025, 0, 0, Math.PI*2); g.fill();
+  },
+  // Infernal Forge: an anvil with a glowing bar, a furnace with its chimney
+  forge1(g, T, rnd){
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(T*.5, T*.9, T*.36, T*.08, 0, 0, Math.PI*2); g.fill();
+    const pg = g.createLinearGradient(.3*T, 0, .7*T, 0); pg.addColorStop(0, '#2a1f1a'); pg.addColorStop(.5, '#5a4638'); pg.addColorStop(1, '#1a120e'); g.fillStyle = pg; g.fillRect(.3*T, .62*T, .4*T, .28*T);
+    g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(.3*T, .74*T); g.lineTo(.7*T, .74*T); g.stroke();
+    const ag = g.createLinearGradient(0, .44*T, 0, .66*T); ag.addColorStop(0, '#8a929c'); ag.addColorStop(.35, '#3e444c'); ag.addColorStop(1, '#16191d');
+    g.fillStyle = ag; g.beginPath(); g.moveTo(.1*T, .5*T); g.lineTo(.3*T, .48*T); g.lineTo(.8*T, .48*T); g.lineTo(.74*T, .58*T); g.lineTo(.66*T, .6*T); g.lineTo(.64*T, .66*T); g.lineTo(.36*T, .66*T); g.lineTo(.34*T, .6*T); g.lineTo(.26*T, .57*T); g.closePath(); g.fill();
+    g.fillStyle = '#b9c0c9'; g.fillRect(.3*T, .48*T, .5*T, .02*T);
+    const hg = g.createLinearGradient(0, .42*T, 0, .48*T); hg.addColorStop(0, '#fff0a0'); hg.addColorStop(.5, '#ff9a30'); hg.addColorStop(1, '#a8300c'); g.fillStyle = hg; g.fillRect(.36*T, .42*T, .3*T, .06*T);
+  },
+  forge2(g, T, rnd){
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(T*.5, T*.9, T*.38, T*.08, 0, 0, Math.PI*2); g.fill();
+    const bg = g.createLinearGradient(.24*T, 0, .76*T, 0); bg.addColorStop(0, '#2a1d17'); bg.addColorStop(.45, '#5c4636'); bg.addColorStop(1, '#1a1210');
+    g.fillStyle = bg; g.fillRect(.24*T, .3*T, .52*T, .6*T); g.fillRect(.34*T, .1*T, .32*T, .22*T);
+    g.fillStyle = '#16100d'; g.fillRect(.3*T, .06*T, .4*T, .06*T);
+    g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 1; g.beginPath(); for (let i=0;i<5;i++){ const y = (.36 + i*.1)*T; g.moveTo(.24*T, y); g.lineTo(.76*T, y); } for (let i=0;i<4;i++){ const o = (i%2 ? .08 : .17); for (let k=0;k<4;k++){ g.moveTo((.24 + o + k*.13)*T, (.36 + i*.1)*T); g.lineTo((.24 + o + k*.13)*T, (.46 + i*.1)*T); } } g.stroke();
+    g.fillStyle = '#0c0807'; g.beginPath(); g.moveTo(.38*T, .88*T); g.lineTo(.38*T, .66*T); g.quadraticCurveTo(.5*T, .52*T, .62*T, .66*T); g.lineTo(.62*T, .88*T); g.closePath(); g.fill();
+    const mg = g.createLinearGradient(0, .55*T, 0, .88*T); mg.addColorStop(0, '#ffd070'); mg.addColorStop(.5, '#ff7a20'); mg.addColorStop(1, '#a8300c');
+    g.fillStyle = mg; g.beginPath(); g.moveTo(.41*T, .87*T); g.lineTo(.41*T, .68*T); g.quadraticCurveTo(.5*T, .58*T, .59*T, .68*T); g.lineTo(.59*T, .87*T); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(20,10,6,.55)'; g.fillRect(.27*T, .32*T, .04*T, .5*T); g.fillRect(.4*T, .1*T, .03*T, .2*T);
+  },
+  // Frozen Cathedral: a winged angel on a plinth, a pillar grown over with ice
+  cathedral1(g, T, rnd){
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(T*.5, T*.9, T*.34, T*.07, 0, 0, Math.PI*2); g.fill();
+    const mg = g.createLinearGradient(.3*T, 0, .7*T, 0); mg.addColorStop(0, '#7e8a9a'); mg.addColorStop(.45, '#e6edf5'); mg.addColorStop(1, '#6a7686');
+    g.fillStyle = mg; g.fillRect(.28*T, .76*T, .44*T, .14*T); g.fillStyle = '#c2ccd8'; g.fillRect(.24*T, .72*T, .52*T, .05*T);
+    const wg = g.createLinearGradient(0, .2*T, 0, .7*T); wg.addColorStop(0, '#f4f8fc'); wg.addColorStop(1, '#a9b6c6');
+    g.fillStyle = wg; g.strokeStyle = 'rgba(60,76,98,.55)'; g.lineWidth = 1;
+    for (const s of [-1,1]){ g.beginPath(); g.moveTo((.5 + s*.06)*T, .34*T); g.bezierCurveTo((.5 + s*.3)*T, .12*T, (.5 + s*.46)*T, .3*T, (.5 + s*.4)*T, .56*T); g.bezierCurveTo((.5 + s*.3)*T, .5*T, (.5 + s*.2)*T, .56*T, (.5 + s*.1)*T, .6*T); g.closePath(); g.fill(); g.stroke();
+      g.beginPath(); for (let i=0;i<4;i++){ g.moveTo((.5 + s*(.12 + i*.07))*T, (.3 + i*.04)*T); g.lineTo((.5 + s*(.2 + i*.07))*T, (.5 + i*.02)*T); } g.stroke(); }
+    g.fillStyle = mg; g.beginPath(); g.moveTo(.4*T, .72*T); g.quadraticCurveTo(.36*T, .5*T, .45*T, .4*T); g.lineTo(.55*T, .4*T); g.quadraticCurveTo(.64*T, .5*T, .6*T, .72*T); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#eef3f9'; g.beginPath(); g.arc(.5*T, .32*T, T*.06, 0, Math.PI*2); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(60,76,98,.45)'; g.beginPath(); g.moveTo(.5*T, .46*T); g.lineTo(.5*T, .7*T); g.stroke();
+  },
+  cathedral2(g, T, rnd){
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(T*.5, T*.9, T*.34, T*.07, 0, 0, Math.PI*2); g.fill();
+    const pg = g.createLinearGradient(.26*T, 0, .74*T, 0); pg.addColorStop(0, '#5d6878'); pg.addColorStop(.45, '#dfe7f0'); pg.addColorStop(1, '#4e5867');
+    g.fillStyle = pg; g.fillRect(.28*T, .2*T, .44*T, .64*T); g.fillStyle = '#c8d2de'; g.fillRect(.18*T, .1*T, .64*T, .1*T); g.fillStyle = '#8592a4'; g.fillRect(.18*T, .82*T, .64*T, .08*T);
+    g.strokeStyle = 'rgba(50,62,82,.3)'; g.lineWidth = 1; g.beginPath(); for (const fl of [.38,.5,.62]){ g.moveTo(fl*T, .22*T); g.lineTo(fl*T, .8*T); } g.stroke();
+    const ice = (x, y, h, w) => { g.fillStyle = 'rgba(214,238,255,.92)'; g.beginPath(); g.moveTo((x-w)*T, y*T); g.lineTo(x*T, (y-h)*T); g.lineTo((x+w)*T, y*T); g.closePath(); g.fill(); g.fillStyle = 'rgba(120,180,226,.8)'; g.beginPath(); g.moveTo(x*T, (y-h)*T); g.lineTo((x+w)*T, y*T); g.lineTo((x+w*.1)*T, y*T); g.closePath(); g.fill(); g.strokeStyle = 'rgba(70,120,170,.7)'; g.lineWidth = 1; g.beginPath(); g.moveTo((x-w)*T, y*T); g.lineTo(x*T, (y-h)*T); g.lineTo((x+w)*T, y*T); g.stroke(); };
+    ice(.2, .86, .34, .06); ice(.3, .88, .22, .05); ice(.8, .86, .38, .07); ice(.7, .89, .2, .05); ice(.24, .14, -.2, .05); ice(.46, .2, -.26, .045); ice(.68, .2, -.18, .045);
+    g.fillStyle = 'rgba(240,248,255,.9)'; g.beginPath(); g.ellipse(.5*T, .1*T, T*.34, T*.04, 0, 0, Math.PI*2); g.fill();
+  }
+};
+// bring a revamped wall to life: sway for the trees, firelight for the forge, a halo for the angel
+function drawRevampedWall(b, wv, x, y, px, py, T, time){
+  const key = b + wv, paint = WALLPAINT[key]; if (!paint) return false;
+  const sd = Math.floor(hh(x,y,45)*3), s = wallSpr(key + '#' + sd, T, (g, TT) => paint(g, TT, mkRng(wv*977 + b.length*131 + sd*7919)));
+  const sway = b==='swamp' && !reduce ? Math.sin(time*1.1 + x*1.7 + y)*.018 : 0, flip = hh(x,y,44) < .5 ? -1 : 1;
+  ctx.save(); ctx.translate(px + T*.5, py + T*.9); if (sway) ctx.transform(1, 0, sway, 1, 0, 0); { const zs = b==='swamp' ? 1.12 : 1; ctx.scale(flip*zs, zs); }
+  ctx.drawImage(s.cv, -T*.5 - s.ox, -T*.9 - s.oy, s.w, s.h); ctx.restore();
+  const fl = reduce ? .6 : .6 + .25*Math.sin(time*9 + x*3) + .15*Math.sin(time*14.3 + y);
+  if (key==='forge1'){ glow(px + T*.51, py + T*.44, T*(.7 + .1*fl), `rgba(255,140,40,${.32*fl})`); if (!reduce && Math.random() < .03) fx.embers.push({x:x + .35 + Math.random()*.3, y:y + .42, vy:-(.6 + Math.random()*.6), life:.8, c:'255,170,60'}); }
+  else if (key==='forge2'){ glow(px + T*.5, py + T*.76, T*(1 + .12*fl), `rgba(255,120,30,${.4*fl})`); if (!reduce && Math.random() < .05) fx.embers.push({x:x + .4 + Math.random()*.2, y:y + .1, vy:-(.5 + Math.random()*.6), life:1, c:'255,150,50'}); }
+  else if (key==='cathedral1'){ glow(px + T*.5, py + T*.2, T*.55, `rgba(255,236,170,${reduce ? .14 : .1 + .06*Math.sin(time*1.5 + x)})`); }
+  return true;
+}
+function paintFungalWall(px, py, T, v, time, x, y, pl){
+  if (v===0){
+    // tall violet mushroom with glowing teal spots, and two babies
+    drawShroom(px, py, T, {x:.28, y:.88, h:.18, r:.1, sw:.025, ph:x, st:['#8f84a2','#cfc4de','#7c7290'], cap3:['#a47ad8','#6a3f9e','#3a2266'], gill:'#25153a', spots:[[-.2,.5,.02]], spot:'rgba(200,255,240,.8)'}, time);
+    drawShroom(px, py, T, {x:.5, y:.88, h:.6, r:.32, sw:.05, ph:x+1, st:['#8f84a2','#d6cce6','#766b8a'], cap3:['#b58af0','#6d3fb0','#3a2166'], gill:'#25153a', rim:'rgba(230,200,255,.5)', spots:[[-.5,.45,.03],[.1,.8,.035],[.55,.4,.028],[-.1,.3,.022],[.35,.7,.02]], spotGlow:'130,245,215', glow:'90,220,190', gr:.9}, time);
+    drawShroom(px, py, T, {x:.76, y:.88, h:.14, r:.08, sw:.02, ph:x+2, st:['#8f84a2','#cfc4de','#7c7290'], cap3:['#9a70d0','#5f3898','#33205a'], gill:'#25153a'}, time);
+    tufts(px, py, T, .5, .9, 'rgba(110,200,140,.55)', 6);
+  } else if (v===1){
+    // toadstool: red cap with white spots, a skirt ring and a small one beside it
+    drawShroom(px, py, T, {x:.74, y:.88, h:.14, r:.1, sw:.025, ph:x, st:['#bfb39c','#ece3d0','#a89c85'], cap3:['#e8584a','#b3302a','#6e1a16'], gill:'#3a1a16', spots:[[-.3,.6,.022],[.3,.4,.02]]}, time);
+    drawShroom(px, py, T, {x:.46, y:.88, h:.34, r:.38, cap:.95, sw:.09, ph:x+3, st:['#b9ae98','#f0e8d6','#a39882'], ring:'rgba(240,232,214,.95)', cap3:['#ee6050','#bf332b','#6a1814'], gill:'#3a1c18', gillLine:'rgba(255,230,210,.2)', rim:'rgba(255,200,180,.5)', spots:[[-.6,.35,.05],[-.1,.8,.055],[.45,.5,.05],[.7,.25,.035],[-.3,.45,.03],[.15,.4,.03]]}, time);
+    tufts(px, py, T, .5, .9, 'rgba(120,170,90,.55)', 5);
+  } else if (v===2){
+    // cluster of bioluminescent teal mushrooms
+    drawShroom(px, py, T, {x:.24, y:.88, h:.26, r:.16, sw:.03, ph:x, st:['#8aa6a8','#cde6e6','#6f8a8c'], cap3:['#a8f6e8','#2fb0a2','#14605a'], gill:'#0f3a38', spotGlow:'210,255,255', spots:[[-.2,.6,.02]], glow:'80,230,200', gr:.5}, time);
+    drawShroom(px, py, T, {x:.5, y:.88, h:.5, r:.24, sw:.04, ph:x+1, st:['#8aa6a8','#d6eeee','#6f8a8c'], cap3:['#b8fff0','#35c0b0','#156a64'], gill:'#0f3a38', rim:'rgba(220,255,250,.6)', spots:[[-.4,.5,.028],[.3,.7,.03],[.1,.3,.022]], spotGlow:'220,255,255', glow:'80,230,200', gr:.9}, time);
+    drawShroom(px, py, T, {x:.78, y:.88, h:.2, r:.13, sw:.025, ph:x+2, st:['#8aa6a8','#cde6e6','#6f8a8c'], cap3:['#a0f0e0','#2aa496','#125650'], gill:'#0f3a38', glow:'80,230,200', gr:.45}, time);
+    tufts(px, py, T, .5, .9, 'rgba(90,200,170,.5)', 6);
+  } else {
+    // dead log with orange shelf fungi and a glowing top
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(px+T*.5,py+T*.88,T*.3,T*.06,0,0,Math.PI*2); ctx.fill();
+    const lg=ctx.createLinearGradient(px+T*.38,0,px+T*.62,0); lg.addColorStop(0,'#2a1f17'); lg.addColorStop(.45,'#4d3a2a'); lg.addColorStop(1,'#1e1610');
+    ctx.fillStyle=lg; ctx.beginPath(); ctx.moveTo(px+T*.36,py+T*.88); ctx.lineTo(px+T*.4,py+T*.2); ctx.lineTo(px+T*.5,py+T*.14); ctx.lineTo(px+T*.6,py+T*.22); ctx.lineTo(px+T*.64,py+T*.88); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1; ctx.beginPath(); for (const lx of [.44,.5,.57]){ ctx.moveTo(px+T*lx,py+T*.2); ctx.lineTo(px+T*(lx+.01),py+T*.86); } ctx.stroke();
+    for (const [sx,sy,sd,rr] of [[.4,.3,-1,.3],[.6,.46,1,.34],[.4,.62,-1,.28],[.6,.76,1,.2]]){
+      const g=ctx.createLinearGradient(0,py+T*(sy-.1),0,py+T*(sy+.06)); g.addColorStop(0,'#ffc070'); g.addColorStop(.6,'#e0802c'); g.addColorStop(1,'#8c3c14');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(px+T*sx,py+T*sy,T*rr,T*.1,0,sd>0?-Math.PI/2:Math.PI/2,sd>0?Math.PI/2:Math.PI*1.5); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='rgba(255,235,180,.75)'; ctx.lineWidth=Math.max(1,T*.02); ctx.stroke();
+      ctx.strokeStyle='rgba(120,50,10,.5)'; ctx.lineWidth=1; ctx.beginPath(); ctx.ellipse(px+T*sx,py+T*(sy+.02),T*rr*.7,T*.07,0,sd>0?-Math.PI/2:Math.PI/2,sd>0?Math.PI/2:Math.PI*1.5); ctx.stroke();
+    }
+    drawShroom(px, py, T, {x:.5, y:.2, h:.1, r:.1, sw:.02, ph:x, st:['#b9a98c','#e6d8bc','#a09078'], cap3:['#ffd07a','#e49a3c','#8a4a18'], gill:'#3a2410'}, time);
+    glow(px+T*.5, py+T*.5, T*.7, `rgba(240,150,60,${.08+.06*pl})`);
+    tufts(px, py, T, .5, .9, 'rgba(110,160,80,.5)', 5);
+  }
+}
 function drawWall(x, y, env, time){
   const T = tile, b = S.biome, r = i => hh(x,y,40+i);
   const px = x*T + (env && !reduce ? (Math.random()-.5)*T*.05 : 0), py = y*T;
   _aoSpr = _aoSpr || softSprite(.42, .2);
   ctx.drawImage(_aoSpr, px+T*.5 - T*.9, py+T*.74 - T*.9, T*1.8, T*1.8);
+  { const wv = Math.floor(hh(x,y,43)*3);   // the campaign biomes have three kinds of wall each (the swamp always); an unstable forge pillar keeps its old look
+    if (!env && (b==='swamp' || ((b==='crypt' || b==='forge' || b==='cathedral') && wv > 0)) && drawRevampedWall(b, wv, x, y, px, py, T, time)) return; }
   ctx.fillStyle='rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(px+T*.52, py+T*.86, T*.4, T*.11, 0, 0, Math.PI*2); ctx.fill();
   ctx.lineCap='round'; ctx.lineJoin='round';
   if (b==='swamp'){
@@ -556,39 +754,9 @@ function drawWall(x, y, env, time){
     }
   } else if (b==='fungal'){
     const v = Math.floor(r(3)*4), pl = reduce ? .85 : .7+.25*Math.sin(time*2+x*1.3+y);
-    if (v===0){
-      // tall violet mushroom with glowing teal spots, and two babies
-      drawShroom(px, py, T, {x:.28, y:.88, h:.18, r:.1, sw:.025, ph:x, st:['#8f84a2','#cfc4de','#7c7290'], cap3:['#a47ad8','#6a3f9e','#3a2266'], gill:'#25153a', spots:[[-.2,.5,.02]], spot:'rgba(200,255,240,.8)'}, time);
-      drawShroom(px, py, T, {x:.5, y:.88, h:.6, r:.32, sw:.05, ph:x+1, st:['#8f84a2','#d6cce6','#766b8a'], cap3:['#b58af0','#6d3fb0','#3a2166'], gill:'#25153a', rim:'rgba(230,200,255,.5)', spots:[[-.5,.45,.03],[.1,.8,.035],[.55,.4,.028],[-.1,.3,.022],[.35,.7,.02]], spotGlow:'130,245,215', glow:'90,220,190', gr:.9}, time);
-      drawShroom(px, py, T, {x:.76, y:.88, h:.14, r:.08, sw:.02, ph:x+2, st:['#8f84a2','#cfc4de','#7c7290'], cap3:['#9a70d0','#5f3898','#33205a'], gill:'#25153a'}, time);
-      tufts(px, py, T, .5, .9, 'rgba(110,200,140,.55)', 6);
-    } else if (v===1){
-      // toadstool: red cap with white spots, a skirt ring and a small one beside it
-      drawShroom(px, py, T, {x:.74, y:.88, h:.14, r:.1, sw:.025, ph:x, st:['#bfb39c','#ece3d0','#a89c85'], cap3:['#e8584a','#b3302a','#6e1a16'], gill:'#3a1a16', spots:[[-.3,.6,.022],[.3,.4,.02]]}, time);
-      drawShroom(px, py, T, {x:.46, y:.88, h:.34, r:.38, cap:.95, sw:.09, ph:x+3, st:['#b9ae98','#f0e8d6','#a39882'], ring:'rgba(240,232,214,.95)', cap3:['#ee6050','#bf332b','#6a1814'], gill:'#3a1c18', gillLine:'rgba(255,230,210,.2)', rim:'rgba(255,200,180,.5)', spots:[[-.6,.35,.05],[-.1,.8,.055],[.45,.5,.05],[.7,.25,.035],[-.3,.45,.03],[.15,.4,.03]]}, time);
-      tufts(px, py, T, .5, .9, 'rgba(120,170,90,.55)', 5);
-    } else if (v===2){
-      // cluster of bioluminescent teal mushrooms
-      drawShroom(px, py, T, {x:.24, y:.88, h:.26, r:.16, sw:.03, ph:x, st:['#8aa6a8','#cde6e6','#6f8a8c'], cap3:['#a8f6e8','#2fb0a2','#14605a'], gill:'#0f3a38', spotGlow:'210,255,255', spots:[[-.2,.6,.02]], glow:'80,230,200', gr:.5}, time);
-      drawShroom(px, py, T, {x:.5, y:.88, h:.5, r:.24, sw:.04, ph:x+1, st:['#8aa6a8','#d6eeee','#6f8a8c'], cap3:['#b8fff0','#35c0b0','#156a64'], gill:'#0f3a38', rim:'rgba(220,255,250,.6)', spots:[[-.4,.5,.028],[.3,.7,.03],[.1,.3,.022]], spotGlow:'220,255,255', glow:'80,230,200', gr:.9}, time);
-      drawShroom(px, py, T, {x:.78, y:.88, h:.2, r:.13, sw:.025, ph:x+2, st:['#8aa6a8','#cde6e6','#6f8a8c'], cap3:['#a0f0e0','#2aa496','#125650'], gill:'#0f3a38', glow:'80,230,200', gr:.45}, time);
-      tufts(px, py, T, .5, .9, 'rgba(90,200,170,.5)', 6);
-    } else {
-      // dead log with orange shelf fungi and a glowing top
-      ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(px+T*.5,py+T*.88,T*.3,T*.06,0,0,Math.PI*2); ctx.fill();
-      const lg=ctx.createLinearGradient(px+T*.38,0,px+T*.62,0); lg.addColorStop(0,'#2a1f17'); lg.addColorStop(.45,'#4d3a2a'); lg.addColorStop(1,'#1e1610');
-      ctx.fillStyle=lg; ctx.beginPath(); ctx.moveTo(px+T*.36,py+T*.88); ctx.lineTo(px+T*.4,py+T*.2); ctx.lineTo(px+T*.5,py+T*.14); ctx.lineTo(px+T*.6,py+T*.22); ctx.lineTo(px+T*.64,py+T*.88); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1; ctx.beginPath(); for (const lx of [.44,.5,.57]){ ctx.moveTo(px+T*lx,py+T*.2); ctx.lineTo(px+T*(lx+.01),py+T*.86); } ctx.stroke();
-      for (const [sx,sy,sd,rr] of [[.4,.3,-1,.3],[.6,.46,1,.34],[.4,.62,-1,.28],[.6,.76,1,.2]]){
-        const g=ctx.createLinearGradient(0,py+T*(sy-.1),0,py+T*(sy+.06)); g.addColorStop(0,'#ffc070'); g.addColorStop(.6,'#e0802c'); g.addColorStop(1,'#8c3c14');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(px+T*sx,py+T*sy,T*rr,T*.1,0,sd>0?-Math.PI/2:Math.PI/2,sd>0?Math.PI/2:Math.PI*1.5); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle='rgba(255,235,180,.75)'; ctx.lineWidth=Math.max(1,T*.02); ctx.stroke();
-        ctx.strokeStyle='rgba(120,50,10,.5)'; ctx.lineWidth=1; ctx.beginPath(); ctx.ellipse(px+T*sx,py+T*(sy+.02),T*rr*.7,T*.07,0,sd>0?-Math.PI/2:Math.PI/2,sd>0?Math.PI/2:Math.PI*1.5); ctx.stroke();
-      }
-      drawShroom(px, py, T, {x:.5, y:.2, h:.1, r:.1, sw:.02, ph:x, st:['#b9a98c','#e6d8bc','#a09078'], cap3:['#ffd07a','#e49a3c','#8a4a18'], gill:'#3a2410'}, time);
-      glow(px+T*.5, py+T*.5, T*.7, `rgba(240,150,60,${.08+.06*pl})`);
-      tufts(px, py, T, .5, .9, 'rgba(110,160,80,.5)', 5);
-    }
+    const spr = wallSpr('fungal' + v, T, (g, TT) => { const keep = ctx; ctx = g; try { paintFungalWall(0, 0, TT, v, 0, 0, 0, .85); } finally { ctx = keep; } });
+    ctx.drawImage(spr.cv, px - spr.ox, py - spr.oy, spr.w, spr.h);
+    glow(px + T*.5, py + T*.34, T*.8, v===3 ? `rgba(240,150,60,${.07 + .05*pl})` : `rgba(90,225,195,${.08 + .08*pl})`);
   } else if (b==='cathedral'){
     // marble column with frost and icicles
     const g=ctx.createLinearGradient(px+T*.24,0,px+T*.76,0); g.addColorStop(0,'#5d6878'); g.addColorStop(.45,'#e3eaf2'); g.addColorStop(1,'#4e5867');
@@ -878,8 +1046,11 @@ function drawBiomeLight(time, size){
       ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(x0,0); ctx.lineTo(x0+w,0); ctx.lineTo(x0+w+size*.35,size); ctx.lineTo(x0+size*.3,size); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
+    for (let i=0;i<3;i++){ const a = reduce ? .06 : .06+.03*Math.sin(time*.4+i*2); glow(size*(.08+i*.3+.12/2+.3*.8), size*(.78+.05*Math.sin(time*.2+i)), size*.2, `rgba(${cols[i]},${a*2.2})`); }   // pools of colored light where the shafts land
   } else if (b==='forge'){
     ctx.fillStyle=`rgba(255,70,10,${reduce?.035:.03+.02*Math.sin(time*1.3)})`; ctx.fillRect(0,0,size,size);
+    for (const [k,t] of S.terrain) if (t==='lava'){ const [x,y] = unkey(k); glow((x+.5)*tile, (y+.5)*tile, tile*2.4, `rgba(255,95,25,${reduce ? .11 : .1 + .045*Math.sin(time*2.5 + x + y)})`); }
+    for (const k of S.burn.keys()){ const [x,y] = unkey(k); glow((x+.5)*tile, (y+.5)*tile, tile*1.6, `rgba(255,120,40,${reduce ? .1 : .09 + .04*Math.sin(time*7 + x)})`); }
   } else if (b==='storm'){
     // now and then the whole sky flashes
     const q = reduce ? 9 : time % 8.7, fl = q<.3 ? (1-q/.3)*(.55+.45*Math.sin(q*50)) : 0;
@@ -889,12 +1060,12 @@ function drawBiomeLight(time, size){
     // bioluminescence everywhere: soft patches of light scattered over the floor, each pulsing at its own pace,
     // and every glowing mushroom (on the floor or a wall) lights up its surroundings
     for (let y=0;y<H;y++) for (let x=0;x<W;x++){
-      if (hh(x,y,210) >= .32) continue;
+      if (hh(x,y,210) >= .22) continue;
       const teal = hh(x,y,211) < .6, a = reduce ? .5 : .5+.5*Math.sin(time*(.7+hh(x,y,213)*.6) + hh(x,y,212)*6.28);
-      glow((x+.25+hh(x,y,214)*.5)*tile, (y+.25+hh(x,y,215)*.5)*tile, tile*(.9+.6*hh(x,y,216)), teal ? `rgba(70,220,190,${.1+.13*a})` : `rgba(150,90,240,${.1+.13*a})`);
+      glow((x+.25+hh(x,y,214)*.5)*tile, (y+.25+hh(x,y,215)*.5)*tile, tile*(1+.7*hh(x,y,216)), teal ? `rgba(70,220,190,${.1+.13*a})` : `rgba(150,90,240,${.1+.13*a})`);
     }
     for (const [k,t] of S.terrain) if (t==='m_glow' || t==='m_heal'){ const [x,y] = unkey(k); glow((x+.5)*tile, (y+.5)*tile, tile*2.4, t==='m_glow' ? 'rgba(80,190,255,.17)' : 'rgba(90,225,120,.14)'); }
-    for (const k of S.walls){ const [x,y] = unkey(k), v = Math.floor(hh(x,y,43)*4); if (v===1) continue; glow((x+.5)*tile, (y+.45)*tile, tile*2.2, v===3 ? 'rgba(240,150,60,.11)' : v===2 ? 'rgba(80,230,200,.14)' : 'rgba(110,210,200,.11)'); }
+    for (const k of S.walls){ const [x,y] = unkey(k), v = Math.floor(hh(x,y,43)*4); if (v===1) continue; glow((x+.5)*tile, (y+.45)*tile, tile*1.7, v===3 ? 'rgba(240,150,60,.11)' : v===2 ? 'rgba(80,230,200,.14)' : 'rgba(110,210,200,.11)'); }
   }
 }
 let fogCv = null;
