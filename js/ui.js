@@ -229,7 +229,7 @@ function forgeCost(h, it, op, ai){
   if (op==='upgrade'){ if (it.rar==='legend' || !a || isRuleAf(a) || !a.t) return null;
     const tiers = tiersFor(a.k, it.slot); return tiers && a.t < Math.min(5, maxTier(it.ilvl||1)) && tiers[a.t] ? {gold:40*a.t, embers:5*a.t} : null; }
   if (op==='enchant') return it.rar!=='legend' && it.affixes.filter(x => !isRuleAf(x)).length < 3 ? {gold:100, embers:15} : null;
-  if (op==='temper'){ const U = it.rar==='legend' && uniqueDef(it.name); return U && forgeIlvl(h) > (it.ilvl||0) ? {gold:150, embers:20} : null; }
+  if (op==='temper'){ const U = it.rar==='legend' && uniqueDef(it.name); return U && maxTier(forgeIlvl(h)) > maxTier(it.ilvl||1) ? {gold:150, embers:20} : null; }
   if (op==='salvage') return campSel && campSel.from==='stash' ? {gold:0, embers:0} : null;
   return null;
 }
@@ -285,8 +285,8 @@ function campForge(h){
     const top = maxTier(it.ilvl||1);
     const rows = it.affixes.map((a,i) => `<li class="frow ${isRuleAf(a)?'rule':''}"><span>${AFX[a.k].t(a.v)}${a.t ? ` <span class="tier t${a.t}">T${a.t}</span>` : ''}</span><span class="fbtns">${btn('reroll', i, $t('Refazer', 'Reroll'))}${btn('upgrade', i, $t('Aprimorar', 'Upgrade'))}</span></li>`).join('');
     detail = `<div class="card"><div class="meta">${RAR[it.rar].label} · ${SLOTS[it.slot].label} · ${$t('nível', 'level')} ${it.ilvl||1} · ${$t('camada máxima', 'max tier')} T${top}</div><div class="nm rc-${it.rar}">${esc(it.name)}</div><ul class="flist">${rows}</ul></div>
-      <div class="row fops">${btn('enchant', 0, $t('Encantar: novo afixo', 'Enchant: new affix'))}${btn('temper', 0, $t(`Temperar no nível ${forgeIlvl(h)}`, `Temper to level ${forgeIlvl(h)}`))}${campSel.from==='stash' ? `<button class="ghost sm" type="button" data-act="forge:salvage|0">${$t('Desmanchar', 'Salvage')} <small>(+${SALVAGE[it.rar]||1} ${$t('brasas', 'embers')})</small></button>` : ''}</div>
-      <p class="muted small">${it.rar==='legend' ? $t('Únicos não mudam de afixos; Temperar refaz os números no seu nível atual (nível do herói + 3 por Tormento liberado).', 'Uniques keep their affixes; Tempering redoes the numbers at your current level (hero level + 3 per unlocked Torment).')
+      <div class="row fops">${btn('enchant', 0, $t('Encantar: novo afixo', 'Enchant: new affix'))}${btn('temper', 0, $t(`Temperar: T${maxTier(it.ilvl||1)} → T${maxTier(forgeIlvl(h))}`, `Temper: T${maxTier(it.ilvl||1)} → T${maxTier(forgeIlvl(h))}`))}${it.rar==='legend' && !forgeCost(h, it, 'temper', 0) && maxTier(forgeIlvl(h)) < 5 ? `<span class="muted small">${$t(`Temperar sobe a camada dos números. A próxima (T${maxTier(forgeIlvl(h))+1}) libera no nível ${TIER_ILVL[maxTier(forgeIlvl(h))]}.`, `Tempering raises the tier of the numbers. The next one (T${maxTier(forgeIlvl(h))+1}) unlocks at level ${TIER_ILVL[maxTier(forgeIlvl(h))]}.`)}</span>` : ''}${campSel.from==='stash' ? `<button class="ghost sm" type="button" data-act="forge:salvage|0">${$t('Desmanchar', 'Salvage')} <small>(+${SALVAGE[it.rar]||1} ${$t('brasas', 'embers')})</small></button>` : ''}</div>
+      <p class="muted small">${it.rar==='legend' ? $t('Únicos não mudam de afixos. Os números de um único sobem por camada (níveis 1, 5, 10, 18 e 28); Temperar leva o item à camada do seu nível atual (nível do herói + 3 por Tormento liberado).', 'Uniques keep their affixes. A unique\'s numbers go up by tier (levels 1, 5, 10, 18 and 28); Tempering brings the item to the tier of your current level (hero level + 3 per unlocked Torment).')
         : $t('Refazer troca um afixo por outro. Aprimorar sobe a camada até o máximo que o nível do item permite. Encantar adiciona um afixo (até 3) e sobe a raridade.', 'Reroll swaps an affix for another. Upgrade raises the tier up to the maximum the item level allows. Enchant adds an affix (up to 3) and raises the rarity.')}</p>`;
   }
   return `<div class="thead"><p class="muted">${$t('Ouro', 'Gold')} <b>${h.gold}</b> · ${$t('Brasas de Sangue', 'Blood Embers')} <b>${h.embers||0}</b>. ${$t('Brasas vêm da Maré de Sangue e de itens desmanchados aqui.', 'Embers come from the Blood Tide and from items salvaged here.')}</p></div>
@@ -776,11 +776,15 @@ async function openEntry(en){
 
 /* ---------- Banner ---------- */
 let bannerTimer = null;
+const hideBanner = () => { const b = $('banner'); if (b && !b.hidden){ b.hidden = true; clearTimeout(bannerTimer); } };
+document.addEventListener('pointerdown', hideBanner); document.addEventListener('keydown', hideBanner);
 function showBanner(title, sub){
   const b = $('banner');
   $('bnTitle').textContent = title; $('bnSub').textContent = sub || '';
+  const ms = Math.max(2000, Math.min(3200, 1700 + 16*((title||'').length + (sub||'').length)));   // short on purpose; any click or key closes it
+  b.style.animationDuration = ms + 'ms';
   b.hidden = false; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
-  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => { b.hidden = true; }, reduce ? 1500 : 2600);
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => { b.hidden = true; }, reduce ? Math.max(2500, ms*.7) : ms);
 }
 
 /* ---------- HUD ---------- */
@@ -800,6 +804,7 @@ function attackPreview(e){
 }
 let tipTimer = null, tipReady = false;
 const TIP_DELAY = 700;
+let shiftDown = false;
 function renderTip(){
   const tip = $('tip');
   if (!S || !S.walls || !hover || !tipReady || S.phase==='over' || S.dead){ tip.hidden = true; return; }
@@ -809,6 +814,7 @@ function renderTip(){
   if (e && !intentVisible(e)){
     html += `<div class="tr">${$t('Algo se move na névoa.', 'Something moves in the fog.')}</div>`;
   } else if (e){
+    const full = shiftDown;   // Shift shows the full text; otherwise short chips
     const pv = attackPreview(e);
     const hpPct = 100*Math.max(0,e.hp)/e.maxHp, cut = pv ? Math.min(hpPct, 100*pv.dmg/e.maxHp) : 0;
     html += `<div class="tn ${e.boss?'boss':e.elite?'elite':''}">${enemyName(e)}</div>`;
@@ -819,22 +825,36 @@ function renderTip(){
       html += `<div class="to ${pv.kills?'kill':''}">${$t('Seu golpe: -', 'Your blow: -')}${pv.raw}${S.color==='b'&&e.moved?$t(' (emboscada)', ' (ambush)'):''} · ${pv.kills ? $t('mata, você ocupa a casa', 'kills, you take the square') : $t('sobrevive, ', 'survives,')+stay}</div>`;
     }
     html += `<div class="tr">${intentText(e)}</div>`;
-    if (e.boss) html += `<div class="tr">${e.phase===2 ? BOSSES[e.origId==='pawn'&&e.bossId==='queen'?'queen':e.bossId].p2 : BOSSES[e.bossId].p1}</div>`;
-    for (const m of e.mods) html += `<div class="tm"><b>${MODS[m].n}:</b> ${MODS[m].d}</div>`;
-    if (e.frozenPiece && S.timeStop>0) html += `<div class="tm"><b>${$t('Congelado:', 'Frozen:')}</b> ${$t('não age e recebe +50% de dano. Estilhace-o para marcá-lo: ele volta quando o gelo derreter e só então pode deixar saque', 'does not act and takes +50% damage. Shatter it to mark it: it comes back when the ice melts and only then can it drop loot')}${e.type==='K' ? $t(' (o Rei marcado dá um Selo de Xeque)', ' (the marked King gives a Check Seal)') : ''}.</div>`;
+    if (e.boss && full) html += `<div class="tr">${e.bossId==='fallen' ? BOSSES.fallen['p'+(e.fphase||1)] : e.phase===2 ? BOSSES[e.origId==='pawn'&&e.bossId==='queen'?'queen':e.bossId].p2 : BOSSES[e.bossId].p1}</div>`;
+    // compact: one chip per modifier (colored like its badge on the board); Shift expands to the full descriptions
+    const chip = (m, label) => { const ic = MOD_ICON[m]; return `<span class="mchip" style="--mc:${ic ? ic[0] : '#cdbb9c'}">${ic ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ic[1]}" fill="${ic[2] ? ic[0]+'55' : 'none'}"/></svg>` : ''}${label}</span>`; };
+    if (e.mods.length && !full) html += `<div class="chips2">${e.mods.map(m => chip(m, MODS[m].n)).join('')}</div>`;
+    else for (const m of e.mods) html += `<div class="tm"><b>${MODS[m].n}:</b> ${MODS[m].d}</div>`;
+    const tags = [];
+    if (!full){
+      if (e.frozenPiece && S.timeStop>0) tags.push([$t('Congelado', 'Frozen'), '#cfe6f5']); else if (e.marked) tags.push([$t('Marcado', 'Marked'), '#e3b456']); else if (e.armyPiece) tags.push([$t('Sem saque', 'No loot'), '#a89b87']);
+      if (e.role) tags.push([{protector:$t('Protetor', 'Protector'), artillery:$t('Artilheiro', 'Artillery'), guard:$t('Guarda', 'Guard')}[e.role], '#a9bfd6']);
+      if (e.herald) tags.push([$t('Arauto', 'Herald'), '#ff4a3a']); if (e.rival) tags.push([$t('Rival', 'Rival'), '#8fd18a']); if (e.rift) tags.push([$t('Cria da Fenda', 'Rift Spawn'), '#b48cff']);
+      for (const el in (e.res||{})) tags.push([`${DTYPES[el].n} ${e.res[el]}%`, DTYPES[el].c || '#cdbb9c']);
+      if (e.judged) tags.push([$t('Julgado +50%', 'Judged +50%'), '#f0d68c']);
+      if (tags.length) html += `<div class="chips2">${tags.map(([l,c]) => `<span class="mchip" style="--mc:${c}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="${c}" stroke="none"/></svg>${l}</span>`).join('')}</div>`;
+    }
+    if (!full){}
+    else if (e.frozenPiece && S.timeStop>0) html += `<div class="tm"><b>${$t('Congelado:', 'Frozen:')}</b> ${$t('não age e recebe +50% de dano. Estilhace-o para marcá-lo: ele volta quando o gelo derreter e só então pode deixar saque', 'does not act and takes +50% damage. Shatter it to mark it: it comes back when the ice melts and only then can it drop loot')}${e.type==='K' ? $t(' (o Rei marcado dá um Selo de Xeque)', ' (the marked King gives a Check Seal)') : ''}.</div>`;
     else if (e.marked) html += `<div class="tm"><b>${$t('Marcado:', 'Marked:')}</b> ${$t('você o estilhaçou; ao morrer pode deixar saque', 'you shattered it; on death it can drop loot')}${e.type==='K' ? $t(' e dá um Selo de Xeque', ' and gives a Check Seal') : ''}.</div>`;
     else if (e.armyPiece) html += `<div class="tm"><b>${$t('Exército:', 'Army:')}</b> ${$t('não foi estilhaçado, não deixa saque.', 'was not shattered, drops no loot.')}</div>`;
-    if (e.role==='protector') html += `<div class="tm"><b>${$t('Protetor:', 'Protector:')}</b> ${$t('no fim de cada turno inimigo dá', 'at the end of each enemy turn gives')} ${protectorShield()} ${$t('de escudo a cada peça colada nele. Derrube-o primeiro.', 'shield to every piece next to it. Take it down first.')}</div>`;
-    if (e.role==='artillery') html += `<div class="tm"><b>${$t('Artilheiro:', 'Artillery:')}</b> ${$t('fica atrás do Protetor. Como no xadrez, só atira com a linha livre; qualquer peça no caminho bloqueia o tiro.', 'stays behind the Protector. As in chess, it only fires with a clear line; any piece in the way blocks the shot.')}</div>`;
-    if (e.role==='guard') html += `<div class="tm"><b>${$t('Guarda:', 'Guard:')}</b> ${$t('protege a formação pela frente.', 'protects the formation from the front.')}</div>`;
-    if (e.herald) html += `<div class="tm"><b>${$t('Arauto da Maré:', 'Herald of the Tide:')}</b> ${$t('deixa 15 brasas, um item raro e uma runa', 'drops 15 embers, a rare item and a rune')}</div>`;
-    if (e.rival) html += `<div class="tm"><b>${$t('Seu rival:', 'Your rival:')}</b> ${$t('nível', 'level')} ${heroRival(HERO).tier}${$t('. Deixa o equipamento dele. Se ele te matar, fica mais forte.', '. Drops their gear. If they kill you, they grow stronger.')}</div>`;
-    if (e.rift) html += `<div class="tm"><b>${$t('Cria da Fenda:', 'Rift Spawn:')}</b> ${$t('deixa Estilhaços da Fenda e some quando a fenda fecha', 'drops Rift Shards and vanishes when the rift closes')}</div>`;
-    for (const el in (e.res||{})) html += `<div class="tm"><b>${$t('Resistente:', 'Resistant:')}</b> ${e.res[el]}% ${$t('a', 'to')} ${DTYPES[el].n}</div>`;
-    if (e.judged) html += `<div class="tm"><b>${$t('Julgado:', 'Judged:')}</b> ${$t('recebe +50% de dano', 'takes +50% damage')}</div>`;
-    if (e.boss && S.bossRelics) html += `<div class="tl">${$t('Usa', 'Wields')} <span class="rc-${S.bossRelics[0].rar}">${S.bossRelics[0].name}</span>${$t('. Vença e escolha entre ela e', '. Win and choose between it and')} <span class="rc-${S.bossRelics[1].rar}">${S.bossRelics[1].name}</span>.</div>`;
+    if (full && e.role==='protector') html += `<div class="tm"><b>${$t('Protetor:', 'Protector:')}</b> ${$t('no fim de cada turno inimigo dá', 'at the end of each enemy turn gives')} ${protectorShield()} ${$t('de escudo a cada peça colada nele. Derrube-o primeiro.', 'shield to every piece next to it. Take it down first.')}</div>`;
+    if (full && e.role==='artillery') html += `<div class="tm"><b>${$t('Artilheiro:', 'Artillery:')}</b> ${$t('fica atrás do Protetor. Como no xadrez, só atira com a linha livre; qualquer peça no caminho bloqueia o tiro.', 'stays behind the Protector. As in chess, it only fires with a clear line; any piece in the way blocks the shot.')}</div>`;
+    if (full && e.role==='guard') html += `<div class="tm"><b>${$t('Guarda:', 'Guard:')}</b> ${$t('protege a formação pela frente.', 'protects the formation from the front.')}</div>`;
+    if (full && e.herald) html += `<div class="tm"><b>${$t('Arauto da Maré:', 'Herald of the Tide:')}</b> ${$t('deixa 15 brasas, um item raro e uma runa', 'drops 15 embers, a rare item and a rune')}</div>`;
+    if (full && e.rival) html += `<div class="tm"><b>${$t('Seu rival:', 'Your rival:')}</b> ${$t('nível', 'level')} ${heroRival(HERO).tier}${$t('. Deixa o equipamento dele. Se ele te matar, fica mais forte.', '. Drops their gear. If they kill you, they grow stronger.')}</div>`;
+    if (full && e.rift) html += `<div class="tm"><b>${$t('Cria da Fenda:', 'Rift Spawn:')}</b> ${$t('deixa Estilhaços da Fenda e some quando a fenda fecha', 'drops Rift Shards and vanishes when the rift closes')}</div>`;
+    if (full) for (const el in (e.res||{})) html += `<div class="tm"><b>${$t('Resistente:', 'Resistant:')}</b> ${e.res[el]}% ${$t('a', 'to')} ${DTYPES[el].n}</div>`;
+    if (full && e.judged) html += `<div class="tm"><b>${$t('Julgado:', 'Judged:')}</b> ${$t('recebe +50% de dano', 'takes +50% damage')}</div>`;
+    if (e.boss && S.bossRelics && full) html += `<div class="tl">${$t('Usa', 'Wields')} <span class="rc-${S.bossRelics[0].rar}">${S.bossRelics[0].name}</span>${$t('. Vença e escolha entre ela e', '. Win and choose between it and')} <span class="rc-${S.bossRelics[1].rar}">${S.bossRelics[1].name}</span>.</div>`;
     const ff = attackersOf(x,y).filter(o=>o!==e && intentVisible(o));
     if (ff.length) html += `<div class="tw">${$t('Na linha de fogo:', 'In the line of fire:')} ${ff.map(enemyName).join(', ')}</div>`;
+    if (!full && (e.mods.length || tags.length || e.boss)) html += `<div class="thint">${$t('Segure Shift para os detalhes', 'Hold Shift for details')}</div>`;
   } else if (a){
     html += `<div class="tn ally">${a.type==='P'?$t('Peão', 'Allied Pawn'):$t('Rainha', 'Allied Queen')}${$t(' aliado', '')}</div><div class="tbar"><i class="ally" style="width:${100*a.hp/a.maxHp}%"></i></div><div class="tr">${a.hp}/${a.maxHp} ${$t('de vida · bate', 'health · hits')} ${allyDmg(a)}</div>`;
     if (S.dangerSeen.has(key(x,y))) html += `<div class="tw">${$t('Vai ser atacado', 'Will be attacked')}</div>`;
@@ -1068,6 +1088,9 @@ $('cbHint').onclick = chessHint;
 $('cbQuit').onclick = chessGiveUp;
 $('btnPact').onclick = usePact;
 $('btnWait').onclick = waitTurn;
+document.addEventListener('keydown', ev => { if (ev.key==='Shift' && !shiftDown){ shiftDown = true; if (typeof renderTip==='function') renderTip(); } });
+document.addEventListener('keyup', ev => { if (ev.key==='Shift' && shiftDown){ shiftDown = false; if (typeof renderTip==='function') renderTip(); } });
+window.addEventListener('blur', () => { shiftDown = false; });
 document.addEventListener('keydown', ev => {
   if (!S || !S.walls || !$('modal').hidden || !$('overlay').hidden || $('scrGame').hidden) return;
   if (ev.target instanceof HTMLInputElement) return;

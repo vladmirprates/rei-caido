@@ -525,6 +525,8 @@ function planIntents(moveOnly){
   for (const e of S.enemies){
     if (e.dummy){ e.intent = {kind:'wait'}; reserved.add(key(e.x,e.y)); continue; }
     if (e.frozenPiece && S.timeStop>0){ e.intent = {kind:'wait', frozen:true}; reserved.add(key(e.x,e.y)); continue; }
+    // still stunned: loses this turn too; when it wakes up it can't be stunned again for a turn
+    if (e.stunLeft>0 && !moveOnly){ e.stunLeft--; if (!e.stunLeft) e.stunImmune = S.turn + 1; e.intent = {kind:'wait', stunned:true}; reserved.add(key(e.x,e.y)); continue; }
     e.t++;
     // bosses breathe after each attack: exposed (no attack, +50% damage taken) for 1 turn, or 2 after an attack that covers
     // every line or a big zone (you had to leave all its lines, so you need a turn to line up again and one to hit)
@@ -649,7 +651,7 @@ function planEnvironment(){
 // swamp fog: you only see within a circular sight radius
 const sight = () => S.sight || 3.6;
 const sightDist = (x,y) => Math.hypot(x-S.player.x, y-S.player.y);
-const inSight = (x,y) => S.biome!=='swamp' || sightDist(x,y) <= sight();
+const inSight = (x,y) => S.biome!=='swamp' || !S.enemies.length || sightDist(x,y) <= sight();   // the fog lifts on a cleared floor
 // frozen army pieces stay visible while time is stopped, so the strike can be planned
 const intentVisible = e => inSight(e.x, e.y) || (e.frozenPiece && S.timeStop>0);
 function refreshDanger(){
@@ -704,5 +706,5 @@ function intentText(e){
   if (it.kind==='move') return it.recover ? $t('Exposto: vai dar 1 passo, sem atacar', 'Exposed: will take 1 step, without attacking') : $t('Vai se mover', 'Will move');
   if (it.kind==='summon') return it.order ? $t('Ordem Real: vai convocar dois peões', 'Royal Order: will summon two pawns') : $t('Vai invocar reforços', 'Will summon reinforcements');
   if (it.kind==='royal') return it.order==='promote' ? $t('Ordem Real: vai promover um peão a rainha', 'Royal Order: will promote a pawn to queen') : $t('Ordem Real: Grito de Guerra (cura a corte e ganha escudo)', 'Royal Order: War Cry (heals the court and gains a shield)');
-  return it.stunned ? $t('Atordoado, não age neste turno', 'Stunned, does not act this turn') : $t('Aguarda', 'Waiting');
+  return it.stunned ? (e.stunLeft>0 ? $t('Atordoado: não age neste turno nem no próximo', 'Stunned: does not act this turn or the next') : $t('Atordoado, não age neste turno', 'Stunned, does not act this turn')) : $t('Aguarda', 'Waiting');
 }

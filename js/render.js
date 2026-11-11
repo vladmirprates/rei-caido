@@ -79,6 +79,7 @@ function drawPiece(type, x, y, side, o){
   const asc = (ctx.measureText(GLYPH[type]) || {}).actualBoundingBoxAscent || sz*.62;
   const room = cy - tile*.04 - 3;
   const lift = Math.max(0, Math.min(o.boss ? tile*.12 : 0, room - asc));
+  const down = o.boss ? tile*.05 : tile*.13;   // pieces stand on their shadow instead of floating above it
   if (asc > room) sz = Math.min(sz, Math.max(sz*room/asc, tile*.88));
   if (o.boss){
     const pulse = reduce ? .5 : .5+.2*Math.sin(time*3);
@@ -98,7 +99,7 @@ function drawPiece(type, x, y, side, o){
     ctx.beginPath(); ctx.ellipse(cx, cy+tile*.3, tile*(o.boss?.5:.32), tile*(o.boss?.15:.1), 0, 0, Math.PI*2); ctx.stroke();
   }
   ctx.fillStyle = 'rgba(0,0,0,.5)';
-  ctx.beginPath(); ctx.ellipse(cx, cy+tile*.3, tile*(o.boss?.4:.26), tile*(o.boss?.12:.08), 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx, cy+tile*.3+down*.6, tile*(o.boss?.4:.26), tile*(o.boss?.12:.08), 0, 0, Math.PI*2); ctx.fill();
   if (o.ally){
     ctx.strokeStyle = 'rgba(227,180,86,.85)'; ctx.lineWidth = Math.max(1.5,tile*.03);
     ctx.beginPath(); ctx.ellipse(cx, cy+tile*.3, tile*.26, tile*.08, 0, 0, Math.PI*2); ctx.stroke();
@@ -109,15 +110,50 @@ function drawPiece(type, x, y, side, o){
   if (o.boss){ fill = o.holy ? '#efe3bf' : '#7d1414'; stroke = o.holy ? '#8a6a1f' : '#e3b456'; }
   else if (o.frozen){ fill = side==='w' ? '#eef6fc' : '#3a5068'; stroke = '#cfe6f5'; }
   else { const white = side==='w'; fill = o.spectral ? '#dbe8f5' : white ? '#f1e7d3' : '#1b1411'; stroke = o.herald ? '#ff4a3a' : o.rival ? '#8fd18a' : o.rift ? '#b48cff' : o.elite ? '#e3b456' : o.spectral ? '#5a7a9e' : white ? '#2a1f18' : '#cdbb9c'; }
-  ctx.strokeStyle = stroke; ctx.strokeText(GLYPH[type], cx, cy-lift);
-  ctx.fillStyle = fill; ctx.fillText(GLYPH[type], cx, cy-lift);
+  ctx.strokeStyle = stroke; ctx.strokeText(GLYPH[type], cx, cy-lift+down);
+  ctx.fillStyle = fill; ctx.fillText(GLYPH[type], cx, cy-lift+down);
   if (o.boss && !reduce && Math.random()<.35){
     fx.embers.push({x:x+.2+Math.random()*.6, y:y+.7, vy:-(.6+Math.random()*.8), life:1, c:o.holy ? '240,214,140' : '240,110,50'});
   }
 }
+// Modifier icons: vector line icons (24x24 paths), one per modifier, drawn in a row above the piece.
+// [color, path, filled]. The same paths feed the tooltip chips (modIconSvg in ui.js).
+const MOD_ICON = {
+  armor:['#a9bfd6','M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z',1],
+  vamp:['#e0524a','M12 3c3 4.5 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-6.5 6-11z',1],
+  swift:['#ecd36a','M5 6l6 6-6 6M13 6l6 6-6 6',0],
+  explode:['#f08a3c','M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4',0],
+  thorns:['#8fd18a','M3 20l3-11 3 7 3-12 3 12 3-7 3 11z',1],
+  regen:['#7fb069','M12 4v16M4 12h16',0],
+  double:['#ff7a5e','M5 4l8 16M12 4l8 16',0],
+  trample:['#cdbb9c','M12 4v12M6 11l6 6 6-6M5 21h14',0],
+  fastSummon:['#c9a0ff','M12 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6 20c0-4 3-6 6-6s6 2 6 6z',1],
+  submerge:['#7fb0a8','M3 9c3-3 6 3 9 0s6 3 9 0M3 16c3-3 6 3 9 0s6 3 9 0',0],
+  lavaTrail:['#ff7a2a','M12 3c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3-1-3 0-7 1-10z',1],
+  frost:['#9fd3ff','M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9',0],
+  enraged:['#e04a3a','M12 4v11M12 19.5v.5',0]
+};
+const MOD_PATH = {}; for (const k in MOD_ICON) MOD_PATH[k] = new Path2D(MOD_ICON[k][1]);
+// a row of icons centered above the piece, straddling the top edge of its square
+function modBadges(u, x, y){
+  const list = (u.mods||[]).filter(m => MOD_ICON[m]).slice(0,4); if (!list.length) return;
+  const s = Math.max(11, tile*.2), gap = 2, total = list.length*s + (list.length-1)*gap;
+  // bosses are bigger than their square: their row sits just under the health bar instead of over the body
+  let bx = (x+.5)*tile - total/2; const by = u.boss ? (y+1)*tile - tile*.05 : y*tile - s*.1;
+  // dark pill behind the row so the icons read on any floor
+  ctx.fillStyle = 'rgba(10,6,4,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx-3, by-2, total+6, s+4, 5) : ctx.rect(bx-3, by-2, total+6, s+4); ctx.fill();
+  for (const m of list){
+    const [col, , filled] = MOD_ICON[m];
+    ctx.save(); ctx.translate(bx, by); ctx.scale(s/24, s/24);
+    ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = col;
+    if (filled){ ctx.fillStyle = col + '55'; ctx.fill(MOD_PATH[m]); }
+    ctx.stroke(MOD_PATH[m]); ctx.restore();
+    bx += s + gap;
+  }
+}
 function hpBar(u, x, y, color, preview, time){
   const w = tile*(u.boss?.9:.56), h = Math.max(3, tile*(u.boss?.08:.055));
-  const bx = (x+.5)*tile - w/2, by = (y+1)*tile - h - tile*.04;
+  const bx = (x+.5)*tile - w/2, by = (y+1)*tile - h - tile*.11;
   const fill = w*Math.max(0,u.hp)/u.maxHp;
   ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(bx-1, by-1, w+2, h+2);
   ctx.fillStyle = color; ctx.fillRect(bx, by, fill, h);
@@ -669,7 +705,7 @@ function draw(time){
     glow(cx, cy, tile*1.7, `rgba(255,170,90,${.07+flick*.3})`);
   }
   for (const it of S.items) drawSpecial(it, time);
-  if (S.biome==='swamp') drawSwampFog(time, size);
+  if (S.biome==='swamp' && S.enemies.length) drawSwampFog(time, size);
   if (S.phase!=='over'){
     if (S.threatNext && S.phase==='player'){
       ctx.setLineDash([3,4]); ctx.strokeStyle = 'rgba(226,120,90,.38)'; ctx.lineWidth = 1;
@@ -753,6 +789,7 @@ function draw(time){
     }
   }
   const foe = S.color==='w' ? 'b' : 'w';
+  const badgeQ = [];
   const units = [...S.enemies.map(u=>({u,k:'e'})), ...S.allies.map(u=>({u,k:'a'}))].sort((a,b)=>a.u.ry-b.u.ry);
   const showWarn = S.phase!=='enemy' && S.phase!=='over';
   for (const {u,k} of units){
@@ -767,6 +804,7 @@ function draw(time){
       const attacking = u.intent && u.intent.kind==='attack' && S.phase!=='enemy';
       drawPiece(u.type, x, y, foe, {boss:u.boss, holy:u.side==='holy', elite:u.elite, fodder:u.fodder, rift:u.rift, herald:u.herald, rival:u.rival, frozen:u.frozenPiece && S.timeStop>0, attacking});
       hpBar(u, x, y, u.boss ? '#e04a3a' : u.elite ? '#e3b456' : '#c2402f', attackPreview(u), time);
+      badgeQ.push([u, x, y]);
       if (u.role==='protector'){
         for (const [dx,dy] of ALL){ const o = S.enemies.find(q => q.x===u.x+dx && q.y===u.y+dy && !q.boss); if (!o) continue;
           ctx.strokeStyle = 'rgba(150,190,240,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo((x+.5)*tile, (y+.5)*tile); ctx.lineTo((o.rx+o.lx+.5)*tile, (o.ry+o.ly+.5)*tile); ctx.stroke(); }
@@ -792,6 +830,7 @@ function draw(time){
     ctx.beginPath(); ctx.moveTo(cx-r, cy); ctx.lineTo(cx+r, cy); ctx.moveTo(cx, cy-r); ctx.lineTo(cx, cy+r); ctx.stroke();
   }
   if (!S.dead) drawPiece(S.cls, S.player.rx+S.player.lx, S.player.ry+S.player.ly, S.color, {player:true});
+  for (const [u, x, y] of badgeQ) modBadges(u, x, y);   // drawn last so no piece covers them
   // interactive events: a bouncing marker says "step here"
   for (const it of S.items) if (it.frozen || it.riftGate || it.tideChest) stepMarker(it.x, it.y, it.frozen ? '207,230,245' : it.riftGate ? '200,170,255' : '255,110,90', time);
   // training: a gold arrow points at the thing the current step is about
@@ -830,10 +869,10 @@ function draw(time){
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = `700 ${Math.max(12, tile*.26)}px ${BF}`;
   for (const f of fx.floats){
-    const a = Math.max(0, 1-f.t/1.1);
+    const a = f.t < 1.2 ? 1 : Math.max(0, 1-(f.t-1.2)/.6);
     // keep the text inside the board, even for squares on the edges
     const half = ((ctx.measureText(f.text) || {}).width || 0)/2 + 4, fs = Math.max(12, tile*.26);
-    const xx = Math.min(size - half, Math.max(half, f.x*tile)), yy = Math.min(size - fs*.6, Math.max(fs*.6, (f.y - f.t*.6)*tile));
+    const xx = Math.min(size - half, Math.max(half, f.x*tile)), yy = Math.min(size - fs*.6, Math.max(fs*.6, (f.y - Math.min(f.t,1.2)*.4)*tile));
     ctx.globalAlpha = a; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10,6,4,.9)';
     ctx.strokeText(f.text, xx, yy); ctx.fillStyle = f.color; ctx.fillText(f.text, xx, yy);
   }
@@ -848,7 +887,7 @@ function updateFx(dt){
   fx.parts = fx.parts.filter(p => p.life>0);
   for (const m of fx.embers){ m.y += m.vy*dt; m.life -= dt*.9; }
   fx.embers = fx.embers.filter(m => m.life>0).slice(-120);
-  for (const f of fx.floats) f.t += dt; fx.floats = fx.floats.filter(f => f.t<1.1);
+  for (const f of fx.floats) f.t += dt; fx.floats = fx.floats.filter(f => f.t<1.8);
   for (const f of fx.flashes) f.t -= dt*2.2; fx.flashes = fx.flashes.filter(f => f.t>0);
   for (const r of fx.rings) r.t += dt; fx.rings = fx.rings.filter(r => r.t<.5);
   for (const b of fx.beams) b.t += dt; fx.beams = fx.beams.filter(b => b.t<.35);

@@ -167,7 +167,7 @@ const SKILLS = {
         const e = enemyAt(p.x+dx, p.y+dy); if (!e) continue;
         const blocked = pushEnemy(e, dx, dy);
         if (!S.enemies.includes(e)) continue;
-        e.intent = {kind:'wait', stunned:true};
+        stun(e);
         skillHit(e, st.dmg + (blocked ? 2+st.pushPower : 0));
       }
       log($t('Empurrão.', 'Shove.'));
@@ -672,7 +672,8 @@ function healEnemy(e, n){
 }
 function stun(e){
   if (!S.enemies.includes(e)) return;
-  e.intent = {kind:'wait', stunned:true};
+  if (e.stunImmune >= S.turn){ floatText(e.x, e.y-0.3, $t('resiste', 'resists'), '#a89b87'); return; }
+  e.intent = {kind:'wait', stunned:true}; e.stunLeft = e.boss ? 0 : 1;
   floatText(e.x, e.y-0.3, $t('atordoado', 'stunned'), '#ecd36a');
 }
 
