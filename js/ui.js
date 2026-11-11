@@ -669,7 +669,7 @@ async function showShop(en){
 async function openEntry(en){
   if (en.relics) await showRelics(en.relics);
   else if (en.merchant) await showShop(en);
-  else if (en.item) await showLoot(en.item);
+  else if (en.item){ sfx('loot', {rar: en.item.rar}); await showLoot(en.item); }
   else if (en.frozen) await frozenPlay(en);
 }
 
@@ -952,13 +952,18 @@ $('btnS1').onclick = () => useSkill(1);
 $('btnS2').onclick = () => useSkill(2);
 $('btnS3').onclick = () => useSkill(3);
 $('btnQuit').onclick = quitExpedition;
+const soundLabel = () => { $('btnSound').textContent = soundOn() ? 'Som: ligado (M)' : 'Som: desligado (M)'; };
+$('btnSound').onclick = () => { toggleSound(); soundLabel(); };
+try { soundLabel(); } catch(e){}
 $('cbHint').onclick = chessHint;
 $('cbQuit').onclick = chessGiveUp;
 $('btnPact').onclick = usePact;
 $('btnWait').onclick = waitTurn;
 document.addEventListener('keydown', ev => {
   if (!S || !S.walls || !$('modal').hidden || !$('overlay').hidden || $('scrGame').hidden) return;
-  if (ev.target instanceof HTMLInputElement || S.chess) return;
+  if (ev.target instanceof HTMLInputElement) return;
+  if (ev.key==='m' || ev.key==='M'){ toggleSound(); soundLabel(); return; }
+  if (S.chess) return;
   if (ev.key==='1') useSkill(0);
   else if (ev.key==='2') useSkill(1);
   else if (ev.key==='3' && barSkills().length>2) useSkill(2);

@@ -301,6 +301,7 @@ function placeAllies(list){
 
 function nextFloor(){
   S.floor++;
+  if (S.floor>1) sfx('stairs');
   const plan = floorPlan();
   Object.assign(S, {biome:plan.biome, bossId:plan.boss, lvl:plan.lvl, act:plan.act, af:plan.af,
     walls:new Set(), terrain:new Map(), items:[], stairs:null, enemies:[], fire:new Map(), burn:new Map(),

@@ -171,6 +171,7 @@ async function chessClick(x, y){
 async function chessPlay(m){
   const c = S.chess; c.busy = true; c.sel = null; c.hintMove = null;
   c.board = chMake(c.board, m); c.last = m; c.left--;
+  sfx('chess');
   updateUI();
   const replies = chLegal(c.board, 'b');
   if (!replies.length) return chessEnd(chInCheck(c.board,'b') ? 'win' : 'stale');
@@ -192,6 +193,7 @@ function chessHint(){
 function chessGiveUp(){ const c = S.chess; if (c && !c.busy) chessEnd('fail'); }
 async function chessEnd(result){
   const c = S.chess; c.busy = true; c.result = result; updateUI();
+  if (result==='win') sfx('win');
   await sleep(reduce ? 200 : 700);
   if (result==='win'){
     const lines = frozenReward(c);

@@ -38,6 +38,9 @@ function statsFor(cls, color, equip){
 // a distinct hit effect for each element on your weapon: fire bursts into flames, cold shatters into frost, lightning arcs
 function elemFx(e, st){
   const p = S.player;
+  if (st.fireDmg) sfx('fire');
+  if (st.coldDmg) sfx('cold');
+  if (st.lightDmg) sfx('zap');
   if (st.fireDmg){ burst(e.x, e.y, '#ff7a2a', 14); burst(e.x, e.y, '#ffd27a', 6); fx.rings.push({x:e.x, y:e.y, t:.15, c:'255,120,40'}); }
   if (st.coldDmg){ burst(e.x, e.y, '#bfe4ff', 14); burst(e.x, e.y, '#ffffff', 5); fx.rings.push({x:e.x, y:e.y, t:.15, c:'150,205,255'}); }
   if (st.lightDmg){ fx.beams.push({x1:p.x, y1:p.y, x2:e.x, y2:e.y, t:0, c:'205,225,255', zig:true}); burst(e.x, e.y, '#e8f0ff', 10); }
@@ -101,6 +104,7 @@ function skillHit(e, amt){
   if (r==='trovao') stun(e);
 }
 function startCd(id){
+  sfx('skill');
   if (S.tut) S.tut.skillUsed = true;
   S.cds[id] = skillCd(id);
   if (runeOf(id)==='eco' && rnd()<.3){ S.cds[id] = 0; floatText(S.player.x, S.player.y-0.4, 'eco', '#c9a0ff'); }
@@ -127,10 +131,11 @@ function fallInPit(e, px, py){
 // player movement that respects ice
 function moveTo(x, y){
   const p = S.player, dx = x-p.x, dy = y-p.y;
+  sfx(S.cls==='N' ? 'jump' : 'move');
   landOn(x, y);
   if (!isIce(x,y)) return;
   const [sx,sy] = slideEnd(x, y, dx, dy);
-  if (sx!==x || sy!==y){ floatText(x, y-0.2, 'escorrega', '#cfe6f5'); burst(x, y, '#dff0fa', 8); landOn(sx, sy); }
+  if (sx!==x || sy!==y){ sfx('slide'); floatText(x, y-0.2, 'escorrega', '#cfe6f5'); burst(x, y, '#dff0fa', 8); landOn(sx, sy); }
 }
 const SKILLS = {
   quake:{name:'Salto Sísmico', cd:4, target:true, hits:true,
@@ -339,7 +344,7 @@ function gainXp(n){
   if (!n) return;
   HERO.xp += n; S.xpFound += n;
   while (HERO.xp >= xpNeed(HERO.level) && HERO.level<50){
-    HERO.xp -= xpNeed(HERO.level); HERO.level++; S.player.hp += 1;
+    HERO.xp -= xpNeed(HERO.level); HERO.level++; S.player.hp += 1; sfx('level');
     floatText(S.player.x, S.player.y-0.4, `Nível ${HERO.level}`, '#e3b456');
     burst(S.player.x, S.player.y, '#e3b456', 20);
     log(`Você chegou ao nível ${HERO.level}. Um ponto de talento novo espera no acampamento.`);
@@ -414,6 +419,7 @@ function damageEnemy(e, amt, src){
     if (amt<=0) return;
   }
   e.hp -= amt; e.hurtTurn = S.turn;
+  if (src!=='enemy') sfx('hit');
   floatText(e.x, e.y, '-'+amt, src==='enemy' ? '#d9a066' : '#ffd9a8');
   burst(e.x, e.y, src==='enemy' ? '#d9a066' : '#e07a32', 8);
   if (src==='player' && e.hp>0 && e.hp<3 && !e.boss && stats().execute){ e.hp = 0; floatText(e.x, e.y-0.3, 'Xeque-mate', '#f08a3c'); }
@@ -424,6 +430,7 @@ function damageEnemy(e, amt, src){
     return;
   }
   S.enemies = S.enemies.filter(o => o!==e);
+  sfx(e.boss ? 'boss' : 'kill');
   riftKill(e);
   currencyDrop(e);
   tideKill(e);
@@ -510,6 +517,7 @@ function heal(n){
 // raw damage to the player (shield first); returns false if the player died
 function hurtPlayer(dmg, msg){
   if (S.dead) return false;
+  if (dmg>0) sfx('hurt');
   if (dmg>0 && S.nullHit){ S.nullHit = false; floatText(S.player.x, S.player.y, 'anulado', '#a9bfd6'); log('A Barda de Obsidiana anulou o golpe.'); return true; }
   let d = dmg, absorbed = 0;
   const hpBefore = S.player.hp;
@@ -620,7 +628,7 @@ function doAttack(t){
   const e = enemyAt(t.x,t.y), st = stats(), p = S.player;
   let dmg = attackDmg(st, e); S.nextBonus = 0; S.firstHitDone = true;
   if (e) elemFx(e, st);
-  if (st.crit && rnd()*100 < st.crit){ dmg = Math.ceil(dmg*1.5); floatText(e.x, e.y-0.45, 'crítico', '#ffcf6a'); fx.shake = Math.max(fx.shake, 5); }
+  if (st.crit && rnd()*100 < st.crit){ sfx('crit'); dmg = Math.ceil(dmg*1.5); floatText(e.x, e.y-0.45, 'crítico', '#ffcf6a'); fx.shake = Math.max(fx.shake, 5); }
   const dx = Math.sign(t.x-p.x), dy = Math.sign(t.y-p.y);
   const straight = t.x===p.x || t.y===p.y || Math.abs(t.x-p.x)===Math.abs(t.y-p.y);
   if (S.cls==='B'){
@@ -894,11 +902,13 @@ async function enemyPhase(){
     updateUI();
     await sleep(330);
   }
+  let moves = 0;
   for (const e of order){
     if (!alive()) return;
     if (!S.enemies.includes(e) || !e.intent) continue;
     const it = e.intent;
     if (it.kind==='move'){
+      if (moves<5) sfx('emove', {delay: .06*moves++});
       let [x,y] = it.to;
       if (!occupied(x,y)){
         const ox = e.x, oy = e.y;
