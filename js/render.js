@@ -4,6 +4,51 @@ const cv = $('cv'), ctx = cv.getContext('2d');
 let tile = 60, dpr = 1, hover = null;
 const fx = {parts:[], floats:[], flashes:[], rings:[], beams:[], embers:[], amb:[], shake:0};
 
+// a "step here" marker: dashed circle and a bouncing arrow
+function stepMarker(x, y, col, time, solid){
+  const cx = (x+.5)*tile, bob = reduce ? 0 : Math.sin(time*4)*tile*.05, top = y*tile + tile*.02 + bob;
+  ctx.strokeStyle = `rgba(${col},.85)`; ctx.lineWidth = solid ? 3 : 2; if (!solid) ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.arc(cx, (y+.5)*tile, tile*(.44 + (solid && !reduce ? .03*Math.sin(time*5) : 0)), 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = `rgba(${col},.95)`; ctx.strokeStyle = 'rgba(10,6,4,.9)'; ctx.lineWidth = 1.5;
+  const s = solid ? 1.3 : 1;
+  ctx.beginPath(); ctx.moveTo(cx - tile*.11*s, top - tile*.12*s); ctx.lineTo(cx + tile*.11*s, top - tile*.12*s); ctx.lineTo(cx, top); ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+// stairs going down: steps that shrink and darken into the hole
+function drawStairs(x, y, time){
+  const px = x*tile, py = y*tile, m = tile*.1, w = tile - m*2;
+  ctx.fillStyle = '#060404'; ctx.fillRect(px+m, py+m, w, w);
+  for (let i=0;i<5;i++){
+    const sh = w*.17, sy = py + m + w - sh*(i+1), inset = i*w*.06;
+    ctx.fillStyle = `rgb(${120-i*20},${98-i*17},${78-i*14})`;
+    ctx.fillRect(px+m+inset, sy, w-inset*2, sh*.72);
+    ctx.fillStyle = `rgba(255,230,190,${.22-i*.04})`; ctx.fillRect(px+m+inset, sy, w-inset*2, Math.max(1, sh*.12));
+  }
+  const g = ctx.createLinearGradient(0, py+m, 0, py+m+w*.6); g.addColorStop(0, 'rgba(0,0,0,.85)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(px+m, py+m, w, w*.6);
+  ctx.strokeStyle = `rgba(224,122,50,${reduce ? .7 : .45+.35*Math.sin(time*3)})`; ctx.lineWidth = 2; ctx.strokeRect(px+m, py+m, w, w);
+}
+// burning ground: flickering tongues of fire with rising sparks (gold for yours, red for the enemy's)
+function drawFlames(x, y, time, hostile, k){
+  const bx = x*tile, base = y*tile + tile*.84, cx0 = bx + tile/2;
+  glow(cx0, base - tile*.2, tile*.75*k, hostile ? 'rgba(255,60,30,.34)' : 'rgba(255,150,50,.3)');
+  ctx.fillStyle = hostile ? 'rgba(90,10,4,.55)' : 'rgba(110,40,8,.5)';
+  ctx.beginPath(); ctx.ellipse(cx0, base, tile*.36, tile*.08, 0, 0, Math.PI*2); ctx.fill();
+  for (let i=0;i<4;i++){
+    const t = reduce ? 0 : time, cx = bx + tile*(.24 + .17*i);
+    const h = tile*k*(.34 + .2*Math.abs(Math.sin(t*7 + i*2.1 + x*1.7 + y*.9))), w = tile*.1, sway = reduce ? 0 : Math.sin(t*5 + i)*tile*.04;
+    const g = ctx.createLinearGradient(0, base, 0, base - h);
+    g.addColorStop(0, hostile ? 'rgba(200,30,15,.95)' : 'rgba(235,80,20,.95)'); g.addColorStop(.55, hostile ? 'rgba(255,110,40,.85)' : 'rgba(255,170,50,.9)'); g.addColorStop(1, 'rgba(255,240,170,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(cx - w, base);
+    ctx.quadraticCurveTo(cx - w*1.2, base - h*.55, cx + sway, base - h);
+    ctx.quadraticCurveTo(cx + w*1.2, base - h*.55, cx + w, base); ctx.closePath(); ctx.fill();
+  }
+  if (!reduce) for (let i=0;i<3;i++){
+    const f = (time*.9 + i*.33 + x*.17 + y*.29) % 1;
+    ctx.fillStyle = `rgba(255,${200-i*30},90,${(1-f)*.9})`;
+    ctx.fillRect(bx + tile*(.3 + .2*i) + Math.sin(time*3+i)*tile*.05, base - f*tile*.75, tile*.035, tile*.035);
+  }
+}
 function burst(x,y,color,n){
   if (reduce) n = Math.ceil(n/4);
   for (let i=0;i<n;i++){
@@ -610,17 +655,9 @@ function draw(time){
   if (S.tut && S.tut.target && S.phase==='player'){ const [tx,ty] = S.tut.target, [cx,cy] = sqCenter(tx,ty), r = tile*(.36 + (reduce?0:.05*Math.sin(time*5))); ctx.strokeStyle = '#e3b456'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke(); glow(cx, cy, tile*.7, 'rgba(227,180,86,.25)'); }
   if (S.tideRise) for (const [x,y] of S.tideRise){ const pul = reduce ? .5 : .5+.5*Math.sin(time*5); ctx.fillStyle = `rgba(160,20,10,${.15+.15*pul})`; ctx.fillRect(x*tile, y*tile, tile, tile); ctx.strokeStyle = `rgba(255,80,60,${.6+.3*pul})`; ctx.setLineDash([4,3]); ctx.lineWidth = 2; ctx.strokeRect(x*tile+3, y*tile+3, tile-6, tile-6); ctx.setLineDash([]); }
   if (S.tide){ ctx.fillStyle = `rgba(140,10,0,${reduce?.09:.07+.03*Math.sin(time*.9)})`; ctx.fillRect(0, 0, size, size); }
-  for (const [k,t] of S.fire){ const [x,y] = unkey(k); ctx.fillStyle = `rgba(240,138,60,${(t>1?.22:.13)+(reduce?0:.06*Math.sin(time*9+x*3+y))})`; ctx.fillRect(x*tile, y*tile, tile, tile); }
-  for (const k of S.burn.keys()){
-    const [x,y] = unkey(k);
-    for (let i=0;i<4;i++){ ctx.fillStyle = `rgba(255,${120+i*20},40,${.5+.3*Math.sin(time*8+i)})`; ctx.fillRect(x*tile+tile*(.2+i*.15), y*tile+tile*(.55+.1*Math.sin(time*5+i)), tile*.07, tile*.07); }
-  }
-  if (S.stairs){
-    const px=S.stairs.x*tile, py=S.stairs.y*tile;
-    for (let i=0;i<5;i++){ const ins=tile*(.08+i*.075); ctx.fillStyle=`rgba(0,0,0,${.3+i*.14})`; ctx.fillRect(px+ins,py+ins,tile-ins*2,tile-ins*2); }
-    ctx.strokeStyle = `rgba(224,122,50,${.45+.35*Math.sin(time*3)})`; ctx.lineWidth = 2;
-    ctx.strokeRect(px+tile*.08, py+tile*.08, tile*.84, tile*.84);
-  }
+  for (const [k,t] of S.fire){ const [x,y] = unkey(k); drawFlames(x, y, time, false, t>1 ? 1 : .65); }
+  for (const [k,t] of S.burn){ const [x,y] = unkey(k); drawFlames(x, y, time, true, t>1 ? 1 : .65); }
+  if (S.stairs) drawStairs(S.stairs.x, S.stairs.y, time);
   for (const k of S.walls){ const [x,y] = unkey(k); drawWall(x, y, !!(S.env && S.env.wall[0]===x && S.env.wall[1]===y), time); }
   // torchlight, tinted per biome
   {
@@ -748,14 +785,9 @@ function draw(time){
   }
   if (!S.dead) drawPiece(S.cls, S.player.rx+S.player.lx, S.player.ry+S.player.ly, S.color, {player:true});
   // interactive events: a bouncing marker says "step here"
-  for (const it of S.items) if (it.frozen || it.riftGate || it.tideChest){
-    const cx = (it.x+.5)*tile, bob = reduce ? 0 : Math.sin(time*4)*tile*.05, top = it.y*tile + tile*.02 + bob;
-    const col = it.frozen ? '207,230,245' : it.riftGate ? '200,170,255' : '255,110,90';
-    ctx.strokeStyle = `rgba(${col},.85)`; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
-    ctx.beginPath(); ctx.arc(cx, (it.y+.5)*tile, tile*.44, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = `rgba(${col},.95)`; ctx.strokeStyle = 'rgba(10,6,4,.9)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(cx - tile*.11, top - tile*.12); ctx.lineTo(cx + tile*.11, top - tile*.12); ctx.lineTo(cx, top); ctx.closePath(); ctx.fill(); ctx.stroke();
-  }
+  for (const it of S.items) if (it.frozen || it.riftGate || it.tideChest) stepMarker(it.x, it.y, it.frozen ? '207,230,245' : it.riftGate ? '200,170,255' : '255,110,90', time);
+  // floor clear: the same marker on the stairs, in gold, so you know where to go
+  if (S.stairs && !S.enemies.length && !S.tut && !isPlayer(S.stairs.x, S.stairs.y)) stepMarker(S.stairs.x, S.stairs.y, '227,180,86', time, true);
   // training: a gold arrow points at the thing the current step is about
   if (S.tut && S.phase==='player'){
     const st = S.tut.step, pts = st===0 && S.tut.target ? [S.tut.target] : st===5 && S.stairs ? [[S.stairs.x,S.stairs.y]] : [1,3,4].includes(st) ? S.enemies.map(e => [e.x,e.y]) : [];
@@ -770,7 +802,13 @@ function draw(time){
   for (const b of fx.beams){
     const [ax,ay] = sqCenter(b.x1,b.y1), [bx,by] = sqCenter(b.x2,b.y2), a = Math.max(0, 1-b.t*3);
     ctx.strokeStyle = `rgba(${b.c},${a})`; ctx.lineWidth = Math.max(2, tile*.06);
-    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax,ay);
+    if (b.zig){   // lightning: a jagged arc that re-forks every frame
+      const n = 7, nx = -(by-ay), ny = bx-ax, len = Math.hypot(nx,ny) || 1;
+      for (let i=1;i<n;i++){ const j = (Math.random()-.5)*tile*.35; ctx.lineTo(ax+(bx-ax)*i/n + nx/len*j, ay+(by-ay)*i/n + ny/len*j); }
+    }
+    ctx.lineTo(bx,by); ctx.stroke();
+    if (b.zig){ ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 1; ctx.stroke(); }
   }
   for (const r of fx.rings){
     const [cx,cy] = sqCenter(r.x,r.y);

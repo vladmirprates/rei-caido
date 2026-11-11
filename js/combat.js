@@ -35,6 +35,13 @@ function statsFor(cls, color, equip){
   for (const k of ['resFire','resCold','resLight']) st[k] = Math.min(st[k], 75);
   return st;
 }
+// a distinct hit effect for each element on your weapon: fire bursts into flames, cold shatters into frost, lightning arcs
+function elemFx(e, st){
+  const p = S.player;
+  if (st.fireDmg){ burst(e.x, e.y, '#ff7a2a', 14); burst(e.x, e.y, '#ffd27a', 6); fx.rings.push({x:e.x, y:e.y, t:.15, c:'255,120,40'}); }
+  if (st.coldDmg){ burst(e.x, e.y, '#bfe4ff', 14); burst(e.x, e.y, '#ffffff', 5); fx.rings.push({x:e.x, y:e.y, t:.15, c:'150,205,255'}); }
+  if (st.lightDmg){ fx.beams.push({x1:p.x, y1:p.y, x2:e.x, y2:e.y, t:0, c:'205,225,255', zig:true}); burst(e.x, e.y, '#e8f0ff', 10); }
+}
 function attackDmg(st, target){
   // in the camp (skill descriptions) there is no expedition: show the base damage
   if (!S) return st.dmg + (st.gambit ? 3 : 0);
@@ -83,6 +90,7 @@ function barSkills(){
 const runeOf = id => (HERO.skillRunes || {})[id] || null;
 function skillHit(e, amt){
   if (!S.enemies.includes(e)) return;
+  elemFx(e, stats());
   const r = runeOf(S.curSkill);
   if (r==='forca') amt += 2;
   damageEnemy(e, amt, 'player');
@@ -611,6 +619,7 @@ function forkHit(main, dmg){
 function doAttack(t){
   const e = enemyAt(t.x,t.y), st = stats(), p = S.player;
   let dmg = attackDmg(st, e); S.nextBonus = 0; S.firstHitDone = true;
+  if (e) elemFx(e, st);
   if (st.crit && rnd()*100 < st.crit){ dmg = Math.ceil(dmg*1.5); floatText(e.x, e.y-0.45, 'crítico', '#ffcf6a'); fx.shake = Math.max(fx.shake, 5); }
   const dx = Math.sign(t.x-p.x), dy = Math.sign(t.y-p.y);
   const straight = t.x===p.x || t.y===p.y || Math.abs(t.x-p.x)===Math.abs(t.y-p.y);
@@ -769,7 +778,9 @@ async function afterAction(){
     if (S.stairs) log('O andar está limpo.'); else spawnStairs();
   }
   // a single straggler can't stall the floor: the stairs open early
-  if (S.enemies.length===1 && !S.bossId && !S.stairs && S.exp.kind!=='daily' && !S.tut) spawnStairs(true);
+  // a single straggler that can't be reached (say, on the other colour) can't stall the floor: after 4 turns alone the stairs open
+  if (S.enemies.length===1){ if (S.loneSince==null) S.loneSince = S.turn; } else S.loneSince = null;
+  if (S.enemies.length===1 && S.turn - S.loneSince >= 4 && !S.bossId && !S.stairs && S.exp.kind!=='daily' && !S.tut) spawnStairs(true);
   // training: a skill that moves you can land right on the stairs
   if (S.tut && S.stairs && S.player.x===S.stairs.x && S.player.y===S.stairs.y) S.goDown = true;
   if (S.goDown){ S.goDown = false; await stairsChoice(); return; }

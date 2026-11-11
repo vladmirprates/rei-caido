@@ -304,7 +304,7 @@ function nextFloor(){
   const plan = floorPlan();
   Object.assign(S, {biome:plan.biome, bossId:plan.boss, lvl:plan.lvl, act:plan.act, af:plan.af,
     walls:new Set(), terrain:new Map(), items:[], stairs:null, enemies:[], fire:new Map(), burn:new Map(),
-    env:null, rise:null, clock:null, clocks:0, tide:false, tideRise:null, bloodRain:null, tideIra:0, tideGoal:8, sight:0, risen:0, rift:null, riftShardsRun:0, firstHitDone:false, chess:null, hits:[], timeStop:0, fseed:Math.floor(Math.random()*1e9), bossRelics:null, floorCleared:false, bossKilledThisFloor:false});
+    env:null, rise:null, clock:null, clocks:0, tide:false, loneSince:null, tideRise:null, bloodRain:null, tideIra:0, tideGoal:8, sight:0, risen:0, rift:null, riftShardsRun:0, firstHitDone:false, chess:null, hits:[], timeStop:0, fseed:Math.floor(Math.random()*1e9), bossRelics:null, floorCleared:false, bossKilledThisFloor:false});
   const keep = S.allies; S.allies = [];
   if (plan.boss) genArena(plan.boss); else if (S.exp.kind==='tutorial') genTutorial(); else genRandomFloor();
   placeAllies(keep);
@@ -356,7 +356,7 @@ function spawnStairs(early){
   const c = pick(pool.slice(0,6));
   S.terrain.delete(key(c[0],c[1]));
   S.stairs = {x:c[0], y:c[1]};
-  log(early ? 'Só resta um inimigo. A escada já se abriu: termine com ele ou siga adiante.' : 'O andar está limpo. Uma escada se abriu.');
+  log(early ? 'O último inimigo não se deixa alcançar. A escada se abriu: termine com ele ou siga adiante.' : 'O andar está limpo. Uma escada se abriu.');
 }
 
 /* ---------- Enemy intents ---------- */
