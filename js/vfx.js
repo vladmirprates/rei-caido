@@ -517,12 +517,16 @@ const VFX_DRAW = {
   },
 };
 
+let _fxCost = 0;   // moving average of what the effects cost per frame (ms): when it is high, the glow pass is skipped
 function drawVfx(){
-  if (!(fx.vfx && fx.vfx.length) && !(fx.sp && fx.sp.length)) return;
-  const main = ctx, L = fxLayers(), c = L.getContext('2d');
-  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, L.width, L.height); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx = c;   // effects draw into a layer of their own
-  for (const v of (fx.vfx || [])){
+  const hasV = !!(fx.vfx && fx.vfx.length), hasP = !!(fx.sp && fx.sp.length) || !!(fx.ghosts && fx.ghosts.length);
+  if (!hasV && !hasP) return;
+  // only particles (a hit, a death): paint them straight onto the board, no extra layer and no glow
+  if (!hasV){ drawSp(ctx); return; }
+  const t0 = performance.now(), main = ctx, L = fxLayers(), c = L.getContext('2d'), sc = L.width / cv.width;
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, L.width, L.height); c.setTransform(dpr*sc, 0, 0, dpr*sc, 0, 0);
+  ctx = c;   // skill effects draw into a layer of their own
+  for (const v of fx.vfx){
     const fn = VFX_DRAW[v.kind]; if (!fn) continue;
     const p = _cl(v.t / v.dur), f = p < .72 ? 1 : Math.max(0, 1 - (p-.72)/.28);
     c.save(); c.lineJoin = 'round';
@@ -531,6 +535,7 @@ function drawVfx(){
   }
   drawSp(c);
   ctx = main;
-  main.drawImage(L, 0, 0, L.width/dpr, L.height/dpr);
-  bloomOnto(main, L);
+  main.drawImage(L, 0, 0, cv.width/dpr, cv.height/dpr);
+  if (_fxCost < 7) bloomOnto(main, L);
+  _fxCost = _fxCost*.9 + (performance.now() - t0)*.1;
 }

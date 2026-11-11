@@ -36,6 +36,24 @@ function drawStairs(x, y, time){
   ctx.strokeStyle = `rgba(224,122,50,${reduce ? .7 : .45+.35*Math.sin(time*3)})`; ctx.lineWidth = 2; ctx.strokeRect(px+m, py+m, w, w);
 }
 // burning ground: flickering tongues of fire with rising sparks (gold for yours, red for the enemy's)
+// a stunned piece sleeps: three Z's drift up from it, growing and fading, over a soft blue halo
+let _zSpr = null;
+function drawSleep(x, y, time){
+  const T = tile, cx = (x+.5)*T, cy = (y+.5)*T;
+  if (!_zSpr){   // one pre-drawn Z, scaled per frame
+    _zSpr = document.createElement('canvas'); _zSpr.width = _zSpr.height = 96; const g = _zSpr.getContext('2d');
+    g.font = 'italic 800 64px ' + BF; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 12; g.strokeStyle = '#141a3a'; g.strokeText('Z', 48, 50); g.fillStyle = '#e4ecff'; g.fillText('Z', 48, 50);
+  }
+  glow(cx, cy, T*.7, 'rgba(110,150,255,.22)');
+  ctx.save();
+  for (let i=0;i<3;i++){
+    const ph = reduce ? .3 + i*.25 : ((time*.55 + i/3) % 1);
+    const size = T*(.2 + .26*ph)*2.2, px = cx + T*(.22 + .3*ph) + (reduce ? 0 : Math.sin(time*2 + i*2)*T*.04), py = cy - T*(.22 + .5*ph);
+    ctx.globalAlpha = Math.max(0, ph < .15 ? ph/.15 : 1 - Math.max(0, (ph-.6)/.4));
+    ctx.drawImage(_zSpr, px - size/2, py - size/2, size, size);
+  }
+  ctx.restore();
+}
 function drawFlames(x, y, time, hostile, k){
   const bx = x*tile, base = y*tile + tile*.84, cx0 = bx + tile/2;
   glow(cx0, base - tile*.2, tile*.75*k, hostile ? 'rgba(255,60,30,.34)' : 'rgba(255,150,50,.3)');
@@ -131,6 +149,32 @@ function drawAscProp(id, col, cx, cy, sz, down, time){
   }
   ctx.restore();
 }
+// lighten (amt>0) or darken (amt<0) a #rrggbb color
+function shadeHex(hex, amt){
+  const n = parseInt(hex.slice(1), 16), ch = s => { const v = (n >> s) & 255; return Math.max(0, Math.min(255, Math.round(amt > 0 ? v + (255-v)*amt : v*(1+amt)))); };
+  return 'rgb(' + ch(16) + ',' + ch(8) + ',' + ch(0) + ')';
+}
+// a piece drawn once into a small canvas with a lit top, a dark base, a soft specular highlight and an outline, then reused every frame
+const _pcCache = new Map();
+function pieceSprite(ch, sz, fill, stroke, lw){
+  const k = ch + '|' + Math.round(sz*dpr) + '|' + fill + '|' + stroke + '|' + Math.round(lw*10);
+  let s = _pcCache.get(k); if (s) return s;
+  if (_pcCache.size > 200) _pcCache.clear();
+  const pad = Math.ceil(sz*.35), w = Math.ceil((sz + pad*2)*dpr), cvs = document.createElement('canvas'); cvs.width = w; cvs.height = w;
+  const c = cvs.getContext('2d'); c.scale(dpr, dpr);
+  const cx = w/dpr/2, cy = w/dpr/2;
+  c.font = sz + 'px ' + GF; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+  const g = c.createLinearGradient(0, cy - sz*.5, 0, cy + sz*.5); g.addColorStop(0, shadeHex(fill, .07)); g.addColorStop(.55, fill); g.addColorStop(1, shadeHex(fill, -.26));
+  c.fillStyle = g; c.fillText(ch, cx, cy);
+  c.globalCompositeOperation = 'source-atop';
+  const hl = c.createRadialGradient(cx - sz*.22, cy - sz*.28, sz*.02, cx - sz*.08, cy - sz*.1, sz*.55); hl.addColorStop(0, 'rgba(255,255,255,.13)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = hl; c.fillRect(0, 0, w, w);
+  const sh = c.createLinearGradient(0, cy, 0, cy + sz*.5); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.18)'); c.fillStyle = sh; c.fillRect(0, 0, w, w);
+  c.globalCompositeOperation = 'destination-over'; c.strokeStyle = stroke; c.lineWidth = lw; c.strokeText(ch, cx, cy);
+  s = {cv:cvs, w:w/dpr, h:w/dpr}; _pcCache.set(k, s); return s;
+}
+let _shSpr = null, _aoSpr = null;
+function softSprite(a0, a1){ const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,' + a0 + ')'); gr.addColorStop(.6, 'rgba(0,0,0,' + a1 + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c; }
 function drawPiece(type, x, y, side, o){
   const cx=(x+.5)*tile, cy=(y+.5)*tile, time = performance.now()/1000;
   let sz = tile*(o.boss ? 1.15 : o.ally || o.fodder ? 0.58 : 0.72);
@@ -159,8 +203,11 @@ function drawPiece(type, x, y, side, o){
     ctx.strokeStyle = 'rgba(226,78,60,.95)'; ctx.lineWidth = Math.max(1.5,tile*.035);
     ctx.beginPath(); ctx.ellipse(cx, cy+tile*.3, tile*(o.boss?.5:.32), tile*(o.boss?.15:.1), 0, 0, Math.PI*2); ctx.stroke();
   }
-  ctx.fillStyle = 'rgba(0,0,0,.5)';
-  ctx.beginPath(); ctx.ellipse(cx, cy+tile*.3+down*.6, tile*(o.boss?.4:.26), tile*(o.boss?.12:.08), 0, 0, Math.PI*2); ctx.fill();
+  { // a soft contact shadow under the piece
+    const sw = tile*(o.boss?.46:.3), sy = cy+tile*.3+down*.6;
+    _shSpr = _shSpr || softSprite(.65, .35);
+    ctx.drawImage(_shSpr, cx - sw, sy - sw*.32, sw*2, sw*.64);
+  }
   if (o.ally){
     ctx.strokeStyle = 'rgba(227,180,86,.85)'; ctx.lineWidth = Math.max(1.5,tile*.03);
     ctx.beginPath(); ctx.ellipse(cx, cy+tile*.3, tile*.26, tile*.08, 0, 0, Math.PI*2); ctx.stroke();
@@ -172,8 +219,9 @@ function drawPiece(type, x, y, side, o){
   else if (o.frozen){ fill = side==='w' ? '#eef6fc' : '#3a5068'; stroke = '#cfe6f5'; }
   else { const white = side==='w'; fill = o.spectral ? '#dbe8f5' : white ? '#f1e7d3' : '#1b1411'; stroke = o.horde ? '#ff8a4a' : o.herald ? '#ff4a3a' : o.rival ? '#8fd18a' : o.rift ? '#b48cff' : o.elite ? '#e3b456' : o.spectral ? '#5a7a9e' : white ? '#2a1f18' : '#cdbb9c'; }
   if (o.flash) fill = '#fff4e0';   // hit flash
-  ctx.strokeStyle = stroke; ctx.strokeText(GLYPH[type], cx, cy-lift+down);
-  ctx.fillStyle = fill; ctx.fillText(GLYPH[type], cx, cy-lift+down);
+  { const sp = pieceSprite(GLYPH[type], sz, fill, stroke, ctx.lineWidth*1.7), br = reduce ? 0 : Math.sin(time*2.2 + x*1.3 + y*.7);   // it breathes a little
+    ctx.save(); ctx.translate(cx, cy - lift + down + sz*.45); ctx.scale(1 + .012*br, 1 + .024*br);
+    ctx.drawImage(sp.cv, -sp.w/2, -sp.h/2 - sz*.45, sp.w, sp.h); ctx.restore(); }
   if (o.prop) drawAscProp(o.prop, o.propColor, cx, cy, sz, down, time);   // ascension: each subclass carries its own emblem
   if (o.horde && !reduce && Math.random()<.012) fx.embers.push({x:x+.3+Math.random()*.4, y:y+.6, vy:-(.5+Math.random()*.6), life:.8, c:'255,120,50'});
   if (o.boss && !reduce && Math.random()<.35){
@@ -220,8 +268,9 @@ function hpBar(u, x, y, color, preview, time){
   const w = tile*(u.boss?.9:.56), h = Math.max(3, tile*(u.boss?.08:.055));
   const bx = (x+.5)*tile - w/2, by = (y+1)*tile - h - tile*.11;
   const fill = w*Math.max(0,u.hp)/u.maxHp;
-  ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(bx-1, by-1, w+2, h+2);
+  ctx.fillStyle = 'rgba(8,5,3,.88)'; ctx.fillRect(bx-1.5, by-1.5, w+3, h+3);
   ctx.fillStyle = color; ctx.fillRect(bx, by, fill, h);
+  ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(bx, by, fill, h*.35); ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(bx, by + h*.65, fill, h*.35);
   if (u.shield>0){
     const sw = Math.min(w, w*u.shield/u.maxHp), sh = Math.max(2, h*.6);
     ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(bx-1, by-sh-3, sw+2, sh+2);
@@ -351,10 +400,15 @@ function paintFloor(c){
   const g = c.createRadialGradient(W*T/2,H*T/2,W*T*.3,W*T/2,H*T/2,W*T*.75);
   g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.4)'); c.fillStyle=g; c.fillRect(0,0,W*T,H*T);
 }
+const _glowLin = {};
 function glow(cx, cy, r, color){
-  ctx.save(); ctx.globalCompositeOperation='lighter';
-  const g = ctx.createRadialGradient(cx,cy,0,cx,cy,r); g.addColorStop(0,color); g.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.fillStyle=g; ctx.fillRect(cx-r,cy-r,r*2,r*2); ctx.restore();
+  const p0 = color.indexOf('('), pr = p0 < 0 ? null : color.slice(p0+1, color.lastIndexOf(')')).split(',');
+  if (!pr || pr.length < 3) return;
+  const rgb = pr[0].trim() + ',' + pr[1].trim() + ',' + pr[2].trim();
+  let s = _glowLin[rgb];
+  if (!s){ s = document.createElement('canvas'); s.width = s.height = 64; const g = s.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(' + rgb + ',1)'); gr.addColorStop(1, 'rgba(' + rgb + ',0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); _glowLin[rgb] = s; }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = pr.length > 3 ? Math.max(0, Math.min(1, parseFloat(pr[3]))) : 1;
+  ctx.drawImage(s, cx - r, cy - r, r*2, r*2); ctx.restore();
 }
 // one mushroom, drawn with a lit dome, gills under the rim, a textured stalk and a soft ground shadow.
 // o: x,y (base, in tiles), h (stalk height), r (cap radius), cap (dome height factor), sw (stalk half-width), st/cap: 3 colors, spots, glow...
@@ -400,6 +454,8 @@ function tufts(px, py, T, x, y, col, n){
 function drawWall(x, y, env, time){
   const T = tile, b = S.biome, r = i => hh(x,y,40+i);
   const px = x*T + (env && !reduce ? (Math.random()-.5)*T*.05 : 0), py = y*T;
+  _aoSpr = _aoSpr || softSprite(.42, .2);
+  ctx.drawImage(_aoSpr, px+T*.5 - T*.9, py+T*.74 - T*.9, T*1.8, T*1.8);
   ctx.fillStyle='rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(px+T*.52, py+T*.86, T*.4, T*.11, 0, 0, Math.PI*2); ctx.fill();
   ctx.lineCap='round'; ctx.lineJoin='round';
   if (b==='swamp'){
@@ -1222,7 +1278,7 @@ function draw(time){
       if (u.marked && !u.frozenPiece){ const mx = (x+.82)*tile, my = y*tile+tile*.16, ms = tile*.08; ctx.fillStyle = '#e3b456'; ctx.strokeStyle = '#1a120c'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(mx, my-ms); ctx.lineTo(mx+ms, my); ctx.lineTo(mx, my+ms); ctx.lineTo(mx-ms, my); ctx.closePath(); ctx.fill(); ctx.stroke(); }
       if (u===S.linked){ ctx.strokeStyle = 'rgba(240,160,80,.95)'; ctx.setLineDash([4,3]); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc((x+.5)*tile, (y+.5)*tile, tile*.47, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
       if (u.judged){ ctx.strokeStyle = 'rgba(240,214,140,.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc((x+.5)*tile, (y+.5)*tile, tile*.44, 0, Math.PI*2); ctx.stroke(); }
-      if (u.intent && u.intent.stunned){ ctx.fillStyle='#ecd36a'; ctx.font=`700 ${tile*.22}px ${BF}`; ctx.textAlign='center'; ctx.fillText('zz', (x+.2)*tile, y*tile+tile*.2); }
+      if (u.intent && u.intent.stunned) drawSleep(x, y, time);
     } else {
       drawPiece(u.type, x, y, S.color, {ally:true, spectral:u.spectral, flash:u.flash>0});
       hpBar(u, x, y, '#7fb069');

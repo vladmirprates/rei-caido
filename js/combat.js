@@ -504,7 +504,7 @@ function damageEnemy(e, amt, src){
     return;
   }
   S.enemies = S.enemies.filter(o => o!==e);
-  addCorpse(e);
+  addCorpse(e); deathFx(e);
   sfx(e.boss ? 'boss' : 'kill');
   riftKill(e);
   hordeKill(e);

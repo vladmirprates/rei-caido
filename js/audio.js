@@ -62,15 +62,36 @@ const SAMPLES = {
   hurt:{f:sfxSet('impactSoft_heavy',2), vol:.7}, boss:{f:sfxSet('impactBell_heavy',1), vol:.8}, block:{f:sfxSet('impactMetal_light',2), vol:.55}
 };
 const badSample = {};
+// The recorded sounds are fetched and decoded ONCE into memory and played from there (a new Audio element per hit loaded the file
+// again every time: it stalled the game and, when it failed, a different synthesized sound played instead).
+const _buf = {};   // file -> decoded AudioBuffer | 'loading' | 'bad'
+function loadSample(f){
+  if (_buf[f]) return; _buf[f] = 'loading';
+  const ac = audio(); if (!ac){ _buf[f] = 'bad'; return; }
+  fetch(f).then(r => { if (!r.ok) throw new Error('http'); return r.arrayBuffer(); }).then(b => new Promise((ok, no) => ac.decodeAudioData(b, ok, no))).then(buf => { _buf[f] = buf; }).catch(() => { _buf[f] = 'bad'; });
+}
+function preloadSamples(){ for (const k in SAMPLES) for (const f of SAMPLES[k].f) loadSample(f); }
+if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', preloadSamples);
+const _ready = b => b && b !== 'loading' && b !== 'bad';
 function sfx(name, o){
   const s = SAMPLES[name];
   if (!s || badSample[name] || !soundOn()) return synthSfx(name, o);
   const t = performance.now();
   if (lastPlay['s:'+name] && t - lastPlay['s:'+name] < 35) return;
+  const ac = audio(); if (!ac) return synthSfx(name, o);
+  const ready = s.f.filter(f => _ready(_buf[f]));
+  if (!ready.length){
+    preloadSamples();
+    if (s.f.every(f => _buf[f]==='bad')){ badSample[name] = true; return synthSfx(name, o); }
+    return;   // still decoding: stay silent instead of playing a different sound
+  }
   lastPlay['s:'+name] = t;
-  const src = s.f[Math.floor(Math.random()*s.f.length)], d = ((o && o.delay) || 0) + (s.delay || 0);
-  const go = () => { try { const el = new Audio(src); el.volume = s.vol*.9; if (s.rate){ el.preservesPitch = false; el.playbackRate = s.rate; }
-    const p = el.play(); if (p && p.catch) p.catch(() => { badSample[name] = true; synthSfx(name, o); }); } catch(e){ badSample[name] = true; synthSfx(name, o); } };
+  const buf = _buf[ready[Math.floor(Math.random()*ready.length)]], d = ((o && o.delay) || 0) + (s.delay || 0);
+  const go = () => { try {
+    if (ac.state==='suspended') ac.resume();
+    const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = buf; if (s.rate) src.playbackRate.value = s.rate;
+    g.gain.value = s.vol*.9; src.connect(g); g.connect(ac.destination); src.start();
+  } catch(e){ badSample[name] = true; synthSfx(name, o); } };
   if (d > 0) setTimeout(go, d*1000); else go();
 }
 function synthSfx(name, o){
