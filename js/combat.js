@@ -192,29 +192,29 @@ const SKILLS = {
     run(x,y){
       const st = stats();
       landOn(x,y);
-      fx.shake = Math.max(fx.shake, 9); fx.rings.push({x, y, t:0});
+      fx.shake = Math.max(fx.shake, 9); vfx('slam', x, y, x, y, {r:1});
       hitAround(x, y, st.dmg+st.darkQuake + (st.arcLeap ? elemSum(st)+2 : 0), st.quakeStun);
       if (st.quakeEcho) hitAround(x, y, Math.max(1, Math.floor((st.dmg+st.darkQuake)/2)));
       log($t('Salto Sísmico.', 'Seismic Leap.'));
     }},
   gallop:{name:$t('Galope', 'Gallop'), cd:5, free:true, desc:st=>$t(`Ganha +1 ação neste turno${st.cavalry?' e o próximo golpe causa +2':''}. Não gasta ação.`, `Gain +1 action this turn${st.cavalry?' and the next blow deals +2':''}. Costs no action.`),
-    run(){ S.actions += 1 + (stats().gallopMore||0); floatText(S.player.x, S.player.y, $t('+1 ação', '+1 action'), '#e3b456'); if (stats().cavalry) S.nextBonus = 2; log($t('Galope.', 'Gallop.')); }},
+    run(){ vfx('gallop', S.player.x, S.player.y); S.actions += 1 + (stats().gallopMore||0); floatText(S.player.x, S.player.y, $t('+1 ação', '+1 action'), '#e3b456'); if (stats().cavalry) S.nextBonus = 2; log($t('Galope.', 'Gallop.')); }},
   shove:{name:$t('Empurrão', 'Shove'), cd:3, hits:true,
     desc:st=>$t(`Fere em cruz (${st.dmg}), empurra e atordoa. +${2+st.pushPower} se baterem em algo`, `Hits in a cross (${st.dmg}), pushes and stuns. +${2+st.pushPower} if they hit something`),
     run(){
       const st = stats(), p = S.player;
-      fx.rings.push({x:p.x, y:p.y, t:0}); fx.shake = Math.max(fx.shake, 6);
+      vfx('shove', p.x, p.y); fx.shake = Math.max(fx.shake, 6);
       for (const [dx,dy] of (st.shoveAll ? ALL : ORTH)){
         const e = enemyAt(p.x+dx, p.y+dy); if (!e) continue;
         const blocked = pushEnemy(e, dx, dy);
         if (!S.enemies.includes(e)) continue;
-        stun(e);
+        stun(e); vfx('hit', e.x, e.y, e.x, e.y, {c:'255,225,170'});
         skillHit(e, st.dmg + (blocked ? 2+st.pushPower : 0));
       }
       log($t('Empurrão.', 'Shove.'));
     }},
   fortress:{name:$t('Muralha', 'Wall'), cd:5, free:true, desc:st=>$t(`Ganha ${6+st.fortify} de escudo. Não gasta ação.`, `Gain ${6+st.fortify} shield. Costs no action.`),
-    run(){ const n = 6+stats().fortify+(stats().fortBonus||0); if (stats().fortBonus) heal(4); S.shield += n; floatText(S.player.x, S.player.y, '+'+n+$t(' escudo', ' shield'), '#a9bfd6'); log($t('Muralha.', 'Wall.')); }},
+    run(){ vfx('shield', S.player.x, S.player.y); const n = 6+stats().fortify+(stats().fortBonus||0); if (stats().fortBonus) heal(4); S.shield += n; floatText(S.player.x, S.player.y, '+'+n+$t(' escudo', ' shield'), '#a9bfd6'); log($t('Muralha.', 'Wall.')); }},
   beam:{name:$t('Raio Diagonal', 'Diagonal Ray'), cd:3, hits:true,
     desc:st=>$t(`Atravessa as diagonais${st.crossBeam?' e retas':''} causando ${st.dmg+1}${st.beamStun?', atordoando':''}`, `Pierces the diagonals${st.crossBeam?' and straight lines':''} dealing ${st.dmg+1}${st.beamStun?', stunning':''}`),
     run(){
@@ -222,9 +222,9 @@ const SKILLS = {
       for (const [dx,dy] of (st.crossBeam ? ALL : DIAG)){
         let x=p.x+dx, y=p.y+dy, ex=p.x, ey=p.y; const hits=[];
         while (inb(x,y) && !isWall(x,y)){ const e = enemyAt(x,y); if (e) hits.push(e); ex=x; ey=y; x+=dx; y+=dy; }
-        if (ex!==p.x || ey!==p.y) fx.beams.push({x1:p.x, y1:p.y, x2:ex, y2:ey, t:0, c:'224,122,50'});
+        if (ex!==p.x || ey!==p.y) vfx('beam', p.x, p.y, ex, ey, {c:'255,150,60'});
         for (const e of hits){
-          skillHit(e, st.dmg+1);
+          vfx('hit', e.x, e.y, e.x, e.y, {c:'255,170,80'}); skillHit(e, st.dmg+1);
           if (st.beamStun) stun(e);
           if (st.rosary && !S.enemies.includes(e)) S.cds.beam = Math.max(0, (S.cds.beam||0)-1);
         }
@@ -232,14 +232,14 @@ const SKILLS = {
       log($t('Raio Diagonal.', 'Diagonal Ray.'));
     }},
   storm:{name:$t('Tempestade de Lâminas', 'Blade Storm'), cd:3, hits:true, desc:st=>$t(`Causa ${attackDmg(st)+st.bladeStorm} a todos ao redor`, `Deals ${attackDmg(st)+st.bladeStorm} to everything around`),
-    run(){ const st = stats(); fx.rings.push({x:S.player.x, y:S.player.y, t:0}); fx.shake = Math.max(fx.shake,6); hitAround(S.player.x, S.player.y, attackDmg(st)+st.bladeStorm); if (st.stormTwice) hitAround(S.player.x, S.player.y, Math.max(1, Math.floor((attackDmg(st)+st.bladeStorm)/2))); log($t('Tempestade de Lâminas.', 'Blade Storm.')); }},
+    run(){ const st = stats(); vfx('bladestorm', S.player.x, S.player.y); fx.shake = Math.max(fx.shake,6); hitAround(S.player.x, S.player.y, attackDmg(st)+st.bladeStorm); if (st.stormTwice) hitAround(S.player.x, S.player.y, Math.max(1, Math.floor((attackDmg(st)+st.bladeStorm)/2))); log($t('Tempestade de Lâminas.', 'Blade Storm.')); }},
   sacrifice:{name:$t('Sacrifício', 'Sacrifice'), cd:3, free:true,
     desc:st=>st.redSacrifice ? $t('Perde 1 de vida, ganha +1 ação e +1 de dano no turno. Não gasta ação.', 'Lose 1 health, gain +1 action and +1 damage this turn. Costs no action.') : $t('Perde 3 de vida e ganha +1 ação. Não gasta ação.', 'Lose 3 health and gain +1 action. Costs no action.'),
     can:()=>S.player.hp > (stats().redSacrifice ? 1 : 3),
     run(){
       const red = stats().redSacrifice, cost = stats().sacFree ? 0 : red ? 1 : 3;
       S.player.hp -= cost; S.actions++; if (red) S.turnBonus += 1;
-      floatText(S.player.x, S.player.y, $t(`-${cost} / +1 ação`, `-${cost} / +1 action`), '#ff6b5e'); burst(S.player.x, S.player.y, '#b8332b', 10); log($t('Sacrifício.', 'Sacrifice.'));
+      floatText(S.player.x, S.player.y, $t(`-${cost} / +1 ação`, `-${cost} / +1 action`), '#ff6b5e'); vfx('bloodburst', S.player.x, S.player.y); log($t('Sacrifício.', 'Sacrifice.'));
     }},
   summon:{name:$t('Convocar Peão', 'Summon Pawn'), cd:2,
     desc:st=>$t(`${st.twinSummon?'Dois peões aliados surgem':'Um peão aliado surge'} ao seu lado (máx. ${MAX_ALLIES})`, `${st.twinSummon?'Two allied pawns appear':'An allied pawn appears'} next to you (max. ${MAX_ALLIES})`),
@@ -251,7 +251,7 @@ const SKILLS = {
         f.sort((a,b)=>nearestEnemyDist(a[0],a[1])-nearestEnemyDist(b[0],b[1]));
         const [x,y] = f[0];
         S.allies.push(makeAlly('P', x, y, S.player.x, S.player.y));
-        burst(x, y, '#e3b456', 10);
+        vfx('summon', x, y);
       }
       log(n>1 ? $t('Dois peões atendem ao chamado.', 'Two pawns answer the call.') : $t('Um peão atende ao chamado.', 'A pawn answers the call.'));
     }},
@@ -265,18 +265,18 @@ const SKILLS = {
       if (st.holy) heal(st.holy);
       if (st.stainedGlass){ S.shield += 4; floatText(S.player.x, S.player.y-0.3, $t('+4 escudo', '+4 shield'), '#a9bfd6'); }
       if (st.shiftBlast) hitAround(S.player.x, S.player.y, st.dmg);
-      fx.rings.push({x:S.player.x, y:S.player.y, t:0, c:'227,180,86'}); burst(ox, oy, '#e3b456', 8);
+      vfx('shift', ox, oy, S.player.x, S.player.y);
       log($t('Troca de Cor.', 'Color Shift.'));
     }},
   kick:{name:$t('Coice', 'Kick'), cd:3, hits:true, desc:st=>$t(`Atinge todos os inimigos a um salto em L de você com ${st.dmg+1}, sem se mover`, `Hits every enemy one L-leap from you for ${st.dmg+1}, without moving`),
     can:()=>KN.some(([dx,dy]) => enemyAt(S.player.x+dx, S.player.y+dy)),
     run(){ const st = stats(), p = S.player;
-      for (const [dx,dy] of KN){ const e = enemyAt(p.x+dx,p.y+dy); if (e){ fx.beams.push({x1:p.x, y1:p.y, x2:e.x, y2:e.y, t:0, c:'227,180,86'}); skillHit(e, st.dmg+1); if (st.kickChain) hitAround(e.x, e.y, Math.max(1, Math.floor((st.dmg+1)/2))); } }
+      for (const [dx,dy] of KN){ const e = enemyAt(p.x+dx,p.y+dy); if (e){ vfx('shockline', p.x, p.y, e.x, e.y, {style:'dash', c:'255,215,130'}); vfx('hit', e.x, e.y, e.x, e.y, {c:'255,215,130', big:true}); skillHit(e, st.dmg+1); if (st.kickChain) hitAround(e.x, e.y, Math.max(1, Math.floor((st.dmg+1)/2))); } }
       fx.shake = Math.max(fx.shake, 6); log($t('Coice.', 'Kick.')); }},
   neigh:{name:$t('Relincho', 'Neigh'), cd:5, hits:true, desc:()=>$t('Causa 1 a todos os vizinhos, empurra cada um 1 casa para longe e os atordoa', 'Deals 1 to every neighbor, pushes each one 1 square away and stuns them'),
     can:()=>ALL.some(([dx,dy]) => enemyAt(S.player.x+dx, S.player.y+dy)),
-    run(){ const p = S.player; fx.rings.push({x:p.x, y:p.y, t:0, c:'227,180,86'});
-      for (const [dx,dy] of ALL){ const e = enemyAt(p.x+dx,p.y+dy); if (!e) continue; skillHit(e, 1); if (S.enemies.includes(e) && !e.boss) pushEnemy(e, dx, dy); stun(e); }
+    run(){ const p = S.player; vfx('shout', p.x, p.y);
+      for (const [dx,dy] of ALL){ const e = enemyAt(p.x+dx,p.y+dy); if (!e) continue; vfx('hit', e.x, e.y, e.x, e.y, {c:'255,225,150'}); skillHit(e, 1); if (S.enemies.includes(e) && !e.boss) pushEnemy(e, dx, dy); stun(e); }
       if (stats().neighWide) for (const e of S.enemies.filter(q => cheb(q.x,q.y,p.x,p.y)===2)){ skillHit(e, 2); stun(e); }
       log($t('Relincho.', 'Neigh.')); }},
   charge:{name:$t('Aríete', 'Battering Ram'), cd:4, target:true, hits:true, desc:st=>$t(`Avança em linha reta até a parede, atravessando inimigos e causando ${st.dmg} a cada um`, `Charges in a straight line to the wall, passing through enemies and dealing ${st.dmg} to each`),
@@ -286,27 +286,27 @@ const SKILLS = {
         if (last && cheb(last[0],last[1],p.x,p.y)>=2) out.push(last); }
       return out; },
     run(x,y){ const st = stats(), p = S.player, dx = Math.sign(x-p.x), dy = Math.sign(y-p.y);
-      for (let cx=p.x+dx, cy=p.y+dy; cx!==x || cy!==y; cx+=dx, cy+=dy){ const e = enemyAt(cx,cy); if (e) skillHit(e, st.dmg*(st.chargeDouble ? 2 : 1)); }
-      fx.beams.push({x1:p.x, y1:p.y, x2:x, y2:y, t:0, c:'224,122,50'}); fx.shake = Math.max(fx.shake, 7);
+      for (let cx=p.x+dx, cy=p.y+dy; cx!==x || cy!==y; cx+=dx, cy+=dy){ const e = enemyAt(cx,cy); if (e){ vfx('hit', cx, cy, cx, cy, {c:'255,190,110', big:true}); skillHit(e, st.dmg*(st.chargeDouble ? 2 : 1)); } }
+      vfx('shockline', p.x, p.y, x, y, {style:'dash', c:'255,190,110'}); fx.shake = Math.max(fx.shake, 7);
       moveTo(x,y); log($t('Aríete.', 'Battering Ram.')); }},
   tremor:{name:$t('Tremor', 'Tremor'), cd:4, hits:true, desc:st=>$t(`Causa ${Math.max(1,st.dmg-1)} a todos os inimigos na sua fileira e coluna, até os pilares`, `Deals ${Math.max(1,st.dmg-1)} to every enemy in your row and column, up to the pillars`),
     run(){ const st = stats(), p = S.player;
       for (const [dx,dy] of (st.tremorAll ? ALL : ORTH)){ let x=p.x+dx, y=p.y+dy, ex=p.x, ey=p.y;
         while (inb(x,y) && !isWall(x,y)){ const e = enemyAt(x,y); if (e) skillHit(e, Math.max(1, st.dmg-1)); ex=x; ey=y; x+=dx; y+=dy; }
-        if (ex!==p.x || ey!==p.y) fx.beams.push({x1:p.x, y1:p.y, x2:ex, y2:ey, t:0, c:'200,170,130'}); }
+        if (ex!==p.x || ey!==p.y) vfx('shockline', p.x, p.y, ex, ey, {style:'fissure'}); }
       fx.shake = Math.max(fx.shake, 9); log($t('Tremor.', 'Tremor.')); }},
   judge:{name:$t('Julgamento', 'Judgment'), cd:4, target:true, hits:true, desc:st=>$t(`Atinge um inimigo nas suas diagonais com ${st.dmg} e o marca: recebe +50% de dano por 2 turnos`, `Hits an enemy on your diagonals for ${st.dmg} and marks it: takes +50% damage for 2 turns`),
     targets(){ const p = S.player, out = [];
       for (const [dx,dy] of DIAG){ let x=p.x+dx, y=p.y+dy; while (inb(x,y) && !isWall(x,y)){ if (enemyAt(x,y)){ out.push([x,y]); break; } x+=dx; y+=dy; } }
       return out; },
     run(x,y){ const e = enemyAt(x,y); if (!e) return;
-      fx.beams.push({x1:S.player.x, y1:S.player.y, x2:x, y2:y, t:0, c:'240,214,140'});
+      vfx('beam', S.player.x, S.player.y, x, y, {c:'255,225,140'}); vfx('judgment', S.player.x, S.player.y, x, y);
       skillHit(e, stats().dmg);
       if (S.enemies.includes(e)){ e.judged = 3; floatText(e.x, e.y-0.4, $t('julgado', 'judged'), '#f0d68c'); }
       if (stats().judgeAll) for (const [dx,dy] of DIAG){ let cx = S.player.x+dx, cy = S.player.y+dy; while (inb(cx,cy) && !isWall(cx,cy)){ const o = enemyAt(cx,cy); if (o) o.judged = 3; cx += dx; cy += dy; } }
       log($t('Julgamento.', 'Judgment.')); }},
   radiance:{name:$t('Clarão', 'Flash'), cd:5, hits:true, desc:()=>$t('Causa 1 e atordoa todos os inimigos nas suas diagonais, até 3 casas', 'Deals 1 and stuns every enemy on your diagonals, up to 3 squares'),
-    run(){ const p = S.player, rl = stats().radLong; fx.rings.push({x:p.x, y:p.y, t:0, c:'240,214,140'});
+    run(){ const p = S.player, rl = stats().radLong; vfx('nova', p.x, p.y, p.x, p.y, {len:rl ? 4.2 : 3.2});
       for (const [dx,dy] of DIAG){ let x=p.x+dx, y=p.y+dy;
         for (let i=0; i<3+(rl ? 2 : 0) && inb(x,y) && !isWall(x,y); i++, x+=dx, y+=dy){ const e = enemyAt(x,y); if (e){ skillHit(e, rl ? 2 : 1); stun(e); } } }
       log($t('Clarão.', 'Flash.')); }},
@@ -314,29 +314,29 @@ const SKILLS = {
     targets(){ const p = S.player, out = [];
       for (const [dx,dy] of ALL) for (let i=1;i<=3+(stats().lungeLong ? 2 : 0);i++){ const x=p.x+dx*i, y=p.y+dy*i; if (!inb(x,y) || isWall(x,y) || isPit(x,y) || occupied(x,y)) break; out.push([x,y]); }
       return out; },
-    run(x,y){ const st = stats(); moveTo(x,y); fx.rings.push({x:S.player.x, y:S.player.y, t:0}); fx.shake = Math.max(fx.shake, 7);
+    run(x,y){ const st = stats(), ox = S.player.x, oy = S.player.y; moveTo(x,y); vfx('shockline', ox, oy, x, y, {style:'dash', c:'255,225,150'}); vfx('slam', x, y, x, y, {r:1}); fx.shake = Math.max(fx.shake, 7);
       hitAround(S.player.x, S.player.y, st.dmg); log($t('Investida Real.', 'Royal Charge.')); }},
   finisher:{name:$t('Golpe Final', 'Final Blow'), cd:3, target:true, hits:true, desc:st=>$t(`Golpeia um vizinho com o dobro do dano (${attackDmg(st)*2}). Se matar, ganha +1 ação`, `Strikes a neighbor for double damage (${attackDmg(st)*2}). If it kills, gain +1 action`),
     targets(){ return ALL.map(([dx,dy]) => [S.player.x+dx, S.player.y+dy]).filter(([x,y]) => enemyAt(x,y)); },
     run(x,y){ const e = enemyAt(x,y); if (!e) return;
       S.player.lx = Math.sign(x-S.player.x)*.35; S.player.ly = Math.sign(y-S.player.y)*.35;
-      skillHit(e, attackDmg(stats(), e)*2);
+      vfx('hit', x, y, x, y, {c:'255,215,120', big:true}); skillHit(e, attackDmg(stats(), e)*2);
       if (S.enemies.includes(e) && stats().finExec && !e.boss && e.hp*10 < e.maxHp*3) damageEnemy(e, e.hp + e.shield + 99, 'player');
       if (!S.enemies.includes(e)){ S.actions++; floatText(S.player.x, S.player.y-0.4, $t('+1 ação', '+1 action'), '#e3b456'); }
       log($t('Golpe Final.', 'Final Blow.')); }},
   rally:{name:$t('Grito de Guerra', 'War Cry'), cd:5, desc:()=>$t('Cura todos os aliados por completo e dá +1 de dano a cada um (até +3)', 'Fully heals every ally and gives each +1 damage (up to +3)'),
     can:()=>S.allies.length > 0,
     run(){ const ra = stats().rallyAll; for (const a of S.allies){ a.hp = a.maxHp; if ((a.rally||0)<3 || ra){ a.rally = (a.rally||0)+1; a.dmg += ra ? 2 : 1; } burst(a.x, a.y, '#e3b456', 8); }
-      fx.rings.push({x:S.player.x, y:S.player.y, t:0, c:'227,180,86'}); log($t('Grito de Guerra.', 'War Cry.')); }},
+      vfx('shout', S.player.x, S.player.y); log($t('Grito de Guerra.', 'War Cry.')); }},
   promote:{name:$t('Promoção', 'Promotion'), cd:6, target:true, desc:()=>$t('Promove um peão aliado vizinho a rainha, com vida cheia', 'Promotes a neighboring allied pawn to queen, at full health'),
     targets(){ return ALL.map(([dx,dy]) => [S.player.x+dx, S.player.y+dy]).filter(([x,y]) => { const a = allyAt(x,y); return a && a.type==='P'; }); },
     run(x,y){ const a = allyAt(x,y); if (!a) return;
       a.type = 'Q'; a.maxHp = Math.max(a.maxHp+4, 9); a.hp = a.maxHp; a.dmg = Math.max(a.dmg+1, 3);
       if (stats().promoMass) for (const [dx,dy] of ALL){ const b = allyAt(S.player.x+dx, S.player.y+dy); if (b && b.type==='P'){ b.type = 'Q'; b.maxHp = Math.max(b.maxHp+4, 9); b.hp = b.maxHp; b.dmg = Math.max(b.dmg+1, 3); burst(b.x, b.y, '#e3b456', 12); } }
-      burst(x, y, '#e3b456', 20); floatText(x, y-0.4, $t('Promoção', 'Promotion'), '#e3b456'); log($t('Um peão foi promovido a rainha.', 'A pawn was promoted to queen.')); }},
+      vfx('summon', x, y); floatText(x, y-0.4, $t('Promoção', 'Promotion'), '#e3b456'); log($t('Um peão foi promovido a rainha.', 'A pawn was promoted to queen.')); }},
   command:{name:$t('Ordem Real', 'Royal Order'), cd:4, free:true, desc:()=>$t('Seus aliados agem agora, além do turno normal. Não gasta ação.', 'Your allies act now, on top of the normal turn. Costs no action.'),
     can:()=>S.allies.length > 0,
-    async run(){ log($t('Ordem Real.', 'Royal Order.')); await allyPhase(); if (stats().ordTwice) await allyPhase(); }}
+    async run(){ vfx('shout', S.player.x, S.player.y, S.player.x, S.player.y, {c:'255,215,120'}); log($t('Ordem Real.', 'Royal Order.')); await allyPhase(); if (stats().ordTwice) await allyPhase(); }}
 };
 function skillCd(id){
   const sk = SKILLS[id], st = stats();
@@ -390,7 +390,8 @@ function classMoves(px, py, ignoreUnits){
   }
   if (st.kingStep) jump(ALL);
   if (st.pilgrim) jump([[2,0],[-2,0],[0,2],[0,-2]]);
-  return out;
+  // stuck in tar: no moving this turn, only attacks (and skills)
+  return S.mired && !ignoreUnits ? out.filter(o => o.kind==='attack') : out;
 }
 const playerTargets = () => {
   const list = classMoves(S.player.x, S.player.y, false);
@@ -763,6 +764,26 @@ function healEnemy(e, n){
   const before = e.hp; e.hp = Math.min(e.maxHp, e.hp+n);
   if (e.hp>before) floatText(e.x, e.y, '+'+(e.hp-before), '#8fd18a');
 }
+// a thunderbolt: the picture (a bolt falling from the sky, arcs along connected puddles) and the damage are separate
+function thunderFx(x, y, delay, chain){
+  // the puddles connected to this one, as links from the struck puddle outward (breadth first)
+  const segs = [];
+  if (terrainAt(x,y)==='puddle'){
+    const pool = new Set((chain||[]).map(([a,b]) => key(a,b))), seen = new Set([key(x,y)]);
+    let front = [[x,y]], d = 0;
+    while (front.length){ const next = []; d++;
+      for (const [fx0,fy0] of front) for (const [dx,dy] of ALL){ const nx = fx0+dx, ny = fy0+dy, k = key(nx,ny); if (pool.has(k) && !seen.has(k)){ seen.add(k); next.push([nx,ny]); segs.push({a:[fx0,fy0], b:[nx,ny], d}); } }
+      front = next; }
+  }
+  vfx('thunder', x, y, x, y, {t:-(delay||0), segs});
+}
+function lightningHit(x, y, dmg, quiet){
+  if (!quiet){ burst(x, y, '#9fc4ff', 26); fx.rings.push({x, y, t:0, c:'130,180,255'}); fx.flashes.push({sq:[[x,y]], t:1}); }
+  else burst(x, y, '#9fc4ff', 8);
+  if (isPlayer(x,y)){ const v = resist(dmg,'light'); hurtPlayer(v, $t(`O trovão te atingiu (${v}).`, `Thunder struck you (${v}).`)); }
+  const a = allyAt(x,y); if (a) damageAlly(a, dmg);
+  const o = enemyAt(x,y); if (o) damageEnemy(o, dmg, 'enemy');
+}
 function stun(e){
   if (!S.enemies.includes(e)) return;
   if (e.stunImmune >= S.turn){ floatText(e.x, e.y-0.3, $t('resiste', 'resists'), '#a89b87'); return; }
@@ -1045,17 +1066,51 @@ async function enemyPhase(){
     if (!alive()) return;
     await sleep(300);
   }
+  // storm: thunder falls on the marked squares; the shock runs through the puddles connected to them
+  if (S.storm){
+    const {sq, chain} = S.storm; S.storm = null; sfx('zap'); log($t('Trovões caem do céu.', 'Thunder falls from the sky.'));
+    sq.forEach(([x,y], i) => thunderFx(x, y, i*.14, chain));
+    await sleep(520);
+    S.scorch = S.scorch || new Set();
+    for (const [x,y] of sq){ lightningHit(x, y, 3); S.scorch.add(key(x,y)); }
+    for (const [x,y] of chain) lightningHit(x, y, 2, true);
+    fx.shake = Math.max(fx.shake, 11);
+    if (!alive()) return;
+    await sleep(240);
+  }
+  // tar pits: geysers erupt and cover the squares around them with tar (every 3rd eruption the tar is on fire)
+  if (S.vents){
+    const vents = S.vents; S.vents = null; S.ventN = (S.ventN||0) + 1;
+    const tf = S.tarFire || (S.tarFire = new Map());
+    if (vents[0].fire) sfx('fire');
+    for (const {at, sq, fire} of vents){
+      burst(at[0], at[1], fire ? '#f08a3c' : '#c9a24a', 28); fx.rings.push({x:at[0], y:at[1], t:0, c:fire ? '255,130,50' : '201,162,74'});
+      if (isPlayer(at[0],at[1])) hurtPlayer(2, $t('O gêiser de piche te atinge (2).', 'The tar geyser hits you (2).'));
+      const va = allyAt(at[0],at[1]); if (va) damageAlly(va, 2);
+      const vo = enemyAt(at[0],at[1]); if (vo) damageEnemy(vo, 2, 'enemy');
+      for (const [x,y] of sq){
+        if (!S.terrain.has(key(x,y))) S.terrain.set(key(x,y), 'tar');
+        if (fire && S.terrain.get(key(x,y))==='tar') tf.set(key(x,y), 3);
+        burst(x, y, fire ? '#f08a3c' : '#8a6a2c', 12);
+      }
+    }
+    fx.shake = Math.max(fx.shake, 7);
+    log(vents[0].fire ? $t('Os gêiseres de piche entram em erupção, e o piche pega fogo!', 'The tar geysers erupt and the tar catches fire!') : $t('Os gêiseres de piche entram em erupção.', 'The tar geysers erupt.'));
+    if (!alive()) return;
+    await sleep(300);
+  }
   resolveTide();
   if (!alive()) return;
   // boss arena clock
   if (S.clock){
     const {kind, sq} = S.clock; S.clock = null; S.clocks = (S.clocks||0) + 1;
-    const ringC = {collapse:'170,150,120', flood:'120,190,180', lava:'255,130,50', frost:'215,240,255'}[kind];
+    const ringC = {collapse:'170,150,120', flood:'120,190,180', lava:'255,130,50', frost:'215,240,255', storm:'130,180,255', tar:'201,162,74', grow:'160,110,220'}[kind];
     for (const [x,y] of sq) fx.rings.push({x, y, t:0, c:ringC});
-    showBanner({collapse:$t('O teto desaba', 'The ceiling collapses'), flood:$t('A água sobe', 'The water rises'), lava:$t('A lava transborda', 'The lava overflows'), frost:$t('O gelo avança', 'The ice advances')}[kind], $t('A arena mudou.', 'The arena changed.'));
+    showBanner({collapse:$t('O teto desaba', 'The ceiling collapses'), flood:$t('A água sobe', 'The water rises'), lava:$t('A lava transborda', 'The lava overflows'), frost:$t('O gelo avança', 'The ice advances'), storm:$t('Os raios caem', 'Lightning strikes'), tar:$t('O piche sobe', 'The tar rises'), grow:$t('Os cogumelos crescem', 'The mushrooms grow')}[kind], $t('A arena mudou.', 'The arena changed.'));
     // only the farthest collapsed square becomes a pit, never next to you, so the arena can't wall you in
     const far = kind==='collapse' ? sq.slice().sort((a,b) => cheb(b[0],b[1],S.player.x,S.player.y) - cheb(a[0],a[1],S.player.x,S.player.y))[0] : null;
     fx.shake = Math.max(fx.shake, 12);
+    if (kind==='storm'){ sq.forEach(([x,y], i) => thunderFx(x, y, i*.1, [])); await sleep(480); }
     for (const [x,y] of sq){
       if (kind==='collapse'){
         burst(x, y, '#8a7a68', 30); fx.flashes.push({sq:[[x,y]], t:1});
@@ -1066,9 +1121,12 @@ async function enemyPhase(){
       } else if (kind==='flood'){ if (!isLava(x,y)) S.terrain.set(key(x,y), 'water'); burst(x, y, '#7fb0a8', 22); }
       else if (kind==='lava'){ S.terrain.set(key(x,y), 'lava'); burst(x, y, '#f08a3c', 26); }
       else if (kind==='frost'){ if (!isLava(x,y) && !isWater(x,y)) S.terrain.set(key(x,y), 'ice'); burst(x, y, '#dff0fa', 22); }
+      else if (kind==='storm') lightningHit(x, y, 4);
+      else if (kind==='tar'){ if (!terrainAt(x,y)) S.terrain.set(key(x,y), 'tar'); burst(x, y, '#c9a24a', 18); }
+      else if (kind==='grow'){ if (!occupied(x,y) && !terrainAt(x,y) && !S.items.some(i => i.x===x && i.y===y)){ S.terrain.set(key(x,y), pick(MUSH)); burst(x, y, '#a07ad8', 22); } }
     }
     if (kind==='flood') S.sight = Math.max(2.4, sight() - .4);
-    log({collapse:$t('O teto desabou.', 'The ceiling collapsed.'), flood:$t('A água subiu e a névoa fechou.', 'The water rose and the fog closed in.'), lava:$t('A lava se espalhou.', 'The lava spread.'), frost:$t('O gelo avançou.', 'The ice advanced.')}[kind]);
+    log({collapse:$t('O teto desabou.', 'The ceiling collapsed.'), flood:$t('A água subiu e a névoa fechou.', 'The water rose and the fog closed in.'), lava:$t('A lava se espalhou.', 'The lava spread.'), frost:$t('O gelo avançou.', 'The ice advanced.'), storm:$t('Os raios caíram.', 'The lightning struck.'), tar:$t('O piche subiu.', 'The tar rose.'), grow:$t('Os cogumelos cresceram.', 'The mushrooms grew.')}[kind]);
     if (!alive()) return;
     await sleep(300);
   }
@@ -1083,6 +1141,12 @@ async function enemyPhase(){
       await sleep(260);
       if (!alive()) return;
     }
+  }
+  // fungal grotto: mushrooms sprout on the marked squares
+  if (S.grow){
+    const {sq, types} = S.grow; S.grow = null;
+    sq.forEach(([x,y], i) => { if (!occupied(x,y) && !S.terrain.has(key(x,y)) && !S.items.some(it => it.x===x && it.y===y)){ S.terrain.set(key(x,y), types[i]); S.grown = (S.grown||0)+1; burst(x, y, '#a07ad8', 20); fx.rings.push({x, y, t:0, c:'160,110,220'}); } });
+    log($t('Cogumelos brotam.', 'Mushrooms sprout.')); await sleep(240);
   }
   const order = [...S.enemies];
   // attacks resolve first, then movement: what is telegraphed is exactly what gets hit
@@ -1174,6 +1238,50 @@ async function enemyPhase(){
     }
   }
   if (!alive()) return;
+  // tar: fire catches and spreads, and whoever ends the round in it gets stuck; mushrooms are consumed by whoever ends the round on one
+  {
+    const tf = S.tarFire || (S.tarFire = new Map());
+    for (const [k,t] of S.terrain) if (t==='tar' && !tf.has(k) && (S.fire.has(k) || S.burn.has(k))) tf.set(k, 3);
+    const spread = [];
+    for (const [k,t] of [...tf]){
+      if (S.terrain.get(k)!=='tar'){ tf.delete(k); continue; }
+      const [x,y] = unkey(k);
+      if (isPlayer(x,y)){ const v = resist(3,'fire'); hurtPlayer(v, $t(`O piche em chamas te queima (${v}).`, `The burning tar burns you (${v}).`)); }
+      const ba = allyAt(x,y); if (ba) damageAlly(ba, 3);
+      const bo = enemyAt(x,y); if (bo) damageEnemy(bo, 3, 'enemy');
+      for (const [dx,dy] of ORTH){ const nk = key(x+dx, y+dy); if (S.terrain.get(nk)==='tar' && !tf.has(nk)) spread.push(nk); }
+      if (t<=1){ tf.delete(k); S.terrain.delete(k); } else tf.set(k, t-1);
+    }
+    for (const nk of spread) if (S.terrain.get(nk)==='tar' && !tf.has(nk)) tf.set(nk, 3);
+    if (!alive()) return;
+    S.mired = !!S.player && terrainAt(S.player.x, S.player.y)==='tar' && !tf.has(key(S.player.x, S.player.y));
+    if (S.mired) floatText(S.player.x, S.player.y-0.4, $t('preso', 'stuck'), '#c9a24a');
+    for (const e of S.enemies) if (!e.boss && terrainAt(e.x,e.y)==='tar' && !tf.has(key(e.x,e.y)) && !(e.stunLeft>0) && !(e.stunImmune>=S.turn)){ e.stunLeft = 1; floatText(e.x, e.y-0.3, $t('preso', 'stuck'), '#c9a24a'); }
+    for (const [k,t] of [...S.terrain]) if (t==='m_heal' || t==='m_glow' || t==='m_puff'){
+      const [x,y] = unkey(k), onP = isPlayer(x,y), al = allyAt(x,y), en = enemyAt(x,y);
+      if (!onP && !al && !en) continue;
+      S.terrain.delete(k);
+      if (t==='m_heal'){
+        burst(x, y, '#8fe68f', 16);
+        if (onP) heal(6); if (al) al.hp = Math.min(al.maxHp, al.hp+6); if (en) healEnemy(en, 5);
+      } else if (t==='m_glow'){
+        burst(x, y, '#7fd8ff', 16);
+        if (onP){ S.nextBonus = Math.max(S.nextBonus||0, 4); S.shield += 4; floatText(x, y-0.4, $t('+4 no golpe, +4 escudo', '+4 to your blow, +4 shield'), '#7fd8ff'); }
+        if (en){ en.shield += 5; floatText(x, y-0.4, '+5', '#7fd8ff'); }
+      } else {
+        burst(x, y, '#d8c8a0', 26); fx.rings.push({x, y, t:0, c:'216,200,160'}); fx.shake = Math.max(fx.shake, 6);
+        log($t('Uma bufa estoura e solta esporos.', 'A puffball bursts and releases spores.'));
+        for (const [dx,dy] of ALL){
+          const nx = x+dx, ny = y+dy;
+          if (isPlayer(nx,ny)) hurtPlayer(4, $t('Os esporos te ferem (4).', 'The spores hurt you (4).'));
+          const na = allyAt(nx,ny); if (na) damageAlly(na, 4);
+          const ne = enemyAt(nx,ny); if (ne){ damageEnemy(ne, 4, 'enemy'); if (S.enemies.includes(ne)) stun(ne); }
+        }
+      }
+    }
+    if (!alive()) return;
+  }
+  // end of round hazards
   // end of round hazards
   for (const [k,t] of [...S.terrain]) if (t==='lava'){
     const [x,y] = unkey(k);

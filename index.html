@@ -257,7 +257,7 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .fops{flex-wrap:wrap;gap:6px;margin:10px 0 6px}
 .fbtns small,.fops small{opacity:.8}
 .xcard.locked{opacity:.5}
-.xcard.bio-crypt{--bc:#8a6a48} .xcard.bio-swamp{--bc:#5f8a55} .xcard.bio-forge{--bc:#d0602a} .xcard.bio-cathedral{--bc:#8fb0d8}
+.xcard.bio-crypt{--bc:#8a6a48} .xcard.bio-swamp{--bc:#5f8a55} .xcard.bio-forge{--bc:#d0602a} .xcard.bio-cathedral{--bc:#8fb0d8} .xcard.bio-storm{--bc:#5b8fd8} .xcard.bio-tar{--bc:#c9a24a} .xcard.bio-fungal{--bc:#8a5fc0}
 
 /* expeditions: portals, campaign path, modes, map device */
 .portals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px}
@@ -302,7 +302,7 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .mt-aff i{width:6px;height:6px;transform:rotate(45deg)}
 .mt-aff i.pen{background:#d0602a} .mt-aff i.rew{background:var(--gold)}
 .mt-new{position:absolute;top:4px;right:5px;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold)}
-.mtile.bio-crypt,.dev-core.bio-crypt{--bc:#8a6a48} .mtile.bio-swamp,.dev-core.bio-swamp{--bc:#5f8a55} .mtile.bio-forge,.dev-core.bio-forge{--bc:#d0602a} .mtile.bio-cathedral,.dev-core.bio-cathedral{--bc:#8fb0d8}
+.mtile.bio-crypt,.dev-core.bio-crypt{--bc:#8a6a48} .mtile.bio-swamp,.dev-core.bio-swamp{--bc:#5f8a55} .mtile.bio-forge,.dev-core.bio-forge{--bc:#d0602a} .mtile.bio-cathedral,.dev-core.bio-cathedral{--bc:#8fb0d8} .mtile.bio-storm,.dev-core.bio-storm{--bc:#5b8fd8} .mtile.bio-tar,.dev-core.bio-tar{--bc:#c9a24a} .mtile.bio-fungal,.dev-core.bio-fungal{--bc:#8a5fc0}
 .device{background:linear-gradient(180deg,var(--stone-2),var(--stone));border:1px solid #6b4a2a;padding:14px 16px}
 .dev-main{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center}
 .dev-core{--bc:var(--line);width:150px;height:150px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,color-mix(in srgb,var(--bc) 45%,#120d0a) 0%,#120d0a 68%);border:3px solid var(--gold);box-shadow:0 0 0 6px var(--stone),0 0 0 7px #6b4a2a,0 0 30px color-mix(in srgb,var(--bc) 40%,transparent) inset,0 0 26px rgba(227,180,86,.25)}
@@ -381,6 +381,9 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .board-frame[data-biome="swamp"]{--bf-edge:#3a4a33;--bf-glow:rgba(120,170,110,.14)}
 .board-frame[data-biome="forge"]{--bf-edge:#6a3220;--bf-glow:rgba(240,100,30,.22)}
 .board-frame[data-biome="cathedral"]{--bf-edge:#5a6a7e;--bf-glow:rgba(150,190,240,.18)}
+.board-frame[data-biome="storm"]{--bf-edge:#40506a;--bf-glow:rgba(110,160,240,.2)}
+.board-frame[data-biome="tar"]{--bf-edge:#3a3024;--bf-glow:rgba(201,162,74,.1)}
+.board-frame[data-biome="fungal"]{--bf-edge:#4a3860;--bf-glow:rgba(110,220,190,.16)}
 canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipulation}
 /* phones: no blue tap flash, no text selection or long-press menu on the board and controls */
 *{-webkit-tap-highlight-color:transparent}
@@ -395,7 +398,8 @@ canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none
 .hk small{color:var(--ash);font-size:.74rem;line-height:1.25}
 .hk .cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-size:1.8rem;color:var(--bone);background:rgba(10,7,5,.55);pointer-events:none}
 .hk .cd:empty{display:none}
-.hint{color:var(--ash);font-size:.9rem;margin:2px auto 0;width:100%;max-width:640px;min-height:2.9em}
+.hint{color:var(--ash);font-size:.9rem;margin:2px auto 0;width:100%;max-width:640px;height:7em;overflow-y:auto}
+@media (max-width:640px){.hint{height:9.5em}}
 .panel{display:flex;flex-direction:column;gap:20px;min-width:0}
 .panel h2{font-family:var(--f-display);font-weight:400;font-size:1.1rem;color:var(--bone);margin:0 0 10px;display:flex;align-items:baseline;gap:8px}
 .side{font-family:var(--f-body);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--ember)}
@@ -573,6 +577,7 @@ canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none
 <script src="js/skilltree.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/render.js"></script>
+<script src="js/fxengine.js"></script>
 <script src="js/vfx.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/treeui.js"></script>

@@ -232,6 +232,24 @@ function genRandomFloor(){
     }
   }
   if (S.biome==='forge') for (let i=0;i<4+rint(4);i++){ const s = freeSq(2); if (s) S.terrain.set(key(s[0],s[1]), 'lava'); }
+  const blob = (type, n0, spread) => { const s = freeSq(1); if (!s) return;
+    S.terrain.set(key(s[0],s[1]), type);
+    for (const [dx,dy] of shuffle(spread).slice(0, n0)){ const x=s[0]+dx, y=s[1]+dy; if (inb(x,y) && !isWall(x,y) && !(x===px && y===py) && !S.terrain.has(key(x,y))) S.terrain.set(key(x,y), type); } };
+  if (S.biome==='tar'){
+    for (let b=0;b<3+rint(2);b++) blob('tar', 1+rint(3), ORTH);
+    for (let i=0;i<3+rint(2);i++){ const s = freeSq(2); if (s) S.terrain.set(key(s[0],s[1]), 'vent'); }
+  }
+  if (S.biome==='storm'){
+    // puddles are spread over the whole floor, small and with room between them
+    const want = 5 + rint(3), seeds = [];
+    for (let n=0; n<150 && seeds.length < want; n++){
+      const s = freeSq(1); if (!s || seeds.some(q => cheb(q[0],q[1],s[0],s[1]) < 3)) continue;
+      seeds.push(s); S.terrain.set(key(s[0],s[1]), 'puddle');
+      for (const [dx,dy] of shuffle(ALL).slice(0, rint(3))){ const x = s[0]+dx, y = s[1]+dy;
+        if (inb(x,y) && !isWall(x,y) && !(x===px && y===py) && !S.terrain.has(key(x,y)) && !seeds.some(q => q!==s && cheb(q[0],q[1],x,y) < 2)) S.terrain.set(key(x,y), 'puddle'); }
+    }
+  }
+  if (S.biome==='fungal') for (let i=0;i<5+rint(2);i++){ const s = freeSq(1); if (s) S.terrain.set(key(s[0],s[1]), pick(MUSH)); }
   if (S.biome==='cathedral'){
     for (let y=1;y<H-1;y++) for (let x=0;x<W;x++) if (!isWall(x,y) && rnd()<.28 && cheb(x,y,px,py)>1) S.terrain.set(key(x,y), 'ice');
   }
@@ -626,25 +644,57 @@ function planClock(){
   if (S.biome==='crypt'){ kind = 'collapse'; cand = all.filter(([x,y]) => near(x,y,2)); n = 3; }
   else if (S.biome==='swamp'){ kind = 'flood'; cand = all.filter(nextTo('water')); if (!cand.length) cand = all.filter(([x,y]) => !terrainAt(x,y)); n = 4; }
   else if (S.biome==='forge'){ kind = 'lava'; cand = all.filter(nextTo('lava')); if (!cand.length) cand = all.filter(([x,y]) => !terrainAt(x,y) && !near(x,y,1)); n = 3; }
+  else if (S.biome==='storm'){ kind = 'storm'; cand = all.filter(([x,y]) => near(x,y,3) && !(x===p.x && y===p.y)); n = 4; }
+  else if (S.biome==='tar'){ kind = 'tar'; cand = all.filter(([x,y]) => !terrainAt(x,y) && near(x,y,3) && !(x===p.x && y===p.y)); n = 4; }
+  else if (S.biome==='fungal'){ kind = 'grow'; cand = all.filter(([x,y]) => !terrainAt(x,y) && !near(x,y,1) && !enemyAt(x,y) && !S.items.some(i => i.x===x && i.y===y)); n = 3; }
   else { kind = 'frost'; cand = all.filter(([x,y]) => !terrainAt(x,y) && near(x,y,3)); n = 5; }
   cand = shuffle(cand).slice(0, n);
   if (!cand.length) return;
   S.clock = {kind, sq:cand};
-  showBanner({collapse:$t('O teto range', 'The ceiling creaks'), flood:$t('A água vai subir', 'The water will rise'), lava:$t('A lava vai transbordar', 'The lava will overflow'), frost:$t('O gelo vai avançar', 'The ice will advance')}[kind], $t('As casas marcadas mudam no fim do próximo turno.', 'The marked squares change at the end of next turn.'));
+  showBanner({collapse:$t('O teto range', 'The ceiling creaks'), flood:$t('A água vai subir', 'The water will rise'), lava:$t('A lava vai transbordar', 'The lava will overflow'), frost:$t('O gelo vai avançar', 'The ice will advance'), storm:$t('Os raios vão cair', 'Lightning is coming'), tar:$t('O piche vai subir', 'The tar will rise'), grow:$t('Os cogumelos vão crescer', 'The mushrooms will grow')}[kind], $t('As casas marcadas mudam no fim do próximo turno.', 'The marked squares change at the end of next turn.'));
   log(CLOCK_TEXT[kind]);
 }
 const CLOCK_TEXT = {collapse:$t('O teto da cripta vai desabar nas casas marcadas (4 de dano). A mais distante de você vira fosso.', 'The crypt ceiling will collapse on the marked squares (4 damage). The one farthest from you becomes a pit.'),
   flood:$t('A água vai subir nas casas marcadas, e a névoa vai fechar.', 'The water will rise on the marked squares, and the fog will close in.'), lava:$t('A lava vai se espalhar para as casas marcadas.', 'The lava will spread to the marked squares.'),
-  frost:$t('O gelo vai se espalhar pelas casas marcadas.', 'The ice will spread across the marked squares.')};
+  frost:$t('O gelo vai se espalhar pelas casas marcadas.', 'The ice will spread across the marked squares.'),
+  storm:$t('Um trovão vai cair nas casas marcadas no fim do turno (4 de dano).', 'A thunderbolt will strike the marked squares at the end of the turn (4 damage).'),
+  tar:$t('O piche vai subir nas casas marcadas.', 'Tar will rise on the marked squares.'),
+  grow:$t('Cogumelos vão brotar nas casas marcadas.', 'Mushrooms will sprout on the marked squares.')};
 // Forge: an unstable pillar explodes every 4 turns (telegraphed one turn ahead)
 function planEnvironment(){
-  S.env = null; S.rise = null; S.clock = null;
+  S.env = null; S.rise = null; S.clock = null; S.storm = null; S.grow = null; S.vents = null;
   planTide();
   const uber = S.exp.kind==='uber' || S.exp.kind==='pinnacle';
   if (S.bossId && S.enemies.some(e => e.boss) && S.turn%(uber?4:5)===(uber?3:4) && (S.clocks||0)<(uber?8:4)) planClock();
   if (S.biome==='crypt' && S.turn%4===3 && (S.risen||0)<3){
     const graves = [...S.terrain].filter(([k,t]) => t==='grave' && !occupied(...unkey(k))).map(([k]) => unkey(k));
     if (graves.length) S.rise = pick(graves);
+  }
+  if (S.biome==='storm' && S.enemies.length && S.turn%3===2){
+    const p = S.player, free = [], pud = [];
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (!isWall(x,y) && !isPit(x,y) && !(S.stairs && S.stairs.x===x && S.stairs.y===y)){ free.push([x,y]); if (terrainAt(x,y)==='puddle') pud.push([x,y]); }
+    const nearP = shuffle(free.filter(([x,y]) => cheb(x,y,p.x,p.y)<=3 && !(x===p.x && y===p.y)));
+    const cand = [pud.length && rnd()<.5 ? pick(pud) : nearP[0], nearP[1]].concat(shuffle(free)).filter(Boolean);
+    const sq = [];
+    for (const s of cand) if (sq.length < (W>8 ? 3 : 2) && !sq.some(q => q[0]===s[0] && q[1]===s[1])) sq.push(s);
+    // puddles conduct: the bolt runs through every puddle connected to a struck one
+    const seen = new Set(), chain = [], stack = sq.filter(([x,y]) => terrainAt(x,y)==='puddle');
+    for (const s of stack) seen.add(key(s[0],s[1]));
+    while (stack.length){ const [x,y] = stack.pop(); for (const [dx,dy] of ALL){ const nx=x+dx, ny=y+dy, k=key(nx,ny); if (!seen.has(k) && terrainAt(nx,ny)==='puddle'){ seen.add(k); chain.push([nx,ny]); stack.push([nx,ny]); } } }
+    S.storm = {sq, chain};
+  }
+  if (S.biome==='tar' && S.enemies.length && S.turn%2===1){
+    // two geysers erupt every other turn (every 3rd eruption the tar is on fire)
+    const vents = shuffle([...S.terrain].filter(([k,t]) => t==='vent').map(([k]) => unkey(k)));
+    const fire = (S.ventN||0)%3===2;
+    if (vents.length) S.vents = vents.slice(0, 2).map(at => ({at, sq:ORTH.map(([dx,dy]) => [at[0]+dx, at[1]+dy]).filter(([x,y]) => inb(x,y) && !isWall(x,y) && !isPit(x,y)), fire}));
+  }
+  if (S.biome==='fungal' && S.enemies.length && S.turn%3===2 && (S.grown||0)<8){
+    const p = S.player, cand = [];
+    for (let y=0;y<H-1;y++) for (let x=0;x<W;x++)
+      if (!occupied(x,y) && !S.terrain.has(key(x,y)) && !S.items.some(i => i.x===x && i.y===y) && !(S.stairs && S.stairs.x===x && S.stairs.y===y) && cheb(x,y,p.x,p.y)>1) cand.push([x,y]);
+    const sq = shuffle(cand).slice(0, Math.min(cand.length, 1+rint(2)));
+    if (sq.length) S.grow = {sq, types:sq.map(() => pick(MUSH))};
   }
   if (S.biome!=='forge' || S.turn%4!==3 || !S.walls.size) return;
   const w = unkey(pick([...S.walls]));
@@ -663,7 +713,10 @@ function refreshDanger(){
     for (const [x,y] of e.intent.sq){ S.danger.add(key(x,y)); if (vis) S.dangerSeen.add(key(x,y)); }
   }
   if (S.env) for (const [x,y] of S.env.sq){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
-  if (S.clock && S.clock.kind==='collapse') for (const [x,y] of S.clock.sq){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
+  if (S.storm) for (const [x,y] of S.storm.sq.concat(S.storm.chain)){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
+  if (S.vents) for (const V of S.vents){ const a = V.at; S.danger.add(key(a[0],a[1])); S.dangerSeen.add(key(a[0],a[1])); if (V.fire) for (const [x,y] of V.sq){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); } }
+  if (S.tarFire) for (const k of S.tarFire.keys()){ S.danger.add(k); S.dangerSeen.add(k); }
+  if (S.clock && (S.clock.kind==='collapse' || S.clock.kind==='storm')) for (const [x,y] of S.clock.sq){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
   if (S.bloodRain) for (const [x,y] of S.bloodRain.sq){ S.danger.add(key(x,y)); S.dangerSeen.add(key(x,y)); }
   for (const k of S.burn.keys()){ S.danger.add(k); S.dangerSeen.add(k); }
   const fk = S.enemies.find(e => e.bossId==='fallen' && e.fphase===3);

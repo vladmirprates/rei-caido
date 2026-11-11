@@ -379,7 +379,7 @@ function campSkins(h){
 function campAtlas(h){
   if (h.actDone<4) return $t('<p class="muted">Conclua o Ato 4 para liberar os mapas e o Atlas.</p>', '<p class="muted">Complete Act 4 to unlock maps and the Atlas.</p>');
   const T = atlasTree(), pts = atlasPoints(h), learned = (h.atlasTree||[]).map(id => T[id]).filter(Boolean), total = Object.keys(T).length - 1;
-  const col = {crypt:'#8a6a48', swamp:'#5f8a55', forge:'#d0602a', cathedral:'#8fb0d8'};
+  const col = {crypt:'#8a6a48', swamp:'#5f8a55', forge:'#d0602a', cathedral:'#8fb0d8', storm:'#5b8fd8', tar:'#c9a24a', fungal:'#8a5fc0'};
   const prog = ACTS.map(b => { const n = [...Array(10).keys()].filter(i => (h.atlas||{})[b+'-'+(i+1)]).length;
     return `<div class="aprog"><span>${BIOMES[b].name}</span><div class="adots">${[...Array(10).keys()].map(i => `<i class="${(h.atlas||{})[b+'-'+(i+1)] ? 'done' : ''}" style="--bc:${col[b]}" title="${$t('Nível', 'Tier')} ${i+1}${(h.atlas||{})[b+'-'+(i+1)] ? $t(': concluído', ': completed') : ''}"></i>`).join('')}</div><small>${n}/10</small></div>`; }).join('');
   const big = learned.filter(n => n.kind!=='small');
@@ -470,7 +470,7 @@ function expChallenges(h){
     <div class="evstrip">${ev.map(([n,c,d]) => `<div style="--ec:${c}"><b>${n}</b><span>${d}</span></div>`).join('')}</div>`;
 }
 function mapTile(m, on){
-  const pen = m.affixes.filter(a => !isRewardAffix(a)).length, rew = m.affixes.length - pen, new_ = !(HERO.atlas||{})[`${m.biome}-${m.tier}`];
+  const pen = m.affixes.filter(a => !isRewardAffix(a)).length, rew = m.affixes.length - pen, new_ = ACTS.includes(m.biome) && !(HERO.atlas||{})[`${m.biome}-${m.tier}`];
   return `<button class="mtile bio-${m.biome} ${on?'on':''}" type="button" data-act="dev:${m.id}" aria-pressed="${on}" title="${esc(mapName(m))}">
     <span class="mt-tier">${m.tier}</span><span class="mt-name">${BIOMES[m.biome].name}</span>
     <span class="mt-aff">${'<i class="pen"></i>'.repeat(pen)}${'<i class="rew"></i>'.repeat(rew)}</span>${new_ ? $t('<span class="mt-new">novo</span>', '<span class="mt-new">new</span>') : ''}</button>`;
@@ -485,7 +485,7 @@ function expMaps(h, side){
   const done = Object.keys(h.atlas||{}).length;
   const device = m ? `<div class="dev-core bio-${m.biome}"><span class="xk">${$t('Nível', 'Tier')}</span><span class="dc-tier">${m.tier}</span><span class="dc-name">${BIOMES[m.biome].name}</span></div>
       <div class="dev-info">
-        <p class="muted small">${$t('Chefe no 3º andar:', 'Boss on floor 3:')} <b>${BOSSES[m.boss].names[side]}</b>${(h.atlas||{})[`${m.biome}-${m.tier}`] ? $t(' · já concluído no Atlas', ' · already completed in the Atlas') : $t(' · primeira conclusão: +1 ponto de Atlas', ' · first completion: +1 Atlas point')}</p>
+        <p class="muted small">${$t('Chefe no 3º andar:', 'Boss on floor 3:')} <b>${BOSSES[m.boss].names[side]}</b>${!ACTS.includes(m.biome) ? $t(' · bioma raro: não dá ponto de Atlas', ' · rare biome: gives no Atlas point') : (h.atlas||{})[`${m.biome}-${m.tier}`] ? $t(' · já concluído no Atlas', ' · already completed in the Atlas') : $t(' · primeira conclusão: +1 ponto de Atlas', ' · first completion: +1 Atlas point')}</p>
         <ul class="maff">${m.affixes.filter(a=>!isRewardAffix(a)).map(a => `<li class="pen">${MAP_AFFIXES[a]}</li>`).join('')}${m.affixes.filter(isRewardAffix).map(a => `<li class="rew">${MAP_AFFIXES[a].replace($t('Recompensa: ', 'Reward:'),'')}</li>`).join('')}</ul>
         <button class="primary devgo" type="button" data-act="map:${m.id}">${$t('Abrir o portal', 'Open the portal')}</button>
       </div>`
@@ -945,6 +945,15 @@ function hoverHint(){
   if (t==='grave') parts.push(S.rise && S.rise[0]===x && S.rise[1]===y ? $t('Túmulo se abrindo: um esqueleto se ergue no fim do turno, se a casa estiver livre.', 'Grave opening: a skeleton rises at the end of the turn, if the square is free.') : $t('Túmulo: de tempos em tempos um esqueleto se ergue daqui. Ficar em cima impede.', 'Grave: from time to time a skeleton rises from here. Standing on it prevents that.'));
   if (t==='water') parts.push($t('Água: quem ataca daqui causa 1 de dano a menos. Ninguém desliza através dela.', 'Water: attacking from here deals 1 less damage. Nothing slides through it.'));
   if (t==='lava') parts.push($t('Lava: quem termina o turno aqui leva 2 de dano.', 'Lava: whoever ends the turn here takes 2 damage.'));
+  if (t==='tar') parts.push(S.tarFire && S.tarFire.has(key(x,y)) ? $t('Piche em chamas: quem termina o turno aqui leva 3 de dano, e o fogo passa para o piche vizinho.', 'Burning tar: whoever ends the turn here takes 3 damage, and the fire spreads to neighboring tar.') : $t('Piche: quem termina o turno aqui fica preso e no turno seguinte só pode atacar e usar habilidades, não se mover. Fogo o incendeia.', 'Tar: whoever ends the turn here gets stuck and on the next turn can only attack and use skills, not move. Fire ignites it.'));
+  if (t==='vent'){ const VT = S.vents && S.vents.find(q => q.at[0]===x && q.at[1]===y); parts.push(VT ? $t('Gêiser prestes a entrar em erupção: cobre as 4 casas ao redor de piche' + (VT.fire ? ' em chamas' : '') + ' no fim do turno. 2 de dano a quem estiver sobre ele.', 'Geyser about to erupt: covers the 4 squares around it in tar' + (VT.fire ? ' that is on fire' : '') + ' at the end of the turn. 2 damage to whoever stands on it.') : $t('Gêiser de piche: a cada 2 turnos dois gêiseres cospem piche nas 4 casas ao redor. A cada 3ª erupção o piche pega fogo.', 'Tar geyser: every 2 turns two geysers spit tar onto the 4 squares around them. Every 3rd eruption the tar catches fire.')); }
+  if (t==='puddle') parts.push(S.storm && S.storm.chain.some(([a,b]) => a===x && b===y) ? $t('Poça carregada: o trovão vai correr por ela no fim do turno (2 de dano).', 'Charged puddle: the thunder will run through it at the end of the turn (2 damage).') : $t('Poça: conduz trovões. Se um cair em qualquer parte dela, o choque corre por toda a poça conectada.', 'Puddle: conducts thunder. If a bolt hits any part of it, the shock runs through the whole connected puddle.'));
+  if (t==='m_heal') parts.push($t('Cogumelo-cura: quem termina o turno aqui (você, aliado ou inimigo) recupera 6 de vida, e o cogumelo some.', 'Healing mushroom: whoever ends the turn here (you, an ally or an enemy) recovers 6 health, and the mushroom is gone.'));
+  if (t==='m_glow') parts.push($t('Cogumelo luminoso: quem termina o turno aqui o consome. Você ganha +4 no próximo golpe e 4 de escudo; um inimigo ganha 5 de escudo.', 'Luminous mushroom: whoever ends the turn here consumes it. You gain +4 on your next blow and 4 shield; an enemy gains 5 shield.'));
+  if (t==='m_puff') parts.push($t('Bufa: quem termina o turno aqui a estoura. 4 de dano a todos ao redor (menos quem estourou), e os inimigos vizinhos ficam atordoados.', 'Puffball: whoever ends the turn here bursts it. 4 damage to everything around it (except whoever burst it), and neighboring enemies are stunned.'));
+  if (S.storm && S.storm.sq.some(([a,b]) => a===x && b===y)) parts.push($t('Trovão: cai aqui no fim do turno e causa 3 de dano a quem estiver na casa (você, aliados e inimigos).', 'Thunder: strikes here at the end of the turn, dealing 3 damage to whoever is on the square (you, allies and enemies).'));
+  { const VT = S.vents && S.vents.find(q => q.sq.some(([a,b]) => a===x && b===y)); if (VT) parts.push($t('O gêiser vai cobrir esta casa de piche' + (VT.fire ? ' em chamas (3 de dano)' : '') + ' no fim do turno.', 'The geyser will cover this square in tar' + (VT.fire ? ' that is on fire (3 damage)' : '') + ' at the end of the turn.')); }
+  if (S.grow && S.grow.sq.some(([a,b]) => a===x && b===y)) parts.push($t('Brota um cogumelo aqui no fim do turno, se a casa estiver livre.', 'A mushroom sprouts here at the end of the turn, if the square is free.'));
   if (t==='blood') parts.push($t('Poça de Sangue: inimigo em cima causa +1 de dano e se cura 1 por turno, mas matá-lo aqui dá o dobro de Brasas.', 'Blood Pool: an enemy on it deals +1 damage and heals 1 per turn, but killing it here gives double Embers.'));
   if (S.tideRise && S.tideRise.some(([a,b]) => a===x && b===y)) parts.push($t('A Maré vai subir aqui no fim do turno: vira Poça de Sangue.', 'The Tide will rise here at the end of the turn: it becomes a Blood Pool.'));
   if (S.bloodRain && S.bloodRain.sq.some(([a,b]) => a===x && b===y)) parts.push($t('Chuva de Sangue: cai aqui no fim do turno.', 'Blood Rain: falls here at the end of the turn.'));
@@ -952,7 +961,7 @@ function hoverHint(){
   if (S.burn.has(key(x,y))) parts.push($t('Brasas: quem terminar o turno aqui leva 2 de dano.', 'Embers: whoever ends the turn here takes 2 damage.'));
   if (S.clock && S.clock.sq.some(([a,b]) => a===x && b===y)) parts.push(CLOCK_TEXT[S.clock.kind]);
   if (S.enemies.some(o => o.intent && o.intent.mark && o.intent.mark[0]===x && o.intent.mark[1]===y)) parts.push($t('Casa marcada pelo chefe: quem estiver aqui no fim do turno leva o golpe.', 'Square marked by the boss: whoever is here at the end of the turn takes the blow.'));
-  if (isWall(x,y)) parts.push(S.env && S.env.wall[0]===x && S.env.wall[1]===y ? $t('Pilar instável: vai explodir no fim do turno.', 'Unstable pillar: it will explode at the end of the turn.') : $t(`${({swamp:'Árvore morta', cathedral:'Coluna'})[S.biome]||'Pilar'}. Bloqueia ataques em linha.`, `${({swamp:'Dead tree', cathedral:'Column'})[S.biome]||'Pillar'}. Blocks line attacks.`));
+  if (isWall(x,y)) parts.push(S.env && S.env.wall[0]===x && S.env.wall[1]===y ? $t('Pilar instável: vai explodir no fim do turno.', 'Unstable pillar: it will explode at the end of the turn.') : $t(`${({swamp:'Árvore morta', cathedral:'Coluna', storm:'Rocha do trovão', tar:'Resto preso no piche', fungal:'Fungo gigante'})[S.biome]||'Pilar'}. Bloqueia ataques em linha.`, `${({swamp:'Dead tree', cathedral:'Column', storm:'Thunder rock', tar:'Tar-trapped remains', fungal:'Giant fungus'})[S.biome]||'Pillar'}. Blocks line attacks.`));
   if (!e && S.dangerSeen.has(key(x,y))) parts.push($t('Esta casa será atacada no fim do turno.', 'This square will be attacked at the end of the turn.'));
   if (S.threatNext && S.threatNext.has(key(x,y)) && !S.dangerSeen.has(key(x,y))) parts.push($t('Visão tática: ameaçada no turno seguinte.', 'Tactical sight: threatened next turn.'));
   if (S.mode==='quake' && SKILLS[S.mode].targets().some(([sx,sy])=>sx===x&&sy===y)) parts.push($t(`Pousar aqui causa ${st.dmg+st.darkQuake} a cada vizinho.`, `Landing here deals ${st.dmg+st.darkQuake} to each neighbor.`));
@@ -1031,7 +1040,7 @@ function bossSheet(bosses){
   if (S.bossId){
     const used = S.clocks||0, big = S.exp.kind==='uber' || S.exp.kind==='pinnacle', every = big ? 4 : 5, max = big ? 8 : 4;
     let ck = 0; if (!S.clock){ ck = 1; while ((S.turn+ck) % every !== every-1) ck++; }
-    const what = {crypt:$t('o teto desaba perto de você', 'the ceiling collapses near you'), swamp:$t('a água sobe e a névoa fecha', 'the water rises and the fog closes in'), forge:$t('a lava se espalha', 'the lava spreads'), cathedral:$t('o gelo avança', 'the ice advances')}[S.biome] || $t('a arena piora', 'the arena gets worse');
+    const what = {crypt:$t('o teto desaba perto de você', 'the ceiling collapses near you'), swamp:$t('a água sobe e a névoa fecha', 'the water rises and the fog closes in'), forge:$t('a lava se espalha', 'the lava spreads'), cathedral:$t('o gelo avança', 'the ice advances'), storm:$t('trovões caem do céu', 'thunder falls from the sky'), tar:$t('o piche sobe', 'the tar rises'), fungal:$t('os cogumelos brotam', 'the mushrooms sprout')}[S.biome] || $t('a arena piora', 'the arena gets worse');
     extra.push(`<div class="bi-row"><b>${$t('Arena ·', 'Arena ·')} ${used>=max ? $t('estável', 'stable') : whenTxt(S.clock ? 0 : ck)}</b>${$t(`A cada ${every} turnos`, `Every ${every} turns`)} ${what} (${Math.max(0,max-used)} ${$t(`de ${max} restantes).`, `of ${max} remaining).`)}</div>`);
   }
   return cards.join('') + (extra.length ? `<div class="bi-card">${extra.join('')}</div>` : '');

@@ -105,10 +105,19 @@ const BIOMES = {
   cathedral:{name:$t('Catedral Gelada', 'Frozen Cathedral'), boss:'pawn', sizes:[8,10], tiles:['#353d48','#252b33'],
     rule:$t('Gelo: quem pisa nele escorrega na mesma direção até sair do gelo ou bater em algo. Vale para você, inimigos e empurrões.', 'Ice: whoever steps on it slides in the same direction until it leaves the ice or hits something. Applies to you, enemies and pushes.')}
 };
+// rare biomes: they only appear in maps (never in the campaign or the Atlas), each with a rule of its own
+BIOMES.storm = {name:$t('Cume Tempestuoso', 'Stormcrag'), boss:'queen', sizes:[8,9], tiles:['#3b4559','#283042'],
+  rule:$t('Trovões: a cada 3 turnos, casas piscam e um trovão cai nelas no fim do turno (3 de dano a qualquer um). Poças conduzem: o choque corre por toda a poça conectada (2 de dano).', 'Thunder: every 3 turns, squares flash and a bolt strikes them at the end of the turn (3 damage to anyone). Puddles conduct: the shock runs through the whole connected puddle (2 damage).')};
+BIOMES.tar = {name:$t('Poço de Piche', 'Tar Pits'), boss:'knight', sizes:[8,9,10], tiles:['#54483a','#3a3128'],
+  rule:$t('Piche: quem termina o turno nele fica preso (no turno seguinte só ataca ou usa habilidades). Dois gêiseres cospem piche a cada 2 turnos, e a cada 3ª erupção ele pega fogo. Fogo incendeia o piche (3 de dano) e se espalha.', 'Tar: whoever ends the turn in it gets stuck (next turn they can only attack or use skills). Two geysers spit tar every 2 turns, and every 3rd eruption it catches fire. Fire ignites tar (3 damage) and spreads.')};
+BIOMES.fungal = {name:$t('Gruta Fúngica', 'Fungal Grotto'), boss:'twins', sizes:[8,9], tiles:['#3d3249','#271f33'],
+  rule:$t('Cogumelos brotam pelo andar: quem termina o turno em cima consome (você, aliado ou inimigo). Verde cura 6; azul dá +4 no golpe e 4 de escudo; a bufa estoura (4 de dano em volta e atordoa).', 'Mushrooms sprout around the floor: whoever ends the turn on one consumes it (you, an ally or an enemy). Green heals 6; blue gives +4 to your blow and 4 shield; the puffball bursts (4 damage around and stuns).')};
+const MAP_BIOMES = ['storm','tar','fungal'];
+const MUSH = ['m_heal','m_glow','m_puff'];   // the three mushrooms of the Fungal Grotto
 const ACTS = ['crypt','swamp','forge','cathedral'];
 // damage types: each biome's enemies hit with its element and resist it by 50%
 const DTYPES = {phys:{n:$t('físico', 'physical')}, fire:{n:$t('fogo', 'fire'), c:'#f08a3c'}, cold:{n:$t('gelo', 'cold'), c:'#9fd3ff'}, light:{n:$t('raio', 'lightning'), c:'#ecd36a'}};
-const BIOME_ELEMENT = {crypt:'phys', swamp:'light', forge:'fire', cathedral:'cold'};
+const BIOME_ELEMENT = {crypt:'phys', swamp:'light', forge:'fire', cathedral:'cold', storm:'light', tar:'fire', fungal:'phys'};
 const RES_KEY = {fire:'resFire', cold:'resCold', light:'resLight'};
 
 /* ---------- Skill unlocks and runes ----------

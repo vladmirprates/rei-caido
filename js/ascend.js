@@ -105,7 +105,7 @@ Object.assign(SKILLS, {
       const dmg = attackDmg(st, e) + 2 + (st.arcFocus ? 2 : 0);
       const all = !!st.prism, hasF = st.fireDmg>0 && (all || el==='fire'), hasC = st.coldDmg>0 && (all || el==='cold'), hasL = st.lightDmg>0 && (all || el==='light');
       // always a flying arcane orb (never the jagged lightning of gear): the element only tints its core
-      fx.beams.push({x1:p.x, y1:p.y, x2:e.x, y2:e.y, t:0, c:col, orb:true}); fx.rings.push({x:e.x, y:e.y, t:0, c:'190,140,255'});
+      vfx('arcane', p.x, p.y, e.x, e.y, {c:col});
       sfx(el==='fire' ? 'fire' : el==='cold' ? 'cold' : 'zap');
       skillHit(e, dmg);
       if (hasF) S.fire.set(key(x,y), 2);
@@ -114,7 +114,7 @@ Object.assign(SKILLS, {
       if (hasL || st.arcChain){ const o = S.enemies.filter(q => q!==e && cheb(q.x,q.y,x,y)<=2).sort((a,b) => cheb(a.x,a.y,x,y)-cheb(b.x,b.y,x,y))[0]; if (o) extra.add(o); }
       if (st.arcStorm) for (const [dx,dy] of ALL){ const o = enemyAt(x+dx,y+dy); if (o) extra.add(o); }
       const was = S.blasting; S.blasting = true;
-      for (const o of extra){ if (!S.enemies.includes(o)) continue; fx.beams.push({x1:x, y1:y, x2:o.x, y2:o.y, t:0, c:col, orb:true}); skillHit(o, half); }
+      for (const o of extra){ if (!S.enemies.includes(o)) continue; vfx('arcane', x, y, o.x, o.y, {c:col}); skillHit(o, half); }
       S.blasting = was;
       if (st.arcFree) S.actions++;
       log($t('Projétil Arcano.', 'Arcane Bolt.'));

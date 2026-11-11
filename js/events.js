@@ -568,6 +568,7 @@ const UBERS = {
 
 /* ---------- Atlas completion: every biome x tier finished for the first time gives 1 Atlas point (see tree.js) ---------- */
 function atlasComplete(map){
+  if (!ACTS.includes(map.biome)) return;   // the rare map biomes are outside the Atlas
   const k = `${map.biome}-${map.tier}`;
   HERO.atlas = HERO.atlas || {};
   if (HERO.atlas[k]) return;

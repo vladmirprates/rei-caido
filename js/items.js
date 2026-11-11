@@ -328,9 +328,9 @@ function bossRelics(bossId){
   out.forEach(it => S.seen.add(it.name));
   return out;
 }
-function makeMap(tier){
+function makeMap(tier, forceBiome){
   tier = Math.max(1, Math.min(10, tier));
-  const biome = pick(ACTS), boss = pick(BOSS_ORDER);
+  const biome = forceBiome || pick(Math.random() < .3 ? MAP_BIOMES : ACTS), boss = pick(BOSS_ORDER);
   const n = Math.min(4, 1 + Math.floor(tier/3) + rint(2)), nr = 1 + Math.floor(tier/4);
   const keys = Object.keys(MAP_AFFIXES);
   const affixes = shuffle(keys.filter(k => !isRewardAffix(k))).slice(0, n).concat(shuffle(keys.filter(isRewardAffix)).slice(0, nr));
