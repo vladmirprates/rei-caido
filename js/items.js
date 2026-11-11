@@ -1,107 +1,123 @@
 /* Rei Caído — items, uniques, endgame maps */
 
 const SLOTS = {
-  arma:{label:'Arma', bases:['Lança','Espada','Maça','Cetro']},
-  elmo:{label:'Elmo', bases:['Elmo','Capuz','Diadema','Máscara']},
-  armadura:{label:'Armadura', bases:['Cota','Couraça','Gibão','Manto']},
-  botas:{label:'Botas', bases:['Botas','Grevas','Sapatos','Sandálias']},
-  anel:{label:'Anel', bases:['Anel','Selo','Aliança','Amuleto']}
+  arma:{label:$t('Arma', 'Weapon'), bases:[$t('Lança', 'Spear'),$t('Espada', 'Sword'),$t('Maça', 'Mace'),$t('Cetro', 'Scepter')]},
+  elmo:{label:$t('Elmo', 'Helm'), bases:[$t('Elmo', 'Helm'),$t('Capuz', 'Hood'),$t('Diadema', 'Diadem'),$t('Máscara', 'Mask')]},
+  armadura:{label:$t('Armadura', 'Armor'), bases:[$t('Cota', 'Mail'),$t('Couraça', 'Cuirass'),$t('Gibão', 'Doublet'),$t('Manto', 'Cloak')]},
+  botas:{label:$t('Botas', 'Boots'), bases:[$t('Botas', 'Boots'),$t('Grevas', 'Greaves'),$t('Sapatos', 'Shoes'),$t('Sandálias', 'Sandals')]},
+  anel:{label:$t('Anel', 'Ring'), bases:[$t('Anel', 'Ring'),$t('Selo', 'Seal'),$t('Aliança', 'Band'),$t('Amuleto', 'Amulet')]}
 };
-const RAR = {common:{label:'Comum', c:'#cfc6b6'}, magic:{label:'Mágico', c:'#8aa4ff'}, rare:{label:'Raro', c:'#ecd36a'}, legend:{label:'Único', c:'#f08a3c'}};
+const RAR = {common:{label:$t('Comum', 'Common'), c:'#cfc6b6'}, magic:{label:$t('Mágico', 'Magic'), c:'#8aa4ff'}, rare:{label:$t('Raro', 'Rare'), c:'#ecd36a'}, legend:{label:$t('Único', 'Unique'), c:'#f08a3c'}};
 const AFX = {
-  dmg:{t:v=>`+${v} de dano`, suf:'da Ruína'},
-  hp:{t:v=>`+${v} de vida máxima`, suf:'do Bastião'},
-  shield:{t:v=>`+${v} de escudo por andar`, suf:'da Égide'},
-  cdr:{t:v=>`Habilidades recarregam ${v} turno mais rápido`, suf:'do Vento'},
-  crit:{t:v=>`${v}% de chance de crítico (golpe ×1,5)`, suf:'da Fúria'},
-  eliteDmg:{t:v=>`+${v}% de dano contra elites e chefes`, suf:'do Algoz'},
-  block:{t:v=>`${v}% de chance de bloquear metade de um golpe`, suf:'da Muralha'},
-  healKill:{t:v=>`Cura ${v} ao matar`, suf:'da Colheita'},
-  mf:{t:v=>`+${v}% de achado de itens`, suf:'da Fortuna'},
-  gold:{t:v=>`+${v}% de ouro`, suf:'da Cobiça'},
-  fireDmg:{t:v=>`+${v} de dano de fogo`, suf:'das Brasas'},
-  coldDmg:{t:v=>`+${v} de dano de gelo`, suf:'do Inverno'},
-  lightDmg:{t:v=>`+${v} de dano de raio`, suf:'da Tempestade'},
-  resFire:{t:v=>`+${v}% de resistência a fogo`, suf:'da Salamandra'},
-  resCold:{t:v=>`+${v}% de resistência a gelo`, suf:'do Urso'},
-  resLight:{t:v=>`+${v}% de resistência a raio`, suf:'do Para-raios'},
-  chain:{t:()=>'Ceifa: ao abater, ganha +1 ação (máx. 2 por turno)', suf:'da Ceifa', rule:true},
-  trample:{t:()=>'Ao pousar, causa 1 de dano aos vizinhos', suf:'do Pisoteio', rule:true},
-  vamp:{t:()=>'Abates curam 2 de vida', suf:'do Sangue', rule:true},
-  thorns:{t:()=>'Quem te acerta leva 2 de dano', suf:'dos Espinhos', rule:true},
-  longJump:{t:()=>'Também salta em 3x1', rule:true},
-  darkQuake:{t:()=>'Salto Sísmico causa +3 de dano', rule:true},
-  fork:{t:()=>'Garfo: o golpe também atinge, com metade do dano, um inimigo a um salto em L de onde você termina', rule:true},
-  cavalry:{t:()=>'Galope recarrega 2 turnos mais rápido e o próximo golpe causa +2', rule:true},
-  aegisFirst:{t:()=>'O primeiro golpe que você recebe em cada andar é anulado', rule:true},
-  pushPower:{t:()=>'Empurrão causa +3 de dano em quem bate em algo', rule:true},
-  fortify:{t:()=>'Muralha dá +4 de escudo', rule:true},
-  ram:{t:()=>'Se a investida não matar, o inimigo é empurrado 1 casa e fica atordoado', rule:true},
-  pierce:{t:()=>'Perfurar: a investida atinge todos os inimigos na linha até a parede', rule:true},
-  castle:{t:()=>'Roque: atacar um inimigo que sobrevive troca vocês de lugar e o atordoa', rule:true},
-  lineGuard:{t:()=>'Ataques em linha causam metade do dano em você', rule:true},
-  granite:{t:()=>'Se você não se moveu no turno: +2 de dano e recebe 1 a menos', rule:true},
-  crossBeam:{t:()=>'Raio também atinge as linhas retas', rule:true},
-  pierceShot:{t:()=>'O ataque à distância atravessa o primeiro inimigo e atinge o seguinte', rule:true},
-  stainedGlass:{t:()=>'Troca de Cor também dá 4 de escudo', rule:true},
-  pilgrim:{t:()=>'Também anda 2 casas em linha reta, trocando a cor da casa', rule:true},
-  rosary:{t:()=>'Cada abate com o Raio reduz a recarga do Raio em 1', rule:true},
-  censer:{t:()=>'Trilha: casas por onde você desliza queimam por 2 turnos e causam 1 a inimigos nelas', rule:true},
-  holy:{t:()=>'Troca de Cor cura 4', rule:true},
-  fury:{t:()=>'+2 de dano com menos da metade da vida', rule:true},
-  bladeStorm:{t:()=>'Tempestade de Lâminas causa +3 de dano', rule:true},
-  check:{t:()=>'Xeque: inimigos que você ataca e não mata ficam atordoados', rule:true},
-  mirror:{t:()=>'O primeiro dano que você recebe por turno volta para o atacante', rule:true},
-  escape:{t:()=>'Fuga Real: depois de matar, pode se mover de novo, sem atacar (1 vez por turno)', rule:true},
-  redSacrifice:{t:()=>'Sacrifício custa 1 de vida em vez de 3 e dá +1 de dano no turno', rule:true},
-  gambit:{t:()=>'Gambito: começa cada andar com no máximo metade da vida, mas causa +3 de dano', rule:true},
-  twinSummon:{t:()=>'Convocar cria dois peões', rule:true},
-  sturdyPawns:{t:()=>'Peões aliados têm +3 de vida e +1 de dano', rule:true},
-  freeSwap:{t:()=>'Uma vez por turno, trocar de lugar com um aliado não gasta ação', rule:true},
-  earlyPromo:{t:()=>'Peões aliados promovem a rainha já na metade do tabuleiro', rule:true},
-  martyr:{t:()=>'Quando um aliado morre, você cura 3 e ganha 2 de escudo', rule:true},
-  banner:{t:()=>'Aliados ao seu lado causam +1 de dano e recebem 1 a menos', rule:true},
-  kingStep:{t:()=>'Pode andar 1 casa em qualquer direção', rule:true},
-  execute:{t:()=>'Xeque-mate: inimigos que ficam com menos de 3 de vida após seu golpe morrem', rule:true}
+  dmg:{t:v=>$t(`+${v} de dano`, `+${v} damage`), suf:$t('da Ruína', 'of Ruin')},
+  hp:{t:v=>$t(`+${v} de vida máxima`, `+${v} max health`), suf:$t('do Bastião', 'of the Bastion')},
+  shield:{t:v=>$t(`+${v} de escudo por andar`, `+${v} shield per floor`), suf:$t('da Égide', 'of the Aegis')},
+  cdr:{t:v=>$t(`Habilidades recarregam ${v} turno mais rápido`, `Skills recharge ${v} turn faster`), suf:$t('do Vento', 'of the Wind')},
+  crit:{t:v=>$t(`${v}% de chance de crítico (golpe ×1,5)`, `${v}% critical chance (blow ×1.5)`), suf:$t('da Fúria', 'of Fury')},
+  eliteDmg:{t:v=>$t(`+${v}% de dano contra elites e chefes`, `+${v}% damage against elites and bosses`), suf:$t('do Algoz', 'of the Slayer')},
+  block:{t:v=>$t(`${v}% de chance de bloquear metade de um golpe`, `${v}% chance to block half of a blow`), suf:$t('da Muralha', 'of the Wall')},
+  healKill:{t:v=>$t(`Cura ${v} ao matar`, `Heal ${v} on kill`), suf:$t('da Colheita', 'of the Harvest')},
+  mf:{t:v=>$t(`+${v}% de achado de itens`, `+${v}% item find`), suf:$t('da Fortuna', 'of Fortune')},
+  gold:{t:v=>$t(`+${v}% de ouro`, `+${v}% gold`), suf:$t('da Cobiça', 'of Greed')},
+  fireDmg:{t:v=>$t(`+${v} de dano de fogo`, `+${v} fire damage`), suf:$t('das Brasas', 'of Embers')},
+  coldDmg:{t:v=>$t(`+${v} de dano de gelo`, `+${v} cold damage`), suf:$t('do Inverno', 'of Winter')},
+  lightDmg:{t:v=>$t(`+${v} de dano de raio`, `+${v} lightning damage`), suf:$t('da Tempestade', 'of the Storm')},
+  resFire:{t:v=>$t(`+${v}% de resistência a fogo`, `+${v}% fire resistance`), suf:$t('da Salamandra', 'of the Salamander')},
+  resCold:{t:v=>$t(`+${v}% de resistência a gelo`, `+${v}% cold resistance`), suf:$t('do Urso', 'of the Bear')},
+  resLight:{t:v=>$t(`+${v}% de resistência a raio`, `+${v}% lightning resistance`), suf:$t('do Para-raios', 'of the Lightning Rod')},
+  chain:{t:()=>$t('Ceifa: ao abater, ganha +1 ação (máx. 2 por turno; cada fonte de Ceifa a mais soma +1 ao limite)', 'Reaping: on kill, gain +1 action (max. 2 per turn; each extra source of Reaping adds +1 to the limit)'), suf:$t('da Ceifa', 'of Reaping'), rule:true},
+  killFury:{t:()=>$t('Matança: cada abate dá +1 de dano até o fim do turno (até +5)', 'Slaughter: each kill gives +1 damage until the end of the turn (up to +5)'), suf:$t('da Matança', 'of Slaughter'), rule:true},
+  killCdr:{t:()=>$t('Colheita de Almas: cada abate reduz em 1 a recarga das habilidades (até 2 por turno)', 'Soul Harvest: each kill lowers your skill cooldowns by 1 (up to 2 per turn)'), suf:$t('das Almas', 'of Souls'), rule:true},
+  killStep:{t:()=>$t('Passo Leve: depois de um abate, ganha um movimento extra sem ataque (1 por turno)', 'Light Step: after a kill, gain an extra move without attacking (1 per turn)'), suf:$t('do Passo Leve', 'of the Light Step'), rule:true},
+  trample:{t:()=>$t('Ao pousar, causa 1 de dano aos vizinhos', 'On landing, deals 1 damage to neighbors'), suf:$t('do Pisoteio', 'of Trampling'), rule:true},
+  vamp:{t:()=>$t('Abates curam 2 de vida', 'Kills heal 2 health'), suf:$t('do Sangue', 'of Blood'), rule:true},
+  thorns:{t:()=>$t('Quem te acerta leva 2 de dano', 'Whoever hits you takes 2 damage'), suf:$t('dos Espinhos', 'of Thorns'), rule:true},
+  longJump:{t:()=>$t('Também salta em 3x1', 'Also leaps in 3x1'), rule:true},
+  darkQuake:{t:()=>$t('Salto Sísmico causa +3 de dano', 'Seismic Leap deals +3 damage'), rule:true},
+  fork:{t:()=>$t('Garfo: o golpe também atinge, com metade do dano, um inimigo a um salto em L de onde você termina', 'Fork: the blow also hits, for half damage, an enemy one L-leap from where you land'), rule:true},
+  cavalry:{t:()=>$t('Galope recarrega 2 turnos mais rápido e o próximo golpe causa +2', 'Gallop recharges 2 turns faster and the next blow deals +2'), rule:true},
+  aegisFirst:{t:()=>$t('O primeiro golpe que você recebe em cada andar é anulado', 'The first blow you take on each floor is nullified'), rule:true},
+  pushPower:{t:()=>$t('Empurrão causa +3 de dano em quem bate em algo', 'Shove deals +3 damage to whoever hits something'), rule:true},
+  fortify:{t:()=>$t('Muralha dá +4 de escudo', 'Wall gives +4 shield'), rule:true},
+  ram:{t:()=>$t('Se a investida não matar, o inimigo é empurrado 1 casa e fica atordoado', 'If the charge does not kill, the enemy is pushed 1 square and stunned'), rule:true},
+  pierce:{t:()=>$t('Perfurar: a investida atinge todos os inimigos na linha até a parede', 'Pierce: the charge hits every enemy in the line up to the wall'), rule:true},
+  castle:{t:()=>$t('Roque: atacar um inimigo que sobrevive troca vocês de lugar e o atordoa', 'Castling: attacking an enemy that survives swaps your places and stuns it'), rule:true},
+  lineGuard:{t:()=>$t('Ataques em linha causam metade do dano em você', 'Line attacks deal half damage to you'), rule:true},
+  granite:{t:()=>$t('Se você não se moveu no turno: +2 de dano e recebe 1 a menos', 'If you did not move this turn: +2 damage and take 1 less'), rule:true},
+  crossBeam:{t:()=>$t('Raio também atinge as linhas retas', 'Ray also hits the straight lines'), rule:true},
+  pierceShot:{t:()=>$t('O ataque à distância atravessa o primeiro inimigo e atinge o seguinte', 'The ranged attack passes through the first enemy and hits the next one'), rule:true},
+  stainedGlass:{t:()=>$t('Troca de Cor também dá 4 de escudo', 'Color Shift also gives 4 shield'), rule:true},
+  pilgrim:{t:()=>$t('Também anda 2 casas em linha reta, trocando a cor da casa', 'Also moves 2 squares in a straight line, changing the square\'s color'), rule:true},
+  rosary:{t:()=>$t('Cada abate com o Raio reduz a recarga do Raio em 1', 'Each kill with the Ray reduces the Ray\'s cooldown by 1'), rule:true},
+  censer:{t:()=>$t('Trilha: casas por onde você desliza queimam por 2 turnos e causam 1 a inimigos nelas', 'Trail: squares you slide through burn for 2 turns and deal 1 to enemies on them'), rule:true},
+  holy:{t:()=>$t('Troca de Cor cura 4', 'Color Shift heals 4'), rule:true},
+  fury:{t:()=>$t('+2 de dano com menos da metade da vida', '+2 damage while below half health'), rule:true},
+  bladeStorm:{t:()=>$t('Tempestade de Lâminas causa +3 de dano', 'Blade Storm deals +3 damage'), rule:true},
+  check:{t:()=>$t('Xeque: inimigos que você ataca e não mata ficam atordoados', 'Check: enemies you attack and do not kill are stunned'), rule:true},
+  mirror:{t:()=>$t('O primeiro dano que você recebe por turno volta para o atacante', 'The first damage you take each turn goes back to the attacker'), rule:true},
+  escape:{t:()=>$t('Fuga Real: depois de matar, pode se mover de novo, sem atacar (1 vez por turno)', 'Royal Escape: after a kill, you may move again, without attacking (once per turn)'), rule:true},
+  redSacrifice:{t:()=>$t('Sacrifício custa 1 de vida em vez de 3 e dá +1 de dano no turno', 'Sacrifice costs 1 health instead of 3 and gives +1 damage for the turn'), rule:true},
+  gambit:{t:()=>$t('Gambito: começa cada andar com no máximo metade da vida, mas causa +3 de dano', 'Gambit: start each floor with at most half health, but deal +3 damage'), rule:true},
+  twinSummon:{t:()=>$t('Convocar cria dois peões', 'Summon creates two pawns'), rule:true},
+  sturdyPawns:{t:()=>$t('Peões aliados têm +3 de vida e +1 de dano', 'Allied pawns have +3 health and +1 damage'), rule:true},
+  freeSwap:{t:()=>$t('Uma vez por turno, trocar de lugar com um aliado não gasta ação', 'Once per turn, swapping places with an ally costs no action'), rule:true},
+  earlyPromo:{t:()=>$t('Peões aliados promovem a rainha já na metade do tabuleiro', 'Allied pawns promote to queen at the middle of the board'), rule:true},
+  martyr:{t:()=>$t('Quando um aliado morre, você cura 3 e ganha 2 de escudo', 'When an ally dies, you heal 3 and gain 2 shield'), rule:true},
+  banner:{t:()=>$t('Aliados ao seu lado causam +1 de dano e recebem 1 a menos', 'Allies next to you deal +1 damage and take 1 less'), rule:true},
+  kingStep:{t:()=>$t('Pode andar 1 casa em qualquer direção', 'Can move 1 square in any direction'), rule:true},
+  execute:{t:()=>$t('Xeque-mate: inimigos que ficam com menos de 3 de vida após seu golpe morrem', 'Checkmate: enemies left below 3 health after your blow die'), rule:true},
+  // uber boss uniques: each copies its boss's own mechanic
+  shatterCrown:{t:()=>$t('Coroa: a cada 4 turnos, seu golpe também atinge o primeiro inimigo em cada uma das 8 linhas a partir de você, com metade do dano', 'Crown: every 4 turns, your blow also hits the first enemy on each of the 8 lines from you, for half damage'), rule:true},
+  spectralGuard:{t:()=>$t('Guarda Real: começa cada andar com 2 peões espectrais ao seu lado (somem no fim do andar)', 'Royal Guard: start each floor with 2 spectral pawns next to you (they vanish at the end of the floor)'), rule:true},
+  momentum:{t:()=>$t('Ímpeto: o golpe ganha +1 de dano por casa entre você e o alvo, até +3 (o salto do Cavalo conta como 3)', 'Momentum: the blow gains +1 damage per square between you and the target, up to +3 (a Knight leap counts as 3)'), rule:true},
+  flee:{t:()=>$t('Fuga: uma vez por andar, ao cair abaixo de 30% de vida, você salta para a casa mais segura e fica intocável até o seu turno', 'Escape: once per floor, when you drop below 30% health, you leap to the safest square and are untouchable until your turn'), rule:true},
+  link:{t:()=>$t('Elo: o último inimigo que você golpeou fica ligado; ao golpear outro, o ligado leva metade do mesmo dano', 'Link: the last enemy you struck stays linked; when you strike another, the linked one takes half the same damage'), rule:true},
+  forgeWalk:{t:()=>$t('Forja: lava e brasas não te queimam e você não escorrega no gelo. Terminar o turno na lava dá +2 no próximo golpe', 'Forge: lava and embers do not burn you and you do not slide on ice. Ending the turn on lava gives +2 to your next blow'), rule:true},
+  supremePromo:{t:()=>$t('Promoção: uma vez por andar, ao chegar à fileira do topo, cura toda a vida e ganha +2 de dano até o fim do andar', 'Promotion: once per floor, reaching the top rank heals you fully and gives +2 damage until the end of the floor'), rule:true},
+  enPassant:{t:()=>$t('En Passant: inimigos que terminam o movimento ao seu lado levam metade do seu dano', 'En Passant: enemies that end their move next to you take half your damage'), rule:true},
+  // the Fallen King's uniques: build-defining rules for clearing whole floors
+  regicide:{t:()=>$t('Regicídio: cada abate dá +1 ação, até 5 por turno (a Ceifa soma ao limite)', 'Regicide: each kill gives +1 action, up to 5 per turn (Reaping adds to the limit)'), rule:true},
+  deathBurst:{t:()=>$t('Exílio: inimigos que você mata explodem e causam metade do golpe aos vizinhos (em cadeia)', 'Exile: enemies you kill explode and deal half the blow to their neighbors (in a chain)'), rule:true},
+  cleave:{t:()=>$t('Usurpador: seu golpe também atinge os inimigos ao lado do alvo, com metade do dano', 'Usurper: your blow also hits the enemies next to the target, for half damage'), rule:true}
 };
-const GENERIC_RULES = ['chain','trample','vamp','thorns'];
+const GENERIC_RULES = ['chain','trample','vamp','thorns','killFury','killCdr','killStep'];
 
 /* Uniques: only bosses (and the daily challenge) give them. Each boss carries part of the class pool, so they can be hunted. */
 const UNIQUES = [
-  {cls:['N'], slot:'elmo', name:'Elmo do Cavalo Sombrio', affixes:[{k:'darkQuake'},{k:'trample'}]},
-  {cls:['N'], slot:'botas', name:'Ferraduras do Abismo', affixes:[{k:'longJump'},{k:'hp',v:3}]},
-  {cls:['N'], slot:'arma', name:'Lança do Garfo', affixes:[{k:'fork'},{k:'dmg',v:1}]},
-  {cls:['N'], slot:'anel', name:'Rédeas de Sangue', affixes:[{k:'chain'},{k:'hp',v:4}]},
-  {cls:['N'], slot:'anel', name:'Selo da Cavalaria', affixes:[{k:'cavalry'},{k:'dmg',v:1}]},
-  {cls:['N'], slot:'armadura', name:'Barda de Obsidiana', affixes:[{k:'aegisFirst'},{k:'hp',v:6}]},
-  {cls:['R'], slot:'botas', name:'Grevas da Fortaleza', affixes:[{k:'pushPower'},{k:'fortify'}]},
-  {cls:['R'], slot:'arma', name:'Aríete de Ferro Negro', affixes:[{k:'ram'},{k:'dmg',v:1}]},
-  {cls:['R'], slot:'anel', name:'Anel da Fileira', affixes:[{k:'pierce'}]},
-  {cls:['R'], slot:'elmo', name:'Elmo do Roque', affixes:[{k:'castle'},{k:'hp',v:4}]},
-  {cls:['R'], slot:'armadura', name:'Placas da Muralha Viva', affixes:[{k:'lineGuard'},{k:'hp',v:4}]},
-  {cls:['R'], slot:'armadura', name:'Base de Granito', affixes:[{k:'granite'},{k:'shield',v:2}]},
-  {cls:['B'], slot:'elmo', name:'Mitra do Raio Cruzado', affixes:[{k:'crossBeam'},{k:'dmg',v:1}]},
-  {cls:['B'], slot:'arma', name:'Báculo da Diagonal Longa', affixes:[{k:'pierceShot'},{k:'dmg',v:1}]},
-  {cls:['B'], slot:'armadura', name:'Vitral Sagrado', affixes:[{k:'stainedGlass'},{k:'holy'}]},
-  {cls:['B'], slot:'botas', name:'Sandálias do Peregrino', affixes:[{k:'pilgrim'},{k:'hp',v:3}]},
-  {cls:['B'], slot:'anel', name:'Rosário de Ossos', affixes:[{k:'rosary'},{k:'hp',v:3}]},
-  {cls:['B'], slot:'arma', name:'Incensário Profano', affixes:[{k:'censer'}]},
-  {cls:['Q'], slot:'elmo', name:'Coroa da Rainha de Vidro', affixes:[{k:'fury'},{k:'bladeStorm'}]},
-  {cls:['Q'], slot:'arma', name:'Cetro do Xeque', affixes:[{k:'check'},{k:'dmg',v:1}]},
-  {cls:['Q'], slot:'armadura', name:'Vestido de Espelhos', affixes:[{k:'mirror'},{k:'hp',v:3}]},
-  {cls:['Q'], slot:'botas', name:'Sapatilhas da Fuga Real', affixes:[{k:'escape'}]},
-  {cls:['Q'], slot:'anel', name:'Anel do Sacrifício Rubro', affixes:[{k:'redSacrifice'},{k:'hp',v:2}]},
-  {cls:['Q'], slot:'arma', name:'Lâmina do Gambito', affixes:[{k:'gambit'}]},
-  {cls:['K'], slot:'arma', name:'Cetro do Rei Louco', affixes:[{k:'twinSummon'},{k:'dmg',v:1}]},
-  {cls:['K'], slot:'elmo', name:'Coroa da Guarda', affixes:[{k:'sturdyPawns'},{k:'hp',v:3}]},
-  {cls:['K'], slot:'armadura', name:'Manto do Roque', affixes:[{k:'freeSwap'},{k:'hp',v:4}]},
-  {cls:['K'], slot:'botas', name:'Botas da Promoção', affixes:[{k:'earlyPromo'}]},
-  {cls:['K'], slot:'anel', name:'Anel do Mártir', affixes:[{k:'martyr'},{k:'hp',v:3}]},
-  {cls:['K'], slot:'anel', name:'Estandarte Real', affixes:[{k:'banner'}]},
-  {cls:null, slot:'arma', name:'Lâmina da Corrente Rubra', affixes:[{k:'chain'},{k:'dmg',v:2}]},
-  {cls:null, slot:'anel', name:'Anel da Sede Negra', affixes:[{k:'vamp'},{k:'thorns'}]},
-  {cls:['N','R'], slot:'botas', name:'Botas do Peão Ancestral', affixes:[{k:'kingStep'},{k:'shield',v:2}]},
-  {cls:null, slot:'armadura', name:'Peitoral do Xeque-Mate', affixes:[{k:'execute'},{k:'hp',v:8}]}
+  {cls:['N'], slot:'elmo', name:$t('Elmo do Cavalo Sombrio', 'Helm of the Dark Horse'), affixes:[{k:'darkQuake'},{k:'trample'}]},
+  {cls:['N'], slot:'botas', name:$t('Ferraduras do Abismo', 'Horseshoes of the Abyss'), affixes:[{k:'longJump'},{k:'hp',v:3}]},
+  {cls:['N'], slot:'arma', name:$t('Lança do Garfo', 'Fork Lance'), affixes:[{k:'fork'},{k:'dmg',v:1}]},
+  {cls:['N'], slot:'anel', name:$t('Rédeas de Sangue', 'Blood Reins'), affixes:[{k:'chain'},{k:'hp',v:4}]},
+  {cls:['N'], slot:'anel', name:$t('Selo da Cavalaria', 'Cavalry Seal'), affixes:[{k:'cavalry'},{k:'dmg',v:1}]},
+  {cls:['N'], slot:'armadura', name:$t('Barda de Obsidiana', 'Obsidian Barding'), affixes:[{k:'aegisFirst'},{k:'hp',v:6}]},
+  {cls:['R'], slot:'botas', name:$t('Grevas da Fortaleza', 'Fortress Greaves'), affixes:[{k:'pushPower'},{k:'fortify'}]},
+  {cls:['R'], slot:'arma', name:$t('Aríete de Ferro Negro', 'Black Iron Ram'), affixes:[{k:'ram'},{k:'dmg',v:1}]},
+  {cls:['R'], slot:'anel', name:$t('Anel da Fileira', 'Ring of the Rank'), affixes:[{k:'pierce'}]},
+  {cls:['R'], slot:'elmo', name:$t('Elmo do Roque', 'Castling Helm'), affixes:[{k:'castle'},{k:'hp',v:4}]},
+  {cls:['R'], slot:'armadura', name:$t('Placas da Muralha Viva', 'Living Wall Plates'), affixes:[{k:'lineGuard'},{k:'hp',v:4}]},
+  {cls:['R'], slot:'armadura', name:$t('Base de Granito', 'Granite Base'), affixes:[{k:'granite'},{k:'shield',v:2}]},
+  {cls:['B'], slot:'elmo', name:$t('Mitra do Raio Cruzado', 'Miter of the Crossed Ray'), affixes:[{k:'crossBeam'},{k:'dmg',v:1}]},
+  {cls:['B'], slot:'arma', name:$t('Báculo da Diagonal Longa', 'Crozier of the Long Diagonal'), affixes:[{k:'pierceShot'},{k:'dmg',v:1}]},
+  {cls:['B'], slot:'armadura', name:$t('Vitral Sagrado', 'Sacred Stained Glass'), affixes:[{k:'stainedGlass'},{k:'holy'}]},
+  {cls:['B'], slot:'botas', name:$t('Sandálias do Peregrino', 'Pilgrim\'s Sandals'), affixes:[{k:'pilgrim'},{k:'hp',v:3}]},
+  {cls:['B'], slot:'anel', name:$t('Rosário de Ossos', 'Rosary of Bones'), affixes:[{k:'rosary'},{k:'hp',v:3}]},
+  {cls:['B'], slot:'arma', name:$t('Incensário Profano', 'Profane Censer'), affixes:[{k:'censer'}]},
+  {cls:['Q'], slot:'elmo', name:$t('Coroa da Rainha de Vidro', 'Crown of the Glass Queen'), affixes:[{k:'fury'},{k:'bladeStorm'}]},
+  {cls:['Q'], slot:'arma', name:$t('Cetro do Xeque', 'Scepter of Check'), affixes:[{k:'check'},{k:'dmg',v:1}]},
+  {cls:['Q'], slot:'armadura', name:$t('Vestido de Espelhos', 'Gown of Mirrors'), affixes:[{k:'mirror'},{k:'hp',v:3}]},
+  {cls:['Q'], slot:'botas', name:$t('Sapatilhas da Fuga Real', 'Slippers of the Royal Escape'), affixes:[{k:'escape'}]},
+  {cls:['Q'], slot:'anel', name:$t('Anel do Sacrifício Rubro', 'Ring of Crimson Sacrifice'), affixes:[{k:'redSacrifice'},{k:'hp',v:2}]},
+  {cls:['Q'], slot:'arma', name:$t('Lâmina do Gambito', 'Gambit Blade'), affixes:[{k:'gambit'}]},
+  {cls:['K'], slot:'arma', name:$t('Cetro do Rei Louco', 'Scepter of the Mad King'), affixes:[{k:'twinSummon'},{k:'dmg',v:1}]},
+  {cls:['K'], slot:'elmo', name:$t('Coroa da Guarda', 'Crown of the Guard'), affixes:[{k:'sturdyPawns'},{k:'hp',v:3}]},
+  {cls:['K'], slot:'armadura', name:$t('Manto do Roque', 'Castling Cloak'), affixes:[{k:'freeSwap'},{k:'hp',v:4}]},
+  {cls:['K'], slot:'botas', name:$t('Botas da Promoção', 'Boots of Promotion'), affixes:[{k:'earlyPromo'}]},
+  {cls:['K'], slot:'anel', name:$t('Anel do Mártir', 'Martyr\'s Ring'), affixes:[{k:'martyr'},{k:'hp',v:3}]},
+  {cls:['K'], slot:'anel', name:$t('Estandarte Real', 'Royal Banner'), affixes:[{k:'banner'}]},
+  {cls:null, slot:'arma', name:$t('Lâmina da Corrente Rubra', 'Blade of the Crimson Chain'), affixes:[{k:'chain'},{k:'dmg',v:2}]},
+  {cls:null, slot:'anel', name:$t('Anel da Sede Negra', 'Ring of Black Thirst'), affixes:[{k:'vamp'},{k:'thorns'}]},
+  {cls:null, slot:'botas', name:$t('Botas do Peão Ancestral', 'Boots of the Ancestral Pawn'), affixes:[{k:'kingStep'},{k:'shield',v:2}]},
+  {cls:null, slot:'armadura', name:$t('Peitoral do Xeque-Mate', 'Checkmate Breastplate'), affixes:[{k:'execute'},{k:'hp',v:8}]}
 ];
 // how a boss turns the relic it wields into a power
 const BOSS_ITEM_MAP = {
@@ -111,7 +127,9 @@ const BOSS_ITEM_MAP = {
   castle:'armor', lineGuard:'armor', granite:'armor', crossBeam:'double', pierceShot:'double', stainedGlass:'regen',
   pilgrim:'swift', rosary:'regen', censer:'trample', check:'double', mirror:'thorns', escape:'swift',
   redSacrifice:'vamp', gambit:'double', sturdyPawns:'armor', freeSwap:'swift', earlyPromo:'fastSummon',
-  martyr:'regen', banner:'armor', execute:'double'
+  martyr:'regen', banner:'armor', execute:'double',
+  shatterCrown:'double', spectralGuard:'fastSummon', momentum:'swift', flee:'swift', link:'double', forgeWalk:'armor',
+  supremePromo:'regen', enPassant:'thorns', regicide:'double', deathBurst:'explode', cleave:'double', killFury:'double', killCdr:'fastSummon', killStep:'swift'
 };
 
 /* ---------- Item level and affix tiers ----------
@@ -215,7 +233,9 @@ function bossTable(bossId, cls){
 }
 // two uniques for the player's class, preferring the boss's own table, never repeated within an expedition
 function bossRelics(bossId){
-  if (S.exp.kind==='uber') return shuffle(UBER_UNIQUES).slice(0,2).map(U => makeUnique(U));
+  // uber: one of that boss's own two uniques, plus one from the shared uber pool; the Fallen King: two of his three
+  if (S.exp.kind==='uber') return [makeUnique(pick(UBER_OWN[bossId] || UBER_OWN.queen)), makeUnique(pick(UBER_UNIQUES))];
+  if (S.exp.kind==='pinnacle') return shuffle(FALLEN_UNIQUES).slice(0,2).map(U => makeUnique(U));
   let pool = shuffle(bossTable(bossId, S.cls).filter(U => !S.seen.has(U.name)));
   if (pool.length<2) pool = pool.concat(shuffle(classUniques(S.cls).filter(U => !S.seen.has(U.name) && !pool.includes(U))));
   const want = (S.mapAff && S.mapAff.has('rRelic') ? 3 : 2) + atlasRank('aRelic') + atlasRank('kDuel');
@@ -232,6 +252,6 @@ function makeMap(tier){
   const affixes = shuffle(keys.filter(k => !isRewardAffix(k))).slice(0, n).concat(shuffle(keys.filter(isRewardAffix)).slice(0, nr));
   return {id:++uid, kind:'map', tier, biome, boss, affixes};
 }
-const mapName = m => `${BIOMES[m.biome].name}, nível ${m.tier}`;
+const mapName = m => $t(`${BIOMES[m.biome].name}, nível ${m.tier}`, `${BIOMES[m.biome].name}, tier ${m.tier}`);
 function itemPrice(it){ return Math.round((({common:8, magic:20, rare:55, legend:150})[it.rar] || 10) * (1 + (it.ilvl||1)/10)); }
 const sellPrice = it => Math.max(1, Math.floor(itemPrice(it)/4));

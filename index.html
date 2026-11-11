@@ -241,6 +241,20 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .xcard{--bc:var(--line);background:var(--stone);border:1px solid var(--line);border-top:3px solid var(--bc);padding:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .xcard p{margin:0;font-size:.84rem;color:var(--ash)}
 .xcard button{margin-top:auto}
+.uown{list-style:none;margin:0;padding:0;font-size:.82rem;display:grid;gap:2px}
+.uown li{color:var(--ash)}.uown li.have{opacity:.75}
+.xcard.pinnacle{--bc:#e3b456;grid-column:1/-1;background:linear-gradient(180deg,rgba(227,180,86,.08),transparent 60%),var(--stone)}
+.frags{display:flex;flex-wrap:wrap;gap:6px}
+.frags span{border:1px solid var(--line);padding:3px 8px;font-size:.8rem;color:var(--ash);display:flex;gap:6px;align-items:center}
+.frags span.have{border-color:#e3b456;color:var(--bone)}.frags b{font-size:.9rem!important;font-family:inherit!important}
+.gearlayout:has(.forge){grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}
+@media (max-width:640px){.gearlayout:has(.forge){grid-template-columns:minmax(0,1fr)}}
+.flist{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.frow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:6px}
+.frow.rule span:first-child{color:#f0a860}
+.fbtns{display:flex;gap:6px;flex-wrap:wrap}
+.fops{flex-wrap:wrap;gap:6px;margin:10px 0 6px}
+.fbtns small,.fops small{opacity:.8}
 .xcard.locked{opacity:.5}
 .xcard.bio-crypt{--bc:#8a6a48} .xcard.bio-swamp{--bc:#5f8a55} .xcard.bio-forge{--bc:#d0602a} .xcard.bio-cathedral{--bc:#8fb0d8}
 
@@ -441,6 +455,7 @@ canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipula
 .card .nm{font-family:var(--f-display);font-size:1.12rem;line-height:1.15}
 .relic{display:flex;flex-direction:column;gap:8px;min-width:0}
 .note{margin:0;font-size:.8rem;color:var(--ash)}
+.langbtn{margin-left:auto;font-size:.75rem;padding:4px 10px;letter-spacing:.08em}
 .errbox{position:fixed;right:16px;bottom:16px;z-index:50;max-width:min(520px,calc(100vw - 32px));background:#2a1210;border:1px solid var(--blood);padding:12px;display:flex;flex-direction:column;gap:8px;color:var(--bone)}
 .errbox p{margin:0;font-size:.85rem;color:var(--ash)}
 .errbox textarea{width:100%;height:140px;background:#120908;color:var(--bone);border:1px solid var(--line);font:12px/1.35 Consolas,monospace}
@@ -453,23 +468,24 @@ canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipula
     <span class="floor" id="floorLabel">O Abismo</span>
     <span class="turn" id="turnLabel"></span>
     <span class="herochip" id="heroChip"></span>
+    <button class="ghost sm langbtn" id="btnLang" type="button" title="Idioma / Language">EN</button>
   </header>
 
   <section class="screen" id="scrHeroes" hidden></section>
   <section class="screen" id="scrCamp" hidden></section>
 
   <div class="game" id="scrGame" hidden>
-    <aside class="bossinfo" id="bossInfo" hidden aria-label="Informações do chefe"></aside>
+    <aside class="bossinfo" id="bossInfo" hidden aria-label="Informações do chefe" data-en-aria="Boss information"></aside>
     <div class="board-col">
       <div class="bossbar" id="bossBar" hidden>
         <div class="bb-name" id="bbName"></div>
         <div class="bb-bar"><i id="bbFill"></i><span class="bb-mark"></span></div>
         <div class="bb-sub" id="bbSub"></div>
       </div>
-      <div class="tidebar" id="tideBar" hidden><span>Ira da Maré</span><div class="tb-bar"><i id="tbFill"></i></div><small id="tbSub"></small></div>
+      <div class="tidebar" id="tideBar" hidden><span data-en="Tide's Wrath">Ira da Maré</span><div class="tb-bar"><i id="tbFill"></i></div><small id="tbSub"></small></div>
       <div class="tutbar" id="tutBar" hidden><span class="tt-step" id="ttStep"></span><b id="ttGoal"></b><span class="tt-dots" id="ttDots"></span></div>
       <div class="board-frame">
-        <canvas id="cv" aria-label="Tabuleiro do andar"></canvas>
+        <canvas id="cv" aria-label="Tabuleiro do andar" data-en-aria="Floor board"></canvas>
         <div class="tip" id="tip" hidden></div>
         <div class="banner" id="banner" hidden><b id="bnTitle"></b><span id="bnSub"></span></div>
         <div class="overlay" id="overlay" hidden></div>
@@ -479,45 +495,45 @@ canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipula
         <button class="hk" id="btnS1" type="button"><span class="key">2</span><b id="sName1"></b><small id="sDesc1"></small><span class="cd" id="sCd1"></span></button>
         <button class="hk" id="btnS2" type="button" hidden><span class="key">3</span><b id="sName2"></b><small id="sDesc2"></small><span class="cd" id="sCd2"></span></button>
         <button class="hk" id="btnS3" type="button" hidden><span class="key">4</span><b id="sName3"></b><small id="sDesc3"></small><span class="cd" id="sCd3"></span></button>
-        <button class="hk" id="btnPact" type="button"><span class="key" id="pactKey">3</span><b>Pacto de Sangue</b><small id="pactDesc"></small></button>
-        <button class="hk" id="btnWait" type="button"><span class="key" id="waitKey">E</span><b>Esperar</b><small>Encerra o turno sem agir</small></button>
+        <button class="hk" id="btnPact" type="button"><span class="key" id="pactKey">3</span><b data-en="Blood Pact">Pacto de Sangue</b><small id="pactDesc"></small></button>
+        <button class="hk" id="btnWait" type="button"><span class="key" id="waitKey">E</span><b data-en="Wait">Esperar</b><small data-en="Ends the turn without acting">Encerra o turno sem agir</small></button>
       </div>
       <div class="chessbar" id="chessBar" hidden><div class="cbtxt"><b id="cbTitle"></b><small id="cbSub"></small></div>
-        <button class="ghost sm" id="cbHint" type="button">Dica</button><button class="ghost sm" id="cbQuit" type="button">Desistir (descongela)</button></div>
+        <button class="ghost sm" id="cbHint" type="button" data-en="Hint">Dica</button><button class="ghost sm" id="cbQuit" type="button" data-en="Give up (thaws)">Desistir (descongela)</button></div>
       <p class="hint" id="hint"></p>
     </div>
 
     <aside class="panel">
       <section>
         <h2><span id="clsName">Cavaleiro</span> <span class="side" id="stSide"></span></h2>
-        <div class="vital"><div class="vl"><span>Vida</span><span id="hpTxt"></span></div><div class="bar"><i id="hpBar"></i></div></div>
-        <div class="vital"><div class="vl"><span>Escudo</span><span id="shTxt"></span></div><div class="bar shield"><i id="shBar"></i></div></div>
-        <div class="vital"><div class="vl"><span>Experiência</span><span id="xpTxt"></span></div><div class="bar xp"><i id="xpBar"></i></div></div>
+        <div class="vital"><div class="vl"><span data-en="Health">Vida</span><span id="hpTxt"></span></div><div class="bar"><i id="hpBar"></i></div></div>
+        <div class="vital"><div class="vl"><span data-en="Shield">Escudo</span><span id="shTxt"></span></div><div class="bar shield"><i id="shBar"></i></div></div>
+        <div class="vital"><div class="vl"><span data-en="Experience">Experiência</span><span id="xpTxt"></span></div><div class="bar xp"><i id="xpBar"></i></div></div>
         <dl class="stats">
-          <div><dt>Dano</dt><dd id="stDmg"></dd></div>
-          <div><dt>Ações</dt><dd id="stAct"></dd></div>
-          <div><dt>Ouro</dt><dd id="stGold"></dd></div>
+          <div><dt data-en="Damage">Dano</dt><dd id="stDmg"></dd></div>
+          <div><dt data-en="Actions">Ações</dt><dd id="stAct"></dd></div>
+          <div><dt data-en="Gold">Ouro</dt><dd id="stGold"></dd></div>
         </dl>
         <ul class="passives" id="passives"></ul>
       </section>
       <section class="gear">
-        <h2>Equipamento</h2>
+        <h2 data-en="Gear">Equipamento</h2>
         <div id="gear"></div>
       </section>
       <section class="log">
-        <h2>Crônica</h2>
+        <h2 data-en="Chronicle">Crônica</h2>
         <ol id="log"></ol>
       </section>
-      <button class="ghost sm quit" id="btnQuit" type="button">Desistir da expedição</button>
+      <button class="ghost sm quit" id="btnQuit" type="button" data-en="Abandon expedition">Desistir da expedição</button>
       <button class="ghost sm" id="btnSound" type="button">Som: ligado (M)</button>
     </aside>
   </div>
 </div>
 
-<button class="primary mrestore" id="modalRestore" type="button" hidden>Voltar à escolha</button>
+<button class="primary mrestore" id="modalRestore" type="button" hidden data-en="Back to the choice">Voltar à escolha</button>
 <div class="modal" id="modal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-head"><h3 id="modalTitle"></h3><button class="ghost sm" id="modalMin" type="button" hidden>Minimizar</button></div>
+    <div class="modal-head"><h3 id="modalTitle"></h3><button class="ghost sm" id="modalMin" type="button" hidden data-en="Minimize">Minimizar</button></div>
     <div id="modalBody"></div>
     <p class="note" id="modalNote"></p>
     <div class="row" id="modalActions"></div>

@@ -5,7 +5,7 @@ function stats(){ return statsFor(S.cls, S.color, S.equip); }
 // stats for any class/faction/equipment set (the camp uses it to preview swaps)
 function statsFor(cls, color, equip){
   const c = CLASSES[cls];
-  const st = {dmg:c.dmg + Math.floor(HERO.level/10), hp:c.hp + (HERO.level-1), shield:0, cdr:0, chain:false, trample:0,
+  const st = {dmg:c.dmg + Math.floor(HERO.level/10), hp:c.hp + (HERO.level-1), shield:0, cdr:0, chain:0, trample:0, killFury:0, killCdr:0, killStep:0,
               crit:0, eliteDmg:0, block:0, healKill:0, mf:0, gold:0, fireDmg:0, coldDmg:0, lightDmg:0, resFire:0, resCold:0, resLight:0,
               vamp:color==='b' ? 1 : 0, thorns:0, darkQuake:0, pushPower:0, fortify:0, holy:0, bladeStorm:0};
   const add = a => {
@@ -17,6 +17,7 @@ function statsFor(cls, color, equip){
       case 'crit': case 'eliteDmg': case 'block': case 'healKill': case 'mf': case 'gold':
       case 'fireDmg': case 'coldDmg': case 'lightDmg': case 'resFire': case 'resCold': case 'resLight': st[a.k]+=a.v; break;
       case 'trample': st.trample+=1; break;
+      case 'chain': case 'killFury': case 'killCdr': case 'killStep': st[a.k]+=1; break;   // each source stacks
       case 'vamp': st.vamp+=2; break;
       case 'thorns': st.thorns+=2; break;
       case 'darkQuake': st.darkQuake+=3; break;
@@ -53,6 +54,7 @@ function attackDmg(st, target){
   if (st.granite && !S.movedThisTurn) d += 2;
   if (st.gambit) d += 3;
   if (target && S.color==='b' && target.moved) d += 2;
+  if (target && st.momentum) d += S.cls==='N' ? 3 : Math.min(3, Math.max(0, cheb(target.x,target.y,S.player.x,S.player.y)-1));
   if (target && S.cls==='B' && S.walls && cheb(target.x,target.y,S.player.x,S.player.y)>=3) d += 1;   // Bishop: reward for keeping distance
   // elemental damage on top; the target's resistance cuts only its own element
   for (const el of ['fire','cold','light']){ const v = st[el+'Dmg']; if (v) d += target && target.res && target.res[el] ? Math.round(v*(1-target.res[el]/100)) : v; }
@@ -71,8 +73,11 @@ function attackDmg(st, target){
   if (S.terrain && isWater(S.player.x, S.player.y)) d = Math.max(1, d-1);
   return d;
 }
+// Reaping: 2 actions per turn with one source, +1 per extra source; Regicide alone allows 5 (Reaping adds to it)
+const chainCap = st => (st.chain ? 1 + st.chain : 0) + (st.regicide ? (st.chain ? 4 : 5) : 0);
 function newRound(){
-  Object.assign(S, {chainUsed:0, mirrorUsed:false, freeSwapUsed:false, escapeUsed:false, turnBonus:0, movedThisTurn:false, moveOnly:false});
+  Object.assign(S, {chainUsed:0, mirrorUsed:false, freeSwapUsed:false, escapeUsed:false, turnBonus:0, movedThisTurn:false, moveOnly:false, untouchable:false, furyTurn:0, harvestTurn:0, stepTurn:0});
+  if (!S.crownReady && S.turn - (S.crownAt||0) >= 4 && stats().shatterCrown){ S.crownReady = true; floatText(S.player.x, S.player.y-0.5, $t('coroa pronta', 'crown ready'), '#e3b456'); }
   for (const e of S.enemies){ e.jumped = false; if (e.exhausted) e.exhausted--; if (e.judged) e.judged--; }
 }
 
@@ -100,14 +105,14 @@ function skillHit(e, amt){
   if (r==='sangue') heal(1);
   if (r==='brasas') S.fire.set(key(e.x,e.y), 2);
   if (!S.enemies.includes(e)) return;
-  if (r==='carrasco' && !e.boss && e.hp*4 <= e.maxHp){ floatText(e.x, e.y-0.4, 'carrasco', '#f08a3c'); damageEnemy(e, e.hp + e.shield + 99, 'player'); return; }
+  if (r==='carrasco' && !e.boss && e.hp*4 <= e.maxHp){ floatText(e.x, e.y-0.4, $t('carrasco', 'executed'), '#f08a3c'); damageEnemy(e, e.hp + e.shield + 99, 'player'); return; }
   if (r==='trovao') stun(e);
 }
 function startCd(id){
   sfx('skill');
   if (S.tut) S.tut.skillUsed = true;
   S.cds[id] = skillCd(id);
-  if (runeOf(id)==='eco' && rnd()<.3){ S.cds[id] = 0; floatText(S.player.x, S.player.y-0.4, 'eco', '#c9a0ff'); }
+  if (runeOf(id)==='eco' && rnd()<.3){ S.cds[id] = 0; floatText(S.player.x, S.player.y-0.4, $t('eco', 'echo'), '#c9a0ff'); }
 }
 function runSkill(id, ...args){ S.curSkill = id; try { return SKILLS[id].run(...args); } finally { S.curSkill = null; } }
 function pushEnemy(e, dx, dy){
@@ -123,9 +128,9 @@ function pushEnemy(e, dx, dy){
   return false;
 }
 function fallInPit(e, px, py){
-  floatText(px, py, 'caiu no fosso', '#cdbb9c'); burst(px, py, '#4a3b30', 18);
+  floatText(px, py, $t('caiu no fosso', 'fell into the pit'), '#cdbb9c'); burst(px, py, '#4a3b30', 18);
   fx.rings.push({x:px, y:py, t:0, c:'90,70,55'}); fx.shake = Math.max(fx.shake, 6);
-  log(`${enemyName(e)} caiu no fosso.`);
+  log($t(`${enemyName(e)} caiu no fosso.`, `${enemyName(e)} fell into the pit.`));
   damageEnemy(e, 9999, 'player');
 }
 // player movement that respects ice
@@ -133,13 +138,13 @@ function moveTo(x, y){
   const p = S.player, dx = x-p.x, dy = y-p.y;
   sfx(S.cls==='N' ? 'jump' : 'move');
   landOn(x, y);
-  if (!isIce(x,y)) return;
+  if (!isIce(x,y) || stats().forgeWalk) return;
   const [sx,sy] = slideEnd(x, y, dx, dy);
-  if (sx!==x || sy!==y){ sfx('slide'); floatText(x, y-0.2, 'escorrega', '#cfe6f5'); burst(x, y, '#dff0fa', 8); landOn(sx, sy); }
+  if (sx!==x || sy!==y){ sfx('slide'); floatText(x, y-0.2, $t('escorrega', 'slides'), '#cfe6f5'); burst(x, y, '#dff0fa', 8); landOn(sx, sy); }
 }
 const SKILLS = {
-  quake:{name:'Salto Sísmico', cd:4, target:true, hits:true,
-    desc:st=>`Salta em L e causa ${st.dmg+st.darkQuake} a todos ao redor${st.quakeStun?', atordoando':''}`,
+  quake:{name:$t('Salto Sísmico', 'Seismic Leap'), cd:4, target:true, hits:true,
+    desc:st=>$t(`Salta em L e causa ${st.dmg+st.darkQuake} a todos ao redor${st.quakeStun?', atordoando':''}`, `Leaps in an L and deals ${st.dmg+st.darkQuake} to everything around${st.quakeStun?', stunning':''}`),
     targets(){
       const st = stats(); let offs = KN.slice(); if (st.longJump) offs = offs.concat(KN3);
       return offs.map(([dx,dy])=>[S.player.x+dx,S.player.y+dy]).filter(([x,y]) => inb(x,y) && !occupied(x,y));
@@ -149,12 +154,12 @@ const SKILLS = {
       landOn(x,y);
       fx.shake = Math.max(fx.shake, 9); fx.rings.push({x, y, t:0});
       hitAround(x, y, st.dmg+st.darkQuake, st.quakeStun);
-      log('Salto Sísmico.');
+      log($t('Salto Sísmico.', 'Seismic Leap.'));
     }},
-  gallop:{name:'Galope', cd:5, free:true, desc:st=>`Ganha +1 ação neste turno${st.cavalry?' e o próximo golpe causa +2':''}. Não gasta ação.`,
-    run(){ S.actions++; floatText(S.player.x, S.player.y, '+1 ação', '#e3b456'); if (stats().cavalry) S.nextBonus = 2; log('Galope.'); }},
-  shove:{name:'Empurrão', cd:3, hits:true,
-    desc:st=>`Fere em cruz (${st.dmg}), empurra e atordoa. +${2+st.pushPower} se baterem em algo`,
+  gallop:{name:$t('Galope', 'Gallop'), cd:5, free:true, desc:st=>$t(`Ganha +1 ação neste turno${st.cavalry?' e o próximo golpe causa +2':''}. Não gasta ação.`, `Gain +1 action this turn${st.cavalry?' and the next blow deals +2':''}. Costs no action.`),
+    run(){ S.actions++; floatText(S.player.x, S.player.y, $t('+1 ação', '+1 action'), '#e3b456'); if (stats().cavalry) S.nextBonus = 2; log($t('Galope.', 'Gallop.')); }},
+  shove:{name:$t('Empurrão', 'Shove'), cd:3, hits:true,
+    desc:st=>$t(`Fere em cruz (${st.dmg}), empurra e atordoa. +${2+st.pushPower} se baterem em algo`, `Hits in a cross (${st.dmg}), pushes and stuns. +${2+st.pushPower} if they hit something`),
     run(){
       const st = stats(), p = S.player;
       fx.rings.push({x:p.x, y:p.y, t:0}); fx.shake = Math.max(fx.shake, 6);
@@ -165,12 +170,12 @@ const SKILLS = {
         e.intent = {kind:'wait', stunned:true};
         skillHit(e, st.dmg + (blocked ? 2+st.pushPower : 0));
       }
-      log('Empurrão.');
+      log($t('Empurrão.', 'Shove.'));
     }},
-  fortress:{name:'Muralha', cd:5, free:true, desc:st=>`Ganha ${6+st.fortify} de escudo. Não gasta ação.`,
-    run(){ const n = 6+stats().fortify; S.shield += n; floatText(S.player.x, S.player.y, '+'+n+' escudo', '#a9bfd6'); log('Muralha.'); }},
-  beam:{name:'Raio Diagonal', cd:3, hits:true,
-    desc:st=>`Atravessa as diagonais${st.crossBeam?' e retas':''} causando ${st.dmg+1}${st.beamStun?', atordoando':''}`,
+  fortress:{name:$t('Muralha', 'Wall'), cd:5, free:true, desc:st=>$t(`Ganha ${6+st.fortify} de escudo. Não gasta ação.`, `Gain ${6+st.fortify} shield. Costs no action.`),
+    run(){ const n = 6+stats().fortify; S.shield += n; floatText(S.player.x, S.player.y, '+'+n+$t(' escudo', ' shield'), '#a9bfd6'); log($t('Muralha.', 'Wall.')); }},
+  beam:{name:$t('Raio Diagonal', 'Diagonal Ray'), cd:3, hits:true,
+    desc:st=>$t(`Atravessa as diagonais${st.crossBeam?' e retas':''} causando ${st.dmg+1}${st.beamStun?', atordoando':''}`, `Pierces the diagonals${st.crossBeam?' and straight lines':''} dealing ${st.dmg+1}${st.beamStun?', stunning':''}`),
     run(){
       const st = stats(), p = S.player;
       for (const [dx,dy] of (st.crossBeam ? ALL : DIAG)){
@@ -183,20 +188,20 @@ const SKILLS = {
           if (st.rosary && !S.enemies.includes(e)) S.cds.beam = Math.max(0, (S.cds.beam||0)-1);
         }
       }
-      log('Raio Diagonal.');
+      log($t('Raio Diagonal.', 'Diagonal Ray.'));
     }},
-  storm:{name:'Tempestade de Lâminas', cd:3, hits:true, desc:st=>`Causa ${attackDmg(st)+st.bladeStorm} a todos ao redor`,
-    run(){ const st = stats(); fx.rings.push({x:S.player.x, y:S.player.y, t:0}); fx.shake = Math.max(fx.shake,6); hitAround(S.player.x, S.player.y, attackDmg(st)+st.bladeStorm); log('Tempestade de Lâminas.'); }},
-  sacrifice:{name:'Sacrifício', cd:3, free:true,
-    desc:st=>st.redSacrifice ? 'Perde 1 de vida, ganha +1 ação e +1 de dano no turno. Não gasta ação.' : 'Perde 3 de vida e ganha +1 ação. Não gasta ação.',
+  storm:{name:$t('Tempestade de Lâminas', 'Blade Storm'), cd:3, hits:true, desc:st=>$t(`Causa ${attackDmg(st)+st.bladeStorm} a todos ao redor`, `Deals ${attackDmg(st)+st.bladeStorm} to everything around`),
+    run(){ const st = stats(); fx.rings.push({x:S.player.x, y:S.player.y, t:0}); fx.shake = Math.max(fx.shake,6); hitAround(S.player.x, S.player.y, attackDmg(st)+st.bladeStorm); log($t('Tempestade de Lâminas.', 'Blade Storm.')); }},
+  sacrifice:{name:$t('Sacrifício', 'Sacrifice'), cd:3, free:true,
+    desc:st=>st.redSacrifice ? $t('Perde 1 de vida, ganha +1 ação e +1 de dano no turno. Não gasta ação.', 'Lose 1 health, gain +1 action and +1 damage this turn. Costs no action.') : $t('Perde 3 de vida e ganha +1 ação. Não gasta ação.', 'Lose 3 health and gain +1 action. Costs no action.'),
     can:()=>S.player.hp > (stats().redSacrifice ? 1 : 3),
     run(){
       const red = stats().redSacrifice, cost = red ? 1 : 3;
       S.player.hp -= cost; S.actions++; if (red) S.turnBonus += 1;
-      floatText(S.player.x, S.player.y, `-${cost} / +1 ação`, '#ff6b5e'); burst(S.player.x, S.player.y, '#b8332b', 10); log('Sacrifício.');
+      floatText(S.player.x, S.player.y, $t(`-${cost} / +1 ação`, `-${cost} / +1 action`), '#ff6b5e'); burst(S.player.x, S.player.y, '#b8332b', 10); log($t('Sacrifício.', 'Sacrifice.'));
     }},
-  summon:{name:'Convocar Peão', cd:2,
-    desc:st=>`${st.twinSummon?'Dois peões aliados surgem':'Um peão aliado surge'} ao seu lado (máx. ${MAX_ALLIES})`,
+  summon:{name:$t('Convocar Peão', 'Summon Pawn'), cd:2,
+    desc:st=>$t(`${st.twinSummon?'Dois peões aliados surgem':'Um peão aliado surge'} ao seu lado (máx. ${MAX_ALLIES})`, `${st.twinSummon?'Two allied pawns appear':'An allied pawn appears'} next to you (max. ${MAX_ALLIES})`),
     can:()=>S.allies.length < MAX_ALLIES && freeAdj().length > 0,
     run(){
       const n = stats().twinSummon ? 2 : 1;
@@ -207,31 +212,31 @@ const SKILLS = {
         S.allies.push(makeAlly('P', x, y, S.player.x, S.player.y));
         burst(x, y, '#e3b456', 10);
       }
-      log(n>1 ? 'Dois peões atendem ao chamado.' : 'Um peão atende ao chamado.');
+      log(n>1 ? $t('Dois peões atendem ao chamado.', 'Two pawns answer the call.') : $t('Um peão atende ao chamado.', 'A pawn answers the call.'));
     }},
-  shift:{name:'Troca de Cor', cd:3, target:true,
-    desc:st=>`Dá 1 passo reto para uma casa vazia e passa para a outra cor${st.holy?`, curando ${st.holy}`:''}${st.stainedGlass?' e ganhando 4 de escudo':''}`,
+  shift:{name:$t('Troca de Cor', 'Color Shift'), cd:3, target:true,
+    desc:st=>$t(`Dá 1 passo reto para uma casa vazia e passa para a outra cor${st.holy?`, curando ${st.holy}`:''}${st.stainedGlass?' e ganhando 4 de escudo':''}`, `Takes 1 straight step to an empty square and switches to the other color${st.holy?`, healing ${st.holy}`:''}${st.stainedGlass?' and gaining 4 shield':''}`),
     targets(){ return ORTH.map(([dx,dy])=>[S.player.x+dx,S.player.y+dy]).filter(([x,y]) => inb(x,y) && !occupied(x,y)); },
     run(x,y){
       const ox = S.player.x, oy = S.player.y;
       moveTo(x,y);
       const st = stats();
       if (st.holy) heal(st.holy);
-      if (st.stainedGlass){ S.shield += 4; floatText(S.player.x, S.player.y-0.3, '+4 escudo', '#a9bfd6'); }
+      if (st.stainedGlass){ S.shield += 4; floatText(S.player.x, S.player.y-0.3, $t('+4 escudo', '+4 shield'), '#a9bfd6'); }
       fx.rings.push({x:S.player.x, y:S.player.y, t:0, c:'227,180,86'}); burst(ox, oy, '#e3b456', 8);
-      log('Troca de Cor.');
+      log($t('Troca de Cor.', 'Color Shift.'));
     }},
-  kick:{name:'Coice', cd:3, hits:true, desc:st=>`Atinge todos os inimigos a um salto em L de você com ${st.dmg+1}, sem se mover`,
+  kick:{name:$t('Coice', 'Kick'), cd:3, hits:true, desc:st=>$t(`Atinge todos os inimigos a um salto em L de você com ${st.dmg+1}, sem se mover`, `Hits every enemy one L-leap from you for ${st.dmg+1}, without moving`),
     can:()=>KN.some(([dx,dy]) => enemyAt(S.player.x+dx, S.player.y+dy)),
     run(){ const st = stats(), p = S.player;
       for (const [dx,dy] of KN){ const e = enemyAt(p.x+dx,p.y+dy); if (e){ fx.beams.push({x1:p.x, y1:p.y, x2:e.x, y2:e.y, t:0, c:'227,180,86'}); skillHit(e, st.dmg+1); } }
-      fx.shake = Math.max(fx.shake, 6); log('Coice.'); }},
-  neigh:{name:'Relincho', cd:5, hits:true, desc:()=>'Causa 1 a todos os vizinhos, empurra cada um 1 casa para longe e os atordoa',
+      fx.shake = Math.max(fx.shake, 6); log($t('Coice.', 'Kick.')); }},
+  neigh:{name:$t('Relincho', 'Neigh'), cd:5, hits:true, desc:()=>$t('Causa 1 a todos os vizinhos, empurra cada um 1 casa para longe e os atordoa', 'Deals 1 to every neighbor, pushes each one 1 square away and stuns them'),
     can:()=>ALL.some(([dx,dy]) => enemyAt(S.player.x+dx, S.player.y+dy)),
     run(){ const p = S.player; fx.rings.push({x:p.x, y:p.y, t:0, c:'227,180,86'});
       for (const [dx,dy] of ALL){ const e = enemyAt(p.x+dx,p.y+dy); if (!e) continue; skillHit(e, 1); if (S.enemies.includes(e) && !e.boss) pushEnemy(e, dx, dy); stun(e); }
-      log('Relincho.'); }},
-  charge:{name:'Aríete', cd:4, target:true, hits:true, desc:st=>`Avança em linha reta até a parede, atravessando inimigos e causando ${st.dmg} a cada um`,
+      log($t('Relincho.', 'Neigh.')); }},
+  charge:{name:$t('Aríete', 'Battering Ram'), cd:4, target:true, hits:true, desc:st=>$t(`Avança em linha reta até a parede, atravessando inimigos e causando ${st.dmg} a cada um`, `Charges in a straight line to the wall, passing through enemies and dealing ${st.dmg} to each`),
     targets(){ const p = S.player, out = [];
       for (const [dx,dy] of ORTH){ let x=p.x+dx, y=p.y+dy, last=null;
         while (inb(x,y) && !isWall(x,y) && !isPit(x,y)){ if (!occupied(x,y)) last = [x,y]; x+=dx; y+=dy; }
@@ -240,52 +245,52 @@ const SKILLS = {
     run(x,y){ const st = stats(), p = S.player, dx = Math.sign(x-p.x), dy = Math.sign(y-p.y);
       for (let cx=p.x+dx, cy=p.y+dy; cx!==x || cy!==y; cx+=dx, cy+=dy){ const e = enemyAt(cx,cy); if (e) skillHit(e, st.dmg); }
       fx.beams.push({x1:p.x, y1:p.y, x2:x, y2:y, t:0, c:'224,122,50'}); fx.shake = Math.max(fx.shake, 7);
-      moveTo(x,y); log('Aríete.'); }},
-  tremor:{name:'Tremor', cd:4, hits:true, desc:st=>`Causa ${Math.max(1,st.dmg-1)} a todos os inimigos na sua fileira e coluna, até os pilares`,
+      moveTo(x,y); log($t('Aríete.', 'Battering Ram.')); }},
+  tremor:{name:$t('Tremor', 'Tremor'), cd:4, hits:true, desc:st=>$t(`Causa ${Math.max(1,st.dmg-1)} a todos os inimigos na sua fileira e coluna, até os pilares`, `Deals ${Math.max(1,st.dmg-1)} to every enemy in your row and column, up to the pillars`),
     run(){ const st = stats(), p = S.player;
       for (const [dx,dy] of ORTH){ let x=p.x+dx, y=p.y+dy, ex=p.x, ey=p.y;
         while (inb(x,y) && !isWall(x,y)){ const e = enemyAt(x,y); if (e) skillHit(e, Math.max(1, st.dmg-1)); ex=x; ey=y; x+=dx; y+=dy; }
         if (ex!==p.x || ey!==p.y) fx.beams.push({x1:p.x, y1:p.y, x2:ex, y2:ey, t:0, c:'200,170,130'}); }
-      fx.shake = Math.max(fx.shake, 9); log('Tremor.'); }},
-  judge:{name:'Julgamento', cd:4, target:true, hits:true, desc:st=>`Atinge um inimigo nas suas diagonais com ${st.dmg} e o marca: recebe +50% de dano por 2 turnos`,
+      fx.shake = Math.max(fx.shake, 9); log($t('Tremor.', 'Tremor.')); }},
+  judge:{name:$t('Julgamento', 'Judgment'), cd:4, target:true, hits:true, desc:st=>$t(`Atinge um inimigo nas suas diagonais com ${st.dmg} e o marca: recebe +50% de dano por 2 turnos`, `Hits an enemy on your diagonals for ${st.dmg} and marks it: takes +50% damage for 2 turns`),
     targets(){ const p = S.player, out = [];
       for (const [dx,dy] of DIAG){ let x=p.x+dx, y=p.y+dy; while (inb(x,y) && !isWall(x,y)){ if (enemyAt(x,y)){ out.push([x,y]); break; } x+=dx; y+=dy; } }
       return out; },
     run(x,y){ const e = enemyAt(x,y); if (!e) return;
       fx.beams.push({x1:S.player.x, y1:S.player.y, x2:x, y2:y, t:0, c:'240,214,140'});
       skillHit(e, stats().dmg);
-      if (S.enemies.includes(e)){ e.judged = 3; floatText(e.x, e.y-0.4, 'julgado', '#f0d68c'); }
-      log('Julgamento.'); }},
-  radiance:{name:'Clarão', cd:5, hits:true, desc:()=>'Causa 1 e atordoa todos os inimigos nas suas diagonais, até 3 casas',
+      if (S.enemies.includes(e)){ e.judged = 3; floatText(e.x, e.y-0.4, $t('julgado', 'judged'), '#f0d68c'); }
+      log($t('Julgamento.', 'Judgment.')); }},
+  radiance:{name:$t('Clarão', 'Flash'), cd:5, hits:true, desc:()=>$t('Causa 1 e atordoa todos os inimigos nas suas diagonais, até 3 casas', 'Deals 1 and stuns every enemy on your diagonals, up to 3 squares'),
     run(){ const p = S.player; fx.rings.push({x:p.x, y:p.y, t:0, c:'240,214,140'});
       for (const [dx,dy] of DIAG){ let x=p.x+dx, y=p.y+dy;
         for (let i=0; i<3 && inb(x,y) && !isWall(x,y); i++, x+=dx, y+=dy){ const e = enemyAt(x,y); if (e){ skillHit(e, 1); stun(e); } } }
-      log('Clarão.'); }},
-  lunge:{name:'Investida Real', cd:4, target:true, hits:true, desc:st=>`Avança até 3 casas em qualquer linha e causa ${st.dmg} a todos ao redor de onde pousar`,
+      log($t('Clarão.', 'Flash.')); }},
+  lunge:{name:$t('Investida Real', 'Royal Charge'), cd:4, target:true, hits:true, desc:st=>$t(`Avança até 3 casas em qualquer linha e causa ${st.dmg} a todos ao redor de onde pousar`, `Charges up to 3 squares in any line and deals ${st.dmg} to everything around where you land`),
     targets(){ const p = S.player, out = [];
       for (const [dx,dy] of ALL) for (let i=1;i<=3;i++){ const x=p.x+dx*i, y=p.y+dy*i; if (!inb(x,y) || isWall(x,y) || isPit(x,y) || occupied(x,y)) break; out.push([x,y]); }
       return out; },
     run(x,y){ const st = stats(); moveTo(x,y); fx.rings.push({x:S.player.x, y:S.player.y, t:0}); fx.shake = Math.max(fx.shake, 7);
-      hitAround(S.player.x, S.player.y, st.dmg); log('Investida Real.'); }},
-  finisher:{name:'Golpe Final', cd:3, target:true, hits:true, desc:st=>`Golpeia um vizinho com o dobro do dano (${attackDmg(st)*2}). Se matar, ganha +1 ação`,
+      hitAround(S.player.x, S.player.y, st.dmg); log($t('Investida Real.', 'Royal Charge.')); }},
+  finisher:{name:$t('Golpe Final', 'Final Blow'), cd:3, target:true, hits:true, desc:st=>$t(`Golpeia um vizinho com o dobro do dano (${attackDmg(st)*2}). Se matar, ganha +1 ação`, `Strikes a neighbor for double damage (${attackDmg(st)*2}). If it kills, gain +1 action`),
     targets(){ return ALL.map(([dx,dy]) => [S.player.x+dx, S.player.y+dy]).filter(([x,y]) => enemyAt(x,y)); },
     run(x,y){ const e = enemyAt(x,y); if (!e) return;
       S.player.lx = Math.sign(x-S.player.x)*.35; S.player.ly = Math.sign(y-S.player.y)*.35;
       skillHit(e, attackDmg(stats(), e)*2);
-      if (!S.enemies.includes(e)){ S.actions++; floatText(S.player.x, S.player.y-0.4, '+1 ação', '#e3b456'); }
-      log('Golpe Final.'); }},
-  rally:{name:'Grito de Guerra', cd:5, desc:()=>'Cura todos os aliados por completo e dá +1 de dano a cada um (até +3)',
+      if (!S.enemies.includes(e)){ S.actions++; floatText(S.player.x, S.player.y-0.4, $t('+1 ação', '+1 action'), '#e3b456'); }
+      log($t('Golpe Final.', 'Final Blow.')); }},
+  rally:{name:$t('Grito de Guerra', 'War Cry'), cd:5, desc:()=>$t('Cura todos os aliados por completo e dá +1 de dano a cada um (até +3)', 'Fully heals every ally and gives each +1 damage (up to +3)'),
     can:()=>S.allies.length > 0,
     run(){ for (const a of S.allies){ a.hp = a.maxHp; if ((a.rally||0)<3){ a.rally = (a.rally||0)+1; a.dmg++; } burst(a.x, a.y, '#e3b456', 8); }
-      fx.rings.push({x:S.player.x, y:S.player.y, t:0, c:'227,180,86'}); log('Grito de Guerra.'); }},
-  promote:{name:'Promoção', cd:6, target:true, desc:()=>'Promove um peão aliado vizinho a rainha, com vida cheia',
+      fx.rings.push({x:S.player.x, y:S.player.y, t:0, c:'227,180,86'}); log($t('Grito de Guerra.', 'War Cry.')); }},
+  promote:{name:$t('Promoção', 'Promotion'), cd:6, target:true, desc:()=>$t('Promove um peão aliado vizinho a rainha, com vida cheia', 'Promotes a neighboring allied pawn to queen, at full health'),
     targets(){ return ALL.map(([dx,dy]) => [S.player.x+dx, S.player.y+dy]).filter(([x,y]) => { const a = allyAt(x,y); return a && a.type==='P'; }); },
     run(x,y){ const a = allyAt(x,y); if (!a) return;
       a.type = 'Q'; a.maxHp = Math.max(a.maxHp+4, 9); a.hp = a.maxHp; a.dmg = Math.max(a.dmg+1, 3);
-      burst(x, y, '#e3b456', 20); floatText(x, y-0.4, 'Promoção', '#e3b456'); log('Um peão foi promovido a rainha.'); }},
-  command:{name:'Ordem Real', cd:4, free:true, desc:()=>'Seus aliados agem agora, além do turno normal. Não gasta ação.',
+      burst(x, y, '#e3b456', 20); floatText(x, y-0.4, $t('Promoção', 'Promotion'), '#e3b456'); log($t('Um peão foi promovido a rainha.', 'A pawn was promoted to queen.')); }},
+  command:{name:$t('Ordem Real', 'Royal Order'), cd:4, free:true, desc:()=>$t('Seus aliados agem agora, além do turno normal. Não gasta ação.', 'Your allies act now, on top of the normal turn. Costs no action.'),
     can:()=>S.allies.length > 0,
-    async run(){ log('Ordem Real.'); await allyPhase(); }}
+    async run(){ log($t('Ordem Real.', 'Royal Order.')); await allyPhase(); }}
 };
 function skillCd(id){
   const sk = SKILLS[id], st = stats();
@@ -300,12 +305,12 @@ function classMoves(px, py, ignoreUnits){
   const add = (x,y,kind,stop) => {
     const k = key(x,y); if (seen.has(k)) return; seen.add(k);
     const o = {x,y,kind,stop};
-    if (kind==='move' && !ignoreUnits && isIce(x,y)){ const e = slideEnd(x, y, x-px, y-py); if (e[0]!==x || e[1]!==y) o.slide = e; }
+    if (kind==='move' && !ignoreUnits && isIce(x,y) && !st.forgeWalk){ const e = slideEnd(x, y, x-px, y-py); if (e[0]!==x || e[1]!==y) o.slide = e; }
     out.push(o);
   };
   const landable = (x,y) => inb(x,y) && !isWall(x,y) && !isPit(x,y);
   const stopOk = (x,y,dx,dy) => {
-    if (!isIce(x,y)) return true;
+    if (!isIce(x,y) || st.forgeWalk) return true;
     const nx=x+dx, ny=y+dy;
     return !inb(nx,ny) || isWall(nx,ny) || isPit(nx,ny) || (!ignoreUnits && (enemyAt(nx,ny) || allyAt(nx,ny)));
   };
@@ -345,9 +350,9 @@ function gainXp(n){
   HERO.xp += n; S.xpFound += n;
   while (HERO.xp >= xpNeed(HERO.level) && HERO.level<50){
     HERO.xp -= xpNeed(HERO.level); HERO.level++; S.player.hp += 1; sfx('level');
-    floatText(S.player.x, S.player.y-0.4, `Nível ${HERO.level}`, '#e3b456');
+    floatText(S.player.x, S.player.y-0.4, $t(`Nível ${HERO.level}`, `Level ${HERO.level}`), '#e3b456');
     burst(S.player.x, S.player.y, '#e3b456', 20);
-    log(`Você chegou ao nível ${HERO.level}. Um ponto de talento novo espera no acampamento.`);
+    log($t(`Você chegou ao nível ${HERO.level}. Um ponto de talento novo espera no acampamento.`, `You reached level ${HERO.level}. A new talent point awaits at camp.`));
   }
 }
 function rewardKill(e){
@@ -357,24 +362,25 @@ function rewardKill(e){
   HERO.gold += g; S.goldFound += g;
 }
 function checkPhase(e){
+  if (e.bossId==='fallen'){ fallenPhase(e); return; }
   if (!e.boss || e.phase!==1 || e.bossId==='twins' || e.hp > e.maxHp*(e.uber ? .6 : .5)) return;
   e.phase = 2;
   if (e.bossId==='mirror' && !e.mods.includes('double')){ e.mods.push('double'); spawnShards(e); }
   fx.shake = Math.max(fx.shake, 14); burst(e.x, e.y, '#f08a3c', 30);
-  showBanner('Segunda fase', BOSSES[e.bossId].p2);
-  log(`${e.name} entra na segunda fase.`);
+  showBanner($t('Segunda fase', 'Second phase'), BOSSES[e.bossId].p2);
+  log($t(`${e.name} entra na segunda fase.`, `${e.name} enters the second phase.`));
 }
 const queenGuards = () => S.enemies.filter(o => !o.boss && o.type==='P').length;
 const mirrorShards = () => S.enemies.filter(o => o.shard).length;
 function bossObjective(e, amt, src){
   if (e.bossId==='queen' && e.origId==='queen' && queenGuards() >= (e.uber ? 2 : 3)){
-    floatText(e.x, e.y-0.35, 'guarda real', '#e3b456');
+    floatText(e.x, e.y-0.35, $t('guarda real', 'royal guard'), '#e3b456');
     return Math.max(1, Math.ceil(amt/2));
   }
-  if (e.bossId==='knight' && e.exhausted){ floatText(e.x, e.y-0.35, 'exausto', '#ecd36a'); return Math.ceil(amt*1.5); }
+  if (e.bossId==='knight' && e.exhausted){ floatText(e.x, e.y-0.35, $t('exausto', 'exhausted'), '#ecd36a'); return Math.ceil(amt*1.5); }
   if (e.bossId==='mirror' && src==='player' && mirrorShards()>0){
     const back = Math.floor(amt/2);
-    if (back>0) hurtPlayer(back, `Os estilhaços devolvem ${back} de dano.`);
+    if (back>0) hurtPlayer(back, $t(`Os estilhaços devolvem ${back} de dano.`, `The shards reflect ${back} damage.`));
   }
   return amt;
 }
@@ -382,10 +388,10 @@ function spawnShards(e){
   const spots = shuffle(ALL.map(([dx,dy])=>[e.x+dx,e.y+dy]).filter(([x,y]) => inb(x,y) && !occupied(x,y) && !isLava(x,y)));
   for (const [x,y] of spots.slice(0,2)){
     const p = makeEnemy('P', x, y, {rx:e.x, ry:e.y});
-    p.mods = []; p.shard = true; p.label = 'Estilhaço'; p.hp = p.maxHp = Math.round(p.maxHp*1.5);
+    p.mods = []; p.shard = true; p.label = $t('Estilhaço', 'Shard'); p.hp = p.maxHp = Math.round(p.maxHp*1.5);
     S.enemies.push(p); burst(x, y, '#cfe0f0', 14);
   }
-  log('O Reflexo se parte: 2 estilhaços surgem.');
+  log($t('O Reflexo se parte: 2 estilhaços surgem.', 'The Reflection breaks: 2 shards appear.'));
 }
 function knightEscape(e){
   const opts = KN.map(([dx,dy])=>[e.x+dx,e.y+dy]).filter(([x,y]) => inb(x,y) && !occupied(x,y));
@@ -396,60 +402,69 @@ function knightEscape(e){
   // what was telegraphed still happens: only a planned move is dropped
   if (!e.intent || e.intent.kind!=='attack') e.intent = {kind:'wait'};
   burst(e.x, e.y, '#f08a3c', 14);
-  log(`${e.name} salta para longe e deixa brasas.`);
+  log($t(`${e.name} salta para longe e deixa brasas.`, `${e.name} leaps away and leaves embers.`));
   e.escapes = (e.escapes||0) + 1;
   if (e.escapes >= (e.uber ? 4 : 3)){
     e.escapes = 0; e.exhausted = 3;
-    floatText(e.x, e.y-0.3, 'exausto', '#ecd36a'); burst(e.x, e.y, '#ecd36a', 18);
-    log(`${e.name} está exausto: não foge e recebe +50% de dano por 2 turnos.`);
+    floatText(e.x, e.y-0.3, $t('exausto', 'exhausted'), '#ecd36a'); burst(e.x, e.y, '#ecd36a', 18);
+    log($t(`${e.name} está exausto: não foge e recebe +50% de dano por 2 turnos.`, `${e.name} is exhausted: it does not flee and takes +50% damage for 2 turns.`));
   }
 }
 function damageEnemy(e, amt, src){
   if (!S.enemies.includes(e)) return;
   if (e.mods.includes('armor')) amt = Math.max(1, amt-1);
   if (e.mods.includes('submerge') && isWater(e.x,e.y)) amt = Math.max(1, Math.ceil(amt/2));
-  if (e.boss && e.intent && e.intent.recover && src!=='enemy'){ amt = Math.ceil(amt*1.5); floatText(e.x, e.y-0.35, 'exposto', '#ecd36a'); }
+  if (e.boss && e.intent && e.intent.recover && src!=='enemy'){ amt = Math.ceil(amt*1.5); floatText(e.x, e.y-0.35, $t('exposto', 'exposed'), '#ecd36a'); }
   if (e.boss && e.phase===2) amt = bossObjective(e, amt, src);
+  if (e.bossId==='fallen' && e.fphase===3 && src!=='enemy') amt = fallenGuard(e, amt);
   if (e.judged) amt = Math.ceil(amt*1.5);
   if (e.frozenPiece && S.timeStop>0){ if (src==='enemy') return; amt = Math.ceil(amt * (atlasRank('kWinter') ? 1.25 : 1.5)); }   // only you can break the ice
-  if (src==='player' && e.mods.includes('thorns')){ const t = contentLvl()>=7 ? 2 : 1; hurtPlayer(t, `Os espinhos de ${enemyName(e)} te ferem (${t}).`); }
+  if (src==='player' && !S.blasting && e.mods.includes('thorns')){ const t = contentLvl()>=7 ? 2 : 1; hurtPlayer(t, $t(`Os espinhos de ${enemyName(e)} te ferem (${t}).`, `The thorns of ${enemyName(e)} hurt you (${t}).`)); }
   if (e.shield>0){
     const a = Math.min(e.shield, amt); e.shield -= a; amt -= a;
-    floatText(e.x, e.y, 'escudo -'+a, '#a9bfd6');
+    floatText(e.x, e.y, $t('escudo -', 'shield -')+a, '#a9bfd6');
     if (amt<=0) return;
   }
   e.hp -= amt; e.hurtTurn = S.turn;
   if (src!=='enemy') sfx('hit');
   floatText(e.x, e.y, '-'+amt, src==='enemy' ? '#d9a066' : '#ffd9a8');
   burst(e.x, e.y, src==='enemy' ? '#d9a066' : '#e07a32', 8);
-  if (src==='player' && e.hp>0 && e.hp<3 && !e.boss && stats().execute){ e.hp = 0; floatText(e.x, e.y-0.3, 'Xeque-mate', '#f08a3c'); }
+  if (src==='player' && e.hp>0 && e.hp<3 && !e.boss && stats().execute){ e.hp = 0; floatText(e.x, e.y-0.3, $t('Xeque-mate', 'Checkmate'), '#f08a3c'); }
   if (e.hp<=0 && e.frozenPiece && S.timeStop>0){ shatterPiece(e); return; }
   if (e.hp>0){
     checkPhase(e);
     if (e.bossId==='knight' && e.phase===2 && src!=='enemy' && !e.jumped && !e.exhausted) knightEscape(e);
+    if (e.bossId==='fallen' && src==='player') fallenCastle(e);
     return;
   }
   S.enemies = S.enemies.filter(o => o!==e);
   sfx(e.boss ? 'boss' : 'kill');
   riftKill(e);
+  hordeKill(e);
   currencyDrop(e);
   tideKill(e);
   rivalKill(e);
   burst(e.x, e.y, '#b8332b', e.boss ? 50 : 20);
   fx.shake = Math.max(fx.shake, e.boss ? 18 : e.elite ? 8 : 4);
-  log(`${enemyName(e)} caiu${src==='enemy' ? ' por fogo amigo' : src==='ally' ? ' para seus aliados' : ''}.`);
+  log($t(`${enemyName(e)} caiu${src==='enemy' ? ' por fogo amigo' : src==='ally' ? ' para seus aliados' : ''}.`, `${enemyName(e)} fell${src==='enemy' ? ' to friendly fire' : src==='ally' ? ' to your allies' : ''}.`));
   rewardKill(e);
   if (e.boss){
     if (!HERO.bossesKilled.includes(e.origId)) HERO.bossesKilled.push(e.origId);
     const others = S.enemies.filter(o => o.boss);
     if (others.length){
       for (const o of others) o.enrageAt = S.turn;
-      log('Uma torre caiu. A outra enlouquece se sobreviver a este turno.');
+      log($t('Uma torre caiu. A outra enlouquece se sobreviver a este turno.', 'One rook fell. The other goes berserk if it survives this turn.'));
     } else {
       S.bossKilledThisFloor = true;
-      if (e.uber){ HERO.ubersKilled = (HERO.ubersKilled||0)+1; HERO.gold += 200; S.goldFound += 200; dropRune(e); dropRune(e); log(`${e.name} caiu. +200 de ouro e duas runas.`); }
+      if (e.uber){ HERO.ubersKilled = (HERO.ubersKilled||0)+1; HERO.gold += 200; S.goldFound += 200; dropRune(e); dropRune(e); log($t(`${e.name} caiu. +200 de ouro e duas runas.`, `${e.name} fell. +200 gold and two runes.`));
+        const id = S.exp.boss || 'queen'; HERO.crownFrags = HERO.crownFrags || {}; HERO.crownFrags[id] = (HERO.crownFrags[id]||0) + 1;
+        HERO.ubersBeaten = [...new Set([...(HERO.ubersBeaten||[]), id])];
+        log($t(`${fragName(id)} obtido. Um de cada abre a sala do trono do Rei Caído.`, `${fragName(id)} obtained. One of each opens the Fallen King's throne room.`)); }
+      if (e.bossId==='fallen'){ HERO.fallenKills = (HERO.fallenKills||0)+1; HERO.gold += 500; S.goldFound += 500; for (let i=0;i<3;i++) dropRune(e);
+        showBanner($t('O Rei Caído tombou', 'The Fallen King has toppled'), $t('A coroa está vazia. Por enquanto.', 'The crown is empty. For now.'));
+        log($t('O Rei Caído caiu. +500 de ouro e três runas.', 'The Fallen King fell. +500 gold and three runes.')); }
       S.items.push({x:e.x, y:e.y, relics:S.bossRelics});
-      log('O chefe deixou duas relíquias.');
+      log($t('O chefe deixou duas relíquias.', 'The boss left two relics.'));
       dropMaps(e);
       dropRune(e);
       if (atlasRank('kDuel')){ dropRune(e); dropRune(e); }
@@ -471,14 +486,18 @@ function damageEnemy(e, amt, src){
     }
   }
   if (e.mods.includes('explode')) explode(e);
+  if (src==='player' && stats().deathBurst && amt>0) exileBurst(e, amt);
   if (src==='player' || src==='ally') S.kills++;
   if (src==='player'){
     S.killsThisAction++;
     const st = stats();
     if (st.vamp) heal(st.vamp);
     if (st.healKill) heal(st.healKill);
-    if (st.g_damiano && rnd()<.25){ for (const id in S.cds) S.cds[id] = Math.max(0, S.cds[id]-1); floatText(S.player.x, S.player.y-0.4, 'Damiano', '#c9a0ff'); }
-    if (st.bloodRush && S.floorBonus<5){ S.floorBonus++; floatText(S.player.x, S.player.y-0.3, '+1 dano', '#f08a3c'); }
+    if (st.g_damiano && rnd()<.25){ for (const id in S.cds) S.cds[id] = Math.max(0, S.cds[id]-1); floatText(S.player.x, S.player.y-0.4, $t('Damiano', 'Damiano'), '#c9a0ff'); }
+    if (st.killFury && S.furyTurn < 5){ const n = Math.min(st.killFury, 5 - S.furyTurn); S.furyTurn += n; S.turnBonus += n; floatText(S.player.x, S.player.y-0.6, $t(`+${n} matança`, `+${n} slaughter`), '#f08a3c'); }
+    if (st.killCdr && S.harvestTurn < 2*st.killCdr){ S.harvestTurn++; for (const id in S.cds) S.cds[id] = Math.max(0, S.cds[id]-1); }
+    if (st.killStep && S.stepTurn < st.killStep && S.enemies.length){ S.stepTurn++; S.moveOnly = true; S.actions++; floatText(S.player.x, S.player.y-0.45, $t('passo leve', 'light step'), '#cfe0f0'); }
+    if (st.bloodRush && S.floorBonus<5){ S.floorBonus++; floatText(S.player.x, S.player.y-0.3, $t('+1 dano', '+1 damage'), '#f08a3c'); }
   }
 }
 function dropRune(e){
@@ -500,13 +519,13 @@ function dropMaps(e){
 function damageAlly(a, amt){
   if (!S.allies.includes(a)) return;
   if (stats().banner && cheb(a.x,a.y,S.player.x,S.player.y)<=1) amt = Math.max(0, amt-1);
-  if (amt<=0){ floatText(a.x, a.y, 'bloqueado', '#a9bfd6'); return; }
+  if (amt<=0){ floatText(a.x, a.y, $t('bloqueado', 'blocked'), '#a9bfd6'); return; }
   a.hp -= amt;
   floatText(a.x, a.y, '-'+amt, '#ff6b5e'); burst(a.x, a.y, '#b8332b', 8);
   if (a.hp<=0){
     S.allies = S.allies.filter(o=>o!==a);
-    log(a.type==='P' ? 'Um peão aliado caiu.' : 'Uma rainha aliada caiu.');
-    if (stats().martyr){ heal(3); S.shield += 2; floatText(S.player.x, S.player.y, '+2 escudo', '#a9bfd6'); }
+    log(a.type==='P' ? $t('Um peão aliado caiu.', 'An allied pawn fell.') : $t('Uma rainha aliada caiu.', 'An allied queen fell.'));
+    if (stats().martyr){ heal(3); S.shield += 2; floatText(S.player.x, S.player.y, $t('+2 escudo', '+2 shield'), '#a9bfd6'); }
   }
 }
 function heal(n){
@@ -518,13 +537,14 @@ function heal(n){
 function hurtPlayer(dmg, msg){
   if (S.dead) return false;
   if (dmg>0) sfx('hurt');
-  if (dmg>0 && S.nullHit){ S.nullHit = false; floatText(S.player.x, S.player.y, 'anulado', '#a9bfd6'); log('A Barda de Obsidiana anulou o golpe.'); return true; }
+  if (dmg>0 && S.untouchable){ floatText(S.player.x, S.player.y, $t('intocável', 'untouchable'), '#cfe0f0'); return true; }
+  if (dmg>0 && S.nullHit){ S.nullHit = false; floatText(S.player.x, S.player.y, $t('anulado', 'nullified'), '#a9bfd6'); log($t('A Barda de Obsidiana anulou o golpe.', 'The Obsidian Barding nullified the blow.')); return true; }
   let d = dmg, absorbed = 0;
   const hpBefore = S.player.hp;
-  if (S.shield>0){ const a=Math.min(S.shield,d); S.shield-=a; d-=a; absorbed = a; floatText(S.player.x, S.player.y, 'escudo -'+a, '#a9bfd6'); }
+  if (S.shield>0){ const a=Math.min(S.shield,d); S.shield-=a; d-=a; absorbed = a; floatText(S.player.x, S.player.y, $t('escudo -', 'shield -')+a, '#a9bfd6'); }
   if (d>0){ S.player.hp -= d; floatText(S.player.x, S.player.y, '-'+d, '#ff6b5e'); burst(S.player.x, S.player.y, '#b8332b', 14); }
   // death recap: remember every hit of this floor
-  (S.hits = S.hits || []).push({turn:S.turn, msg:msg || 'Dano', raw:dmg, absorbed, taken:Math.max(0,d), hpBefore, hpAfter:S.player.hp,
+  (S.hits = S.hits || []).push({turn:S.turn, msg:msg || $t('Dano', 'Damage'), raw:dmg, absorbed, taken:Math.max(0,d), hpBefore, hpAfter:S.player.hp,
     danger:S.dangerSeen && S.dangerSeen.has(key(S.player.x,S.player.y))});
   if (S.hits.length>40) S.hits.shift();
   fx.shake = Math.max(fx.shake, 7);
@@ -532,26 +552,105 @@ function hurtPlayer(dmg, msg){
   if (S.player.hp<=0){
     if (stats().lastStand && !S.lastStandUsed){
       S.lastStandUsed = true; S.player.hp = 1;
-      floatText(S.player.x, S.player.y-0.3, 'Última Resistência', '#e3b456'); log('Última Resistência: você sobrevive com 1 de vida.');
+      floatText(S.player.x, S.player.y-0.3, $t('Última Resistência', 'Last Stand'), '#e3b456'); log($t('Última Resistência: você sobrevive com 1 de vida.', 'Last Stand: you survive with 1 health.'));
       return true;
     }
     gameOver(); return false;
   }
+  const st = stats();
+  if (st.flee && !S.fleeUsed && S.player.hp < st.hp*.3) fleeLeap();
   return true;
+}
+// Horseshoes of Escape: leap to the free square farthest from every enemy and stay untouchable until your turn
+function fleeLeap(){
+  let best = null, bs = -99;
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+    if (occupied(x,y) || isLava(x,y) || S.items.some(i => i.x===x && i.y===y) || (S.stairs && S.stairs.x===x && S.stairs.y===y)) continue;
+    const s = nearestEnemyDist(x,y) - (S.danger.has(key(x,y)) ? 5 : 0);
+    if (s>bs){ bs = s; best = [x,y]; }
+  }
+  if (!best) return;
+  S.fleeUsed = true; S.untouchable = true;
+  burst(S.player.x, S.player.y, '#cfe0f0', 14);
+  S.player.x = best[0]; S.player.y = best[1];
+  floatText(best[0], best[1]-0.4, $t('Fuga', 'Escape'), '#cfe0f0'); sfx('jump');
+  log($t('Ferraduras da Fuga: você salta para longe e fica intocável até o seu turno.', 'Horseshoes of Escape: you leap away and are untouchable until your turn.'));
+}
+// Mantle of Exile: a kill explodes, half the blow to every neighbor (kills chain)
+function exileBurst(e, amt){
+  const d = Math.max(1, Math.ceil(amt/2));
+  fx.rings.push({x:e.x, y:e.y, t:0, c:'180,60,200'}); burst(e.x, e.y, '#b048c8', 16);
+  const was = S.blasting; S.blasting = true;
+  for (const [dx,dy] of ALL){ const o = enemyAt(e.x+dx, e.y+dy); if (o) damageEnemy(o, d, 'player'); }
+  S.blasting = was;
+}
+// half damage to a list of enemies with a beam from the player (crown, link, cleave); spikes do not answer it
+function splash(list, dmg, color, word){
+  const was = S.blasting; S.blasting = true;
+  for (const o of list){ if (!S.enemies.includes(o)) continue;
+    fx.beams.push({x1:S.player.x, y1:S.player.y, x2:o.x, y2:o.y, t:0, c:color});
+    if (word) floatText(o.x, o.y-0.3, word, 'rgb('+color+')');
+    damageEnemy(o, Math.max(1, Math.floor(dmg/2)), 'player'); }
+  S.blasting = was;
+}
+/* The Fallen King: phase 2 at 60% (he takes the four uber forms in turn), phase 3 at 25% (the last king).
+   Each change leaves him exposed for this turn and the next and calls two pawn guards. */
+const FALLEN_PHASE_NAME = {1:$t('O Rei e a Corte', 'The King and his Court'), 2:$t('A Coroa Estilhaçada', 'The Shattered Crown'), 3:$t('O Último Rei', 'The Last King')};
+const FALLEN_FORM_NAME = {R:$t('a Torre', 'the Rook'), B:$t('o Bispo', 'the Bishop'), N:$t('o Cavalo', 'the Knight'), Q:$t('a Rainha', 'the Queen'), K:$t('o Rei', 'the King')};
+function fallenStage(e){
+  const f = e.hp / e.maxHp;
+  if (f > .6) return [1, 'K'];
+  if (f <= .25) return [3, 'K'];
+  const step = (.6 - .25) / 4, i = Math.min(3, Math.floor((.6 - f) / step));
+  return [2, ['R','B','N','Q'][i]];
+}
+function fallenPhase(e){
+  const [ph, type] = fallenStage(e);
+  if (ph < (e.fphase||1) || (ph===e.fphase && type===e.type)) return;
+  const newPhase = ph !== e.fphase;
+  e.fphase = ph; e.type = type;
+  e.intent = {kind:'wait', recover:true}; e.recover = 1;
+  fx.shake = Math.max(fx.shake, 16); burst(e.x, e.y, '#e3b456', 40); fx.rings.push({x:e.x, y:e.y, t:0, c:'227,180,86'});
+  const spots = shuffle(ALL.map(([dx,dy])=>[e.x+dx,e.y+dy]).filter(([x,y]) => inb(x,y) && !occupied(x,y) && !isLava(x,y)));
+  for (const [x,y] of spots.slice(0,2)){ const p = makeEnemy('P', x, y, {rx:e.x, ry:e.y}); p.mods = []; S.enemies.push(p); }
+  if (ph===2) showBanner(newPhase ? FALLEN_PHASE_NAME[2] : $t(`O Rei Caído assume ${FALLEN_FORM_NAME[type]}`, `The Fallen King takes the form of ${FALLEN_FORM_NAME[type]}`),
+    $t(`Agora ele é ${FALLEN_FORM_NAME[type]}: move, ataca e decreta como essa peça. Exposto por 2 turnos.`, `He is now ${FALLEN_FORM_NAME[type]}: he moves, attacks and decrees like that piece. Exposed for 2 turns.`));
+  else showBanner(FALLEN_PHASE_NAME[3], $t('A corte inteira se ergue. Limpe os guardas e encurrale o rei.', 'The whole court rises. Clear the guards and corner the king.'));
+  log(ph===2 ? $t(`O Rei Caído muda de forma: agora é ${FALLEN_FORM_NAME[type]}.`, `The Fallen King changes form: he is now ${FALLEN_FORM_NAME[type]}.`)
+    : $t('O Último Rei: com 3 ou mais peças da corte vivas ele recebe metade do dano; encurralado (2 fugas ou menos), recebe +50%.', 'The Last King: with 3 or more court pieces alive he takes half damage; cornered (2 escapes or fewer), he takes +50%.'));
+  refreshDanger();
+}
+// phase 3: his court shields him, being cornered exposes him
+function fallenGuard(e, amt){
+  const court = S.enemies.filter(o => !o.boss).length, esc = fallenEscapes(e).length;
+  if (court >= 3){ amt = Math.max(1, Math.ceil(amt/2)); floatText(e.x, e.y-0.35, $t('guarda real', 'royal guard'), '#e3b456'); }
+  if (esc <= 2){ amt = Math.ceil(amt*1.5); floatText(e.x, e.y-0.6, $t('encurralado', 'cornered'), '#ecd36a'); }
+  return amt;
+}
+// Castling: struck up close (phases 1 and 2), he swaps places with his farthest pawn, at most every 4 turns
+function fallenCastle(e){
+  if (e.fphase===2 || cheb(e.x,e.y,S.player.x,S.player.y)>1 || S.turn - (e.castleAt ?? -9) < 4) return;
+  const rook = S.enemies.filter(o => !o.boss && cheb(o.x,o.y,S.player.x,S.player.y)>=3).sort((a,b) => cheb(b.x,b.y,S.player.x,S.player.y) - cheb(a.x,a.y,S.player.x,S.player.y))[0];
+  if (!rook) return;
+  const [x,y] = [e.x,e.y]; e.x = rook.x; e.y = rook.y; rook.x = x; rook.y = y;
+  e.castleAt = S.turn; e.intent = {kind:'wait', recover: !!(e.intent && e.intent.recover)}; rook.intent = {kind:'wait'};
+  burst(x, y, '#e3b456', 12); burst(e.x, e.y, '#e3b456', 12); floatText(e.x, e.y-0.5, $t('Roque', 'Castling'), '#e3b456');
+  log($t('O Rei faz Roque: troca de lugar com um peão distante.', 'The King castles: he swaps places with a distant pawn.'));
+  refreshDanger();
 }
 // your resistance to an element cuts that damage (never below 1)
 function resist(d, t){ const k = RES_KEY[t]; if (!k || d<=0) return d; const r = stats()[k]; return r ? Math.max(1, Math.round(d*(1-r/100))) : d; }
-const dmgWord = t => t && t!=='phys' ? ` com ${DTYPES[t].n}` : '';
+const dmgWord = t => t && t!=='phys' ? $t(` com ${DTYPES[t].n}`, ` with ${DTYPES[t].n}`) : '';
 function hitPlayer(dmg, src){
   const st = stats();
   let d = resist(dmg, src.dtype);
   if (st.lineGuard && src.type!=='P' && src.type!=='K' && src.type!=='N') d = Math.ceil(d/2);
   if (st.granite && !S.movedThisTurn) d = Math.max(0, d-1);
-  if (st.block && d>1 && rnd()*100 < st.block){ d = Math.ceil(d/2); floatText(S.player.x, S.player.y-0.35, 'bloqueio', '#a9bfd6'); }
-  if (!hurtPlayer(d, `${enemyName(src)} te acertou${dmgWord(src.dtype)} (${d}).`)) return;
+  if (st.block && d>1 && rnd()*100 < st.block){ d = Math.ceil(d/2); sfx('block'); floatText(S.player.x, S.player.y-0.35, $t('bloqueio', 'block'), '#a9bfd6'); }
+  if (!hurtPlayer(d, $t(`${enemyName(src)} te acertou${dmgWord(src.dtype)} (${d}).`, `${enemyName(src)} hit you${dmgWord(src.dtype)} (${d}).`))) return;
   if (st.reprisal) S.nextBonus = Math.max(S.nextBonus||0, 3);
   if (st.mirror && !S.mirrorUsed && d>0 && S.enemies.includes(src)){
-    S.mirrorUsed = true; floatText(S.player.x, S.player.y-0.3, 'reflexo', '#cfe0f0');
+    S.mirrorUsed = true; floatText(S.player.x, S.player.y-0.3, $t('reflexo', 'reflect'), '#cfe0f0');
     damageEnemy(src, d, 'player');
   }
   if (st.thorns && S.enemies.includes(src)) damageEnemy(src, st.thorns, 'player');
@@ -559,10 +658,10 @@ function hitPlayer(dmg, src){
 function explode(e){
   fx.rings.push({x:e.x, y:e.y, t:0, c:'240,138,60'}); burst(e.x, e.y, '#f08a3c', 26);
   fx.shake = Math.max(fx.shake, 10);
-  log(`${enemyName(e)} explodiu.`);
+  log($t(`${enemyName(e)} explodiu.`, `${enemyName(e)} exploded.`));
   for (const [dx,dy] of ALL){
     const x=e.x+dx, y=e.y+dy;
-    if (isPlayer(x,y)){ const v = resist(3,'fire'); hurtPlayer(v, `A explosão te atingiu (${v}).`); }
+    if (isPlayer(x,y)){ const v = resist(3,'fire'); hurtPlayer(v, $t(`A explosão te atingiu (${v}).`, `The explosion hit you (${v}).`)); }
     const a = allyAt(x,y); if (a) damageAlly(a, 3);
     const o = enemyAt(x,y); if (o) damageEnemy(o, 3, 'enemy');
   }
@@ -574,7 +673,7 @@ function healEnemy(e, n){
 function stun(e){
   if (!S.enemies.includes(e)) return;
   e.intent = {kind:'wait', stunned:true};
-  floatText(e.x, e.y-0.3, 'atordoado', '#ecd36a');
+  floatText(e.x, e.y-0.3, $t('atordoado', 'stunned'), '#ecd36a');
 }
 
 /* ---------- Player actions ---------- */
@@ -588,21 +687,25 @@ function landOn(x,y){
     if (en.x!==x || en.y!==y) continue;
     if (en.merchant){ S.pendingLoot.push(en); continue; }
     S.items.splice(i,1);
-    if (en.potion){ heal(POTION_HEAL); log(`Frasco de vida: +${POTION_HEAL}.`); burst(x, y, '#8fd18a', 10); }
+    if (en.potion){ heal(POTION_HEAL); log($t(`Frasco de vida: +${POTION_HEAL}.`, `Health flask: +${POTION_HEAL}.`)); burst(x, y, '#8fd18a', 10); }
     else if (en.shrine) applyShrine(en.shrine);
-    else if (en.chest){ const g = Math.round(15*(1+.1*(S.lvl-1)) * (1 + stats().gold/100)); HERO.gold += g; S.goldFound += g; log(`Baú aberto: +${g} de ouro.`); S.pendingLoot.push({item:genItem(true)});
-      if (rnd()<.3){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; log(`O baú tinha uma ${RUNES[r].name}.`); } }
-    else if (en.mapItem){ HERO.maps.push(en.mapItem); log(`Mapa obtido: ${mapName(en.mapItem)}.`); }
-    else if (en.rune){ HERO.runes = HERO.runes || {}; HERO.runes[en.rune] = (HERO.runes[en.rune]||0) + 1; log(`${RUNES[en.rune].name} obtida. Encaixe-a numa habilidade no acampamento.`); floatText(x, y-0.4, RUNES[en.rune].name, '#c9a0ff'); burst(x, y, '#c9a0ff', 14); }
+    else if (en.chest){ const g = Math.round(15*(1+.1*(S.lvl-1)) * (1 + stats().gold/100)); HERO.gold += g; S.goldFound += g; log($t(`Baú aberto: +${g} de ouro.`, `Chest opened: +${g} gold.`)); S.pendingLoot.push({item:genItem(true)});
+      if (rnd()<.3){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; log($t(`O baú tinha uma ${RUNES[r].name}.`, `The chest held a ${RUNES[r].name}.`)); } }
+    else if (en.mapItem){ HERO.maps.push(en.mapItem); log($t(`Mapa obtido: ${mapName(en.mapItem)}.`, `Map found: ${mapName(en.mapItem)}.`)); }
+    else if (en.rune){ HERO.runes = HERO.runes || {}; HERO.runes[en.rune] = (HERO.runes[en.rune]||0) + 1; log($t(`${RUNES[en.rune].name} obtida. Encaixe-a numa habilidade no acampamento.`, `${RUNES[en.rune].name} found. Socket it into a skill at camp.`)); floatText(x, y-0.4, RUNES[en.rune].name, '#c9a0ff'); burst(x, y, '#c9a0ff', 14); }
     else if (en.riftGate) openRift(en);
     else if (en.frozenArmy) startFrozenArmy(en);
-    else if (en.currency){ HERO.currency = HERO.currency || {}; HERO.currency[en.currency] = (HERO.currency[en.currency]||0) + 1; log(`${CURRENCY[en.currency].name} obtido. Use no acampamento, num mapa.`); floatText(x, y-0.4, CURRENCY[en.currency].short, CURRENCY[en.currency].c); }
+    else if (en.currency){ HERO.currency = HERO.currency || {}; HERO.currency[en.currency] = (HERO.currency[en.currency]||0) + 1; log($t(`${CURRENCY[en.currency].name} obtido. Use no acampamento, num mapa.`, `${CURRENCY[en.currency].name} found. Use it on a map at camp.`)); floatText(x, y-0.4, CURRENCY[en.currency].short, CURRENCY[en.currency].c); }
     else if (en.tideChest){ if (!openTideChest(en)) S.items.push(en); }
     else S.pendingLoot.push(en);
   }
   if (S.color==='w' && y===0 && !S.promoted && S.enemies.length){
     S.promoted = true; S.actions++; heal(4);
-    floatText(x, y-0.3, 'Promoção', '#e3b456'); log('Promoção: +1 ação e +4 de vida.');
+    floatText(x, y-0.3, $t('Promoção', 'Promotion'), '#e3b456'); log($t('Promoção: +1 ação e +4 de vida.', 'Promotion: +1 action and +4 health.'));
+  }
+  if (st.supremePromo && y===0 && !S.supPromoUsed && S.enemies.length){
+    S.supPromoUsed = true; S.player.hp = st.hp; S.floorBonus += 2; burst(x, y, '#e3b456', 24);
+    floatText(x, y-0.3, $t('Promoção Suprema', 'Supreme Promotion'), '#e3b456'); log($t('Promoção Suprema: vida cheia e +2 de dano até o fim do andar.', 'Supreme Promotion: full health and +2 damage until the end of the floor.'));
   }
   if (S.stairs && S.stairs.x===x && S.stairs.y===y) S.goDown = true;
 }
@@ -621,14 +724,14 @@ function forkHit(main, dmg){
   if (!cands.length) return;
   const o = cands.sort((a,b)=>a.hp-b.hp)[0];
   fx.beams.push({x1:p.x, y1:p.y, x2:o.x, y2:o.y, t:0, c:'227,180,86'});
-  floatText(o.x, o.y-0.3, 'garfo', '#e3b456');
+  floatText(o.x, o.y-0.3, $t('garfo', 'fork'), '#e3b456');
   damageEnemy(o, Math.max(1, Math.floor(dmg/2)), 'player');
 }
 function doAttack(t){
   const e = enemyAt(t.x,t.y), st = stats(), p = S.player;
   let dmg = attackDmg(st, e); S.nextBonus = 0; S.firstHitDone = true;
   if (e) elemFx(e, st);
-  if (st.crit && rnd()*100 < st.crit){ sfx('crit'); dmg = Math.ceil(dmg*1.5); floatText(e.x, e.y-0.45, 'crítico', '#ffcf6a'); fx.shake = Math.max(fx.shake, 5); }
+  if (st.crit && rnd()*100 < st.crit){ sfx('crit'); dmg = Math.ceil(dmg*1.5); floatText(e.x, e.y-0.45, $t('crítico', 'critical'), '#ffcf6a'); fx.shake = Math.max(fx.shake, 5); }
   const dx = Math.sign(t.x-p.x), dy = Math.sign(t.y-p.y);
   const straight = t.x===p.x || t.y===p.y || Math.abs(t.x-p.x)===Math.abs(t.y-p.y);
   if (S.cls==='B'){
@@ -659,9 +762,20 @@ function doAttack(t){
     if (st.check) stun(e);
   }
   if (st.fork) forkHit(e, dmg);
+  if (st.cleave) splash(ALL.map(([dx,dy]) => enemyAt(t.x+dx, t.y+dy)).filter(o => o && o!==e), dmg, '200,120,230');
+  if (st.shatterCrown && S.crownReady){
+    S.crownReady = false; S.crownAt = S.turn;
+    const hits = [];
+    for (const [dx,dy] of ALL){ let x=p.x+dx, y=p.y+dy; while (inb(x,y) && !isWall(x,y)){ const o = enemyAt(x,y); if (o){ if (o!==e) hits.push(o); break; } x+=dx; y+=dy; } }
+    fx.rings.push({x:p.x, y:p.y, t:0, c:'227,180,86'}); splash(hits, dmg, '227,180,86');
+  }
+  if (st.link){
+    if (S.linked && S.linked!==e && S.enemies.includes(S.linked)) splash([S.linked], dmg, '240,160,80', $t('elo', 'link'));
+    S.linked = S.enemies.includes(e) ? e : null;
+  }
   if (!alive && st.escape && !S.escapeUsed && S.enemies.length){
     S.escapeUsed = true; S.moveOnly = true; S.actions++;
-    floatText(p.x, p.y-0.3, 'Fuga Real', '#e3b456');
+    floatText(p.x, p.y-0.3, $t('Fuga Real', 'Royal Escape'), '#e3b456');
   }
 }
 function doSwap(t){
@@ -725,8 +839,8 @@ async function allyPhase(){
       }
       if (a.type==='P' && a.y <= (stats().earlyPromo ? Math.floor(H/2)-1 : 0)){
         a.type = 'Q'; a.maxHp = Math.max(a.maxHp+4, 9); a.hp = a.maxHp; a.dmg = Math.max(a.dmg+1, 3 + (stats().sturdyPawns?1:0));
-        floatText(a.x, a.y, 'Promoção', '#e3b456'); burst(a.x, a.y, '#e3b456', 18);
-        log('Um peão aliado foi promovido a rainha.');
+        floatText(a.x, a.y, $t('Promoção', 'Promotion'), '#e3b456'); burst(a.x, a.y, '#e3b456', 18);
+        log($t('Um peão aliado foi promovido a rainha.', 'An allied pawn was promoted to queen.'));
       }
     } else {
       const e = allyLineTarget(a);
@@ -753,8 +867,9 @@ async function playerAct(fn){
   if (S.tut) tutCheck('action');
   if (S!==run || S.dead) return;
   refreshDanger();
-  if (stats().chain && S.killsThisAction>0 && S.enemies.length && S.chainUsed<2){
-    S.chainUsed++; S.actions++; floatText(S.player.x, S.player.y, 'Ceifa: +1 ação', '#e3b456');
+  const cst = stats();
+  if ((cst.chain || cst.regicide) && S.killsThisAction>0 && S.enemies.length && S.chainUsed < chainCap(cst)){
+    S.chainUsed++; S.actions++; floatText(S.player.x, S.player.y, $t('Ceifa: +1 ação', 'Reaping: +1 action'), '#e3b456');
   }
   updateUI();
   await sleep(140);
@@ -778,12 +893,12 @@ async function afterAction(){
       const t = S.torment||0;
       if (t===0) HERO.actDone = Math.max(HERO.actDone, S.act+1);
       else { HERO.actsByT = HERO.actsByT || {}; HERO.actsByT[t] = Math.max(HERO.actsByT[t]||0, S.act+1); }
-      log(S.act===3 ? (t ? `Campanha concluída no Tormento ${t}.` : 'A campanha terminou. O fim de jogo foi desbloqueado no acampamento.') : `Ato ${S.act+1} concluído.`);
-      if (S.act===3 && t >= (HERO.tormentMax||0) && (HERO.tormentMax||0) < 10){ HERO.tormentMax = t+1; log(`Tormento ${HERO.tormentMax} liberado no acampamento.`); }
+      log(S.act===3 ? (t ? $t(`Campanha concluída no Tormento ${t}.`, `Campaign completed on Torment ${t}.`) : $t('A campanha terminou. O fim de jogo foi desbloqueado no acampamento.', 'The campaign is over. The endgame is now unlocked at camp.')) : $t(`Ato ${S.act+1} concluído.`, `Act ${S.act+1} completed.`));
+      if (S.act===3 && t >= (HERO.tormentMax||0) && (HERO.tormentMax||0) < 10){ HERO.tormentMax = t+1; log($t(`Tormento ${HERO.tormentMax} liberado no acampamento.`, `Torment ${HERO.tormentMax} unlocked at camp.`)); }
     }
     if (S.exp.kind==='map' && S.bossKilledThisFloor) atlasComplete(S.exp.map);
     if (S.exp.kind==='daily'){ await dailyWin(); return; }
-    if (S.stairs) log('O andar está limpo.'); else spawnStairs();
+    if (S.stairs) log($t('O andar está limpo.', 'The floor is clear.')); else spawnStairs();
   }
   // a single straggler can't stall the floor: the stairs open early
   // a single straggler that can't be reached (say, on the other colour) can't stall the floor: after 4 turns alone the stairs open
@@ -807,12 +922,13 @@ async function enemyPhase(){
   const alive = () => S===run && !S.dead;
   S.phase = 'enemy'; S.mode = 'move'; updateUI();
   await sleep(160);
+  if (!alive()) return;
   for (const e of S.enemies){
     e.moved = false;
     if (e.boss && e.enrageAt===S.turn && !e.mods.includes('enraged')){
       e.mods.push('enraged'); e.dmg *= 2;
-      showBanner(`${e.name.split(' ')[0]} enlouquecida`, 'Dano dobrado e mais movimento.');
-      fx.shake = Math.max(fx.shake, 14); log('A torre restante enlouqueceu.');
+      showBanner($t(`${e.name.split(' ')[0]} enlouquecida`, `${e.name} goes berserk`), $t('Dano dobrado e mais movimento.', 'Double damage and more movement.'));
+      fx.shake = Math.max(fx.shake, 14); log($t('A torre restante enlouqueceu.', 'The remaining rook went berserk.'));
     }
   }
   // environment first (forge pillar)
@@ -820,9 +936,9 @@ async function enemyPhase(){
     const {wall, sq} = S.env;
     fx.flashes.push({sq, t:1}); fx.rings.push({x:wall[0], y:wall[1], t:0, c:'240,138,60'}); fx.shake = Math.max(fx.shake, 10);
     S.walls.delete(key(wall[0],wall[1])); S.terrain.set(key(wall[0],wall[1]), 'lava');
-    log('Um pilar instável explodiu.');
+    log($t('Um pilar instável explodiu.', 'An unstable pillar exploded.'));
     for (const [x,y] of sq){
-      if (isPlayer(x,y)){ const v = resist(3,'fire'); hurtPlayer(v, `A explosão do pilar te atingiu (${v}).`); }
+      if (isPlayer(x,y)){ const v = resist(3,'fire'); hurtPlayer(v, $t(`A explosão do pilar te atingiu (${v}).`, `The pillar's explosion hit you (${v}).`)); }
       const a = allyAt(x,y); if (a) damageAlly(a, 3);
       const o = enemyAt(x,y); if (o) damageEnemy(o, 3, 'enemy');
     }
@@ -837,14 +953,14 @@ async function enemyPhase(){
     const {kind, sq} = S.clock; S.clock = null; S.clocks = (S.clocks||0) + 1;
     const ringC = {collapse:'170,150,120', flood:'120,190,180', lava:'255,130,50', frost:'215,240,255'}[kind];
     for (const [x,y] of sq) fx.rings.push({x, y, t:0, c:ringC});
-    showBanner({collapse:'O teto desaba', flood:'A água sobe', lava:'A lava transborda', frost:'O gelo avança'}[kind], 'A arena mudou.');
+    showBanner({collapse:$t('O teto desaba', 'The ceiling collapses'), flood:$t('A água sobe', 'The water rises'), lava:$t('A lava transborda', 'The lava overflows'), frost:$t('O gelo avança', 'The ice advances')}[kind], $t('A arena mudou.', 'The arena changed.'));
     // only the farthest collapsed square becomes a pit, never next to you, so the arena can't wall you in
     const far = kind==='collapse' ? sq.slice().sort((a,b) => cheb(b[0],b[1],S.player.x,S.player.y) - cheb(a[0],a[1],S.player.x,S.player.y))[0] : null;
     fx.shake = Math.max(fx.shake, 12);
     for (const [x,y] of sq){
       if (kind==='collapse'){
         burst(x, y, '#8a7a68', 30); fx.flashes.push({sq:[[x,y]], t:1});
-        if (isPlayer(x,y)) hurtPlayer(4, 'O teto desabou em você (4).');
+        if (isPlayer(x,y)) hurtPlayer(4, $t('O teto desabou em você (4).', 'The ceiling collapsed on you (4).'));
         const a = allyAt(x,y); if (a) damageAlly(a, 4);
         const o = enemyAt(x,y); if (o && !o.boss) damageEnemy(o, 4, 'enemy');
         if (far && far[0]===x && far[1]===y && cheb(x,y,S.player.x,S.player.y)>1 && !occupied(x,y) && !S.items.some(i=>i.x===x&&i.y===y)) S.terrain.set(key(x,y), 'pit');
@@ -853,7 +969,7 @@ async function enemyPhase(){
       else if (kind==='frost'){ if (!isLava(x,y) && !isWater(x,y)) S.terrain.set(key(x,y), 'ice'); burst(x, y, '#dff0fa', 22); }
     }
     if (kind==='flood') S.sight = Math.max(2.4, sight() - .4);
-    log({collapse:'O teto desabou.', flood:'A água subiu e a névoa fechou.', lava:'A lava se espalhou.', frost:'O gelo avançou.'}[kind]);
+    log({collapse:$t('O teto desabou.', 'The ceiling collapsed.'), flood:$t('A água subiu e a névoa fechou.', 'The water rose and the fog closed in.'), lava:$t('A lava se espalhou.', 'The lava spread.'), frost:$t('O gelo avançou.', 'The ice advanced.')}[kind]);
     if (!alive()) return;
     await sleep(300);
   }
@@ -864,7 +980,7 @@ async function enemyPhase(){
       const p = makeEnemy('P', x, y); p.mods = p.mods.filter(m => m!=='submerge'); p.risen = true;
       S.enemies.push(p); S.risen = (S.risen||0)+1;
       burst(x, y, '#b9c9a6', 22); fx.rings.push({x, y, t:0, c:'170,200,150'}); fx.shake = Math.max(fx.shake, 5);
-      log('Um esqueleto se ergue do túmulo.');
+      log($t('Um esqueleto se ergue do túmulo.', 'A skeleton rises from the grave.'));
       await sleep(260);
       if (!alive()) return;
     }
@@ -884,7 +1000,8 @@ async function enemyPhase(){
       if (S.dead || !S.enemies.includes(e)) break;
       if (s>0){ fx.flashes.push({sq, t:1}); await sleep(200); if (!alive()) return; }
       const hit = enemyHit(e);
-      if (e.type!=='P' && e.type!=='K') for (const o of [...S.enemies]) if (o!==e && on(o)) damageEnemy(o, hit, 'enemy');
+      // friendly fire from common line pieces; a boss never hits its own minions (its guards spawn right next to it)
+      if (!e.boss && e.type!=='P' && e.type!=='K') for (const o of [...S.enemies]) if (o!==e && on(o)) damageEnemy(o, hit, 'enemy');
       for (const a of [...S.allies]) if (on(a)){ damageAlly(a, hit); landed = true; }
       if (on(S.player)){ hitPlayer(hit, e); landed = true; }
     }
@@ -897,7 +1014,7 @@ async function enemyPhase(){
       }
     }
     if (e.mods.includes('frost')) for (const [x,y] of sq) if (!isPit(x,y) && !isLava(x,y)) S.terrain.set(key(x,y), 'ice');
-    if (!landed) floatText(e.x, e.y, 'errou', '#a89b87');
+    if (!landed) floatText(e.x, e.y, $t('errou', 'missed'), '#a89b87');
     else if (e.mods.includes('vamp') && S.enemies.includes(e)) healEnemy(e, e.boss ? 4 : 3);
     updateUI();
     await sleep(330);
@@ -918,15 +1035,34 @@ async function enemyPhase(){
         if (e.mods.includes('trample')){
           await sleep(120);
           for (const [dx,dy] of ALL){
-            if (isPlayer(x+dx,y+dy)) hurtPlayer(1, `${enemyName(e)} pisoteou você (1).`);
+            if (isPlayer(x+dx,y+dy)) hurtPlayer(1, $t(`${enemyName(e)} pisoteou você (1).`, `${enemyName(e)} trampled you (1).`));
             const a = allyAt(x+dx,y+dy); if (a) damageAlly(a, 1);
           }
           if (!alive()) return;
         }
+        if (stats().enPassant && cheb(x,y,S.player.x,S.player.y)===1){
+          floatText(x, y-0.4, $t('en passant', 'en passant'), '#e3b456');
+          const was = S.blasting; S.blasting = true; damageEnemy(e, Math.max(1, Math.ceil(attackDmg(stats(), e)/2)), 'player'); S.blasting = was;
+          if (!alive()) return;
+          if (!S.enemies.includes(e)){ await sleep(120); continue; }
+        }
         if (e.bossId==='pawn' && e.y===H-1) promotePawnBoss(e);
-        else if (e.type==='P' && !e.boss && e.y===H-1) promoteEnemyPawn(e);
+        else if (e.type==='P' && !e.boss && !e.horde && e.y===H-1) promoteEnemyPawn(e);
       }
       await sleep(120);
+    } else if (it.kind==='royal'){
+      if (it.order==='promote'){
+        const p = S.enemies.find(o => o.id===it.id);
+        if (p){ const d = EDEF.Q; p.type = 'Q'; p.hp = p.maxHp = Math.round(d.hp*enemyScale()); p.dmg = d.dmg + Math.floor((S.lvl-1)/3) + (S.torment||0);
+          floatText(p.x, p.y-0.4, $t('Promoção', 'Promotion'), '#e3b456'); burst(p.x, p.y, '#e3b456', 20);
+          log($t('Ordem Real: um peão da corte foi promovido a rainha.', 'Royal Order: a pawn of the court was promoted to queen.')); }
+      } else {
+        for (const o of S.enemies) if (!o.boss){ o.hp = o.maxHp; if ((o.rally||0) < 3){ o.rally = (o.rally||0)+1; o.dmg++; } burst(o.x, o.y, '#e3b456', 8); }
+        const sh = Math.round(e.maxHp*.06); e.shield += sh; fx.rings.push({x:e.x, y:e.y, t:0, c:'227,180,86'});
+        floatText(e.x, e.y-0.5, $t('Grito de Guerra', 'War Cry'), '#e3b456');
+        log($t(`Ordem Real: Grito de Guerra. A corte se cura e o Rei ganha ${sh} de escudo.`, `Royal Order: War Cry. The court heals and the King gains ${sh} shield.`));
+      }
+      updateUI(); await sleep(260);
     } else if (it.kind==='summon'){
       for (const [x,y] of it.to){
         if (occupied(x,y)) continue;
@@ -934,7 +1070,7 @@ async function enemyPhase(){
         p.mods = p.mods.filter(m => m!=='submerge');
         S.enemies.push(p); burst(x, y, '#b8332b', 12);
       }
-      log(`${e.name} invoca reforços.`);
+      log($t(`${e.name} invoca reforços.`, `${e.name} summons reinforcements.`));
       await sleep(240);
     }
   }
@@ -942,14 +1078,15 @@ async function enemyPhase(){
   // end of round hazards
   for (const [k,t] of [...S.terrain]) if (t==='lava'){
     const [x,y] = unkey(k);
-    if (isPlayer(x,y)){ const v = resist(2,'fire'); hurtPlayer(v, `A lava te queima (${v}).`); }
+    if (isPlayer(x,y)){ if (stats().forgeWalk){ S.nextBonus = Math.max(S.nextBonus||0, 2); floatText(x, y-0.4, $t('forja +2', 'forge +2'), '#f08a3c'); }
+      else { const v = resist(2,'fire'); hurtPlayer(v, $t(`A lava te queima (${v}).`, `The lava burns you (${v}).`)); } }
     const a = allyAt(x,y); if (a) damageAlly(a, 2);
     const o = enemyAt(x,y); if (o && !o.mods.includes('lavaTrail')) damageEnemy(o, 2, 'enemy');
   }
   if (!alive()) return;
   for (const [k,t] of [...S.burn]){
     const [x,y] = unkey(k);
-    if (isPlayer(x,y)){ const v = resist(2,'fire'); hurtPlayer(v, `As brasas te queimam (${v}).`); }
+    if (isPlayer(x,y) && !stats().forgeWalk){ const v = resist(2,'fire'); hurtPlayer(v, $t(`As brasas te queimam (${v}).`, `The embers burn you (${v}).`)); }
     const a = allyAt(x,y); if (a) damageAlly(a, 2);
     if (t<=1) S.burn.delete(k); else S.burn.set(k, t-1);
   }
@@ -982,16 +1119,16 @@ function promoteEnemyPawn(e){
   e.type = t;
   e.hp = e.maxHp = Math.max(1, Math.round(d.hp*enemyScale() * (e.elite ? 2 : 1) * (e.fodder ? .4 : 1)));
   e.dmg = Math.max(1, d.dmg + Math.floor((S.lvl-1)/3) + (S.torment||0) + (e.elite ? 1 : 0) - (e.fodder ? 1 : 0));
-  floatText(e.x, e.y-0.4, 'Promoção', '#e3b456'); burst(e.x, e.y, '#e3b456', 18);
-  log(`Um peão inimigo chegou ao fim do tabuleiro e virou ${EDEF[t].name}.`);
+  floatText(e.x, e.y-0.4, $t('Promoção', 'Promotion'), '#e3b456'); burst(e.x, e.y, '#e3b456', 18);
+  log($t(`Um peão inimigo chegou ao fim do tabuleiro e virou ${EDEF[t].name}.`, `An enemy pawn reached the end of the board and became a ${EDEF[t].name}.`));
 }
 function promotePawnBoss(e){
   e.bossId = 'queen'; e.type = 'Q'; e.phase = 2;
-  e.name = e.side==='dark' ? 'Rainha Promovida' : 'Rainha Ascendida';
+  e.name = e.side==='dark' ? $t('Rainha Promovida', 'Promoted Queen') : $t('Rainha Ascendida', 'Ascended Queen');
   e.hp = e.maxHp = Math.round(BOSSES.queen.hp*enemyScale());
   fx.shake = Math.max(fx.shake, 18); burst(e.x, e.y, '#e3b456', 40);
-  showBanner('Promoção', `${e.name} renasce com vida cheia.`);
-  log('O peão chegou ao fim do tabuleiro e virou rainha.');
+  showBanner($t('Promoção', 'Promotion'), $t(`${e.name} renasce com vida cheia.`, `${e.name} is reborn at full health.`));
+  log($t('O peão chegou ao fim do tabuleiro e virou rainha.', 'The pawn reached the end of the board and became a queen.'));
 }
 
 /* ---------- Input actions ---------- */
@@ -1009,7 +1146,7 @@ function onClick(tx,ty){
   const st = stats();
   if (t.kind==='attack') playerAct(() => doAttack(t));
   else if (t.kind==='swap'){
-    if (st.freeSwap && !S.freeSwapUsed){ S.freeSwapUsed = true; S.actions++; floatText(S.player.x, S.player.y-0.3, 'roque', '#e3b456'); }
+    if (st.freeSwap && !S.freeSwapUsed){ S.freeSwapUsed = true; S.actions++; floatText(S.player.x, S.player.y-0.3, $t('roque', 'castling'), '#e3b456'); }
     playerAct(() => doSwap(t));
   } else playerAct(() => { if (st.censer) burnTrail(S.player.x, S.player.y, t.x, t.y); moveTo(t.x, t.y); });
 }
@@ -1036,8 +1173,8 @@ function usePact(){
   if (!S || S.phase!=='player' || S.color!=='b' || S.pactUsed || S.player.hp<=4 || !S.enemies.length) return;
   S.pactUsed = true; S.player.hp -= 4;
   for (const id in S.cds) S.cds[id] = 0;
-  floatText(S.player.x, S.player.y, '-4 / recargas zeradas', '#ff6b5e'); burst(S.player.x, S.player.y, '#b8332b', 14);
-  log('Pacto de Sangue.');
+  floatText(S.player.x, S.player.y, $t('-4 / recargas zeradas', '-4 / cooldowns reset'), '#ff6b5e'); burst(S.player.x, S.player.y, '#b8332b', 14);
+  log($t('Pacto de Sangue.', 'Blood Pact.'));
   updateUI();
 }
 function waitTurn(){

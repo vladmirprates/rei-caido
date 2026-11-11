@@ -9,9 +9,9 @@ const riftMaxAlive = () => Math.max(3, Math.min(8, Math.round(2 + eventPower()/4
 function startTide(cont){
   S.tide = true;
   if (!cont) S.tideLeft = rint(3);
-  const more = S.tideLeft ? ` Ela deve durar mais ${S.tideLeft} ${S.tideLeft===1?'andar':'andares'}.` : ' Ela recua depois deste andar.';
-  log(cont ? 'A Maré de Sangue continua.' : 'A Maré de Sangue sobe.');
-  S.eventNote = [cont ? 'A Maré continua' : 'Maré de Sangue', 'Poças de sangue sobem: inimigos nelas batem mais forte, mas abates ali dão Brasas em dobro.' + more];
+  const more = S.tideLeft ? $t(` Ela deve durar mais ${S.tideLeft} ${S.tideLeft===1?'andar':'andares'}.`, ` It should last ${S.tideLeft} more ${S.tideLeft===1?'floor':'floors'}.`) : $t(' Ela recua depois deste andar.', ' It recedes after this floor.');
+  log(cont ? $t('A Maré de Sangue continua.', 'The Blood Tide continues.') : $t('A Maré de Sangue sobe.', 'The Blood Tide rises.'));
+  S.eventNote = [cont ? $t('A Maré continua', 'The Tide continues') : $t('Maré de Sangue', 'Blood Tide'), $t('Poças de sangue sobem: inimigos nelas batem mais forte, mas abates ali dão Brasas em dobro.', 'Blood pools rise: enemies in them hit harder, but kills there give double Embers.') + more];
 }
 // how many moves the checkmate takes follows progress: 1 in Act 1, up to 3 or 4 in Torment and maps
 function puzzleDepths(){
@@ -19,10 +19,11 @@ function puzzleDepths(){
   return p<=3 ? [1] : p<=6 ? [1,2] : p<=9 ? [2] : p<=12 ? [2,3] : p<=18 ? [3] : [3,4];
 }
 function placeEvent(force){
-  if (S.exp.kind==='daily' || S.exp.kind==='uber' || S.exp.kind==='tutorial') return;
+  if (['daily','uber','pinnacle','tutorial'].includes(S.exp.kind)) return;
   // Atlas keystone: every map floor has the tide, on top of any other event
   if (S.exp.kind==='map' && atlasRank('kTide')) startTide(true);
   else if (S.tideLeft>0){ S.tideLeft--; startTide(true); }
+  if (S.mapAff.has('rHorde') && !force){ startHorde(); return; }
   const chance = S.exp.kind==='map' ? .6 + .1*atlasRank('aEvent') : S.exp.kind==='abyss' ? .45 : .35;
   if (!force && rnd()>=chance && !S.mapAff.has('rEvent')) return;
   let spot = null;
@@ -33,15 +34,18 @@ function placeEvent(force){
   if (!spot) return;
   // the Blood Tide is one of the floor events, from Act 2 on (it makes the floor harder)
   const tideOk = contentLvl()>=4 && !S.tide;
-  const kind = force || (tideOk && rnd()<.25 ? 'tide' : rnd() < Math.min(.9, Math.max(.1, .5 - .15*atlasRank('aRiftW'))) ? 'frozen' : 'rift');
+  // the Horde: endgame content (maps, Torment, the end of the campaign)
+  const hordeOk = contentLvl()>=10;
+  const kind = force || (hordeOk && rnd()<.25 ? 'horde' : tideOk && rnd()<.25 ? 'tide' : rnd() < Math.min(.9, Math.max(.1, .5 - .15*atlasRank('aRiftW'))) ? 'frozen' : 'rift');
   if (kind==='tide'){ startTide(); return; }
+  if (kind==='horde'){ startHorde(); return; }
   if (kind==='frozen' && frozenMode()==='army'){
     S.items.push({x:spot[0], y:spot[1], frozenArmy:pick(OPENINGS).id});
     // the army replaces part of the floor's usual enemies
     const regular = S.enemies.filter(e => !e.elite && !e.boss);
     for (const e of shuffle(regular).slice(0, Math.floor(regular.length * armySize()/32))) S.enemies = S.enemies.filter(o => o!==e);
-    log('Um tabuleiro congelado brilha neste andar.');
-    S.eventNote = ['Exército Congelado', 'Um tabuleiro de gelo brilha neste andar. Pise nele para revelar o exército.'];
+    log($t('Um tabuleiro congelado brilha neste andar.', 'A frozen board glows on this floor.'));
+    S.eventNote = [$t('Exército Congelado', 'Frozen Army'), $t('Um tabuleiro de gelo brilha neste andar. Pise nele para revelar o exército.', 'An ice board glows on this floor. Step on it to reveal the army.')];
   } else if (kind==='frozen'){
     const depths = puzzleDepths(), maxN = Math.max(...depths);
     const unknown = MATES.filter(m => !(HERO.grimoire||{})[m.id] && m.n<=maxN);
@@ -49,13 +53,48 @@ function placeEvent(force){
     // mostly the longer problems; now and then a pattern you haven't learned yet (it teaches a Grimório power)
     const P = unknown.length && (rnd()<.35 || !pool.length) ? pick(unknown) : pick(pool.length ? pool : PROBLEMS);
     S.items.push({x:spot[0], y:spot[1], frozen:P.id});
-    log('Um tabuleiro congelado brilha neste andar.');
-    S.eventNote = ['Partida Congelada', 'Um tabuleiro de gelo brilha neste andar. Pise nele para jogar.'];
+    log($t('Um tabuleiro congelado brilha neste andar.', 'A frozen board glows on this floor.'));
+    S.eventNote = [$t('Partida Congelada', 'Frozen Match'), $t('Um tabuleiro de gelo brilha neste andar. Pise nele para jogar.', 'An ice board glows on this floor. Step on it to play.')];
   } else {
     S.items.push({x:spot[0], y:spot[1], riftGate:true});
-    log('Uma fenda pulsa neste andar.');
-    S.eventNote = ['Uma Fenda pulsa', 'Pise no rasgo roxo para abri-la. Crias surgem e deixam Estilhaços.'];
+    log($t('Uma fenda pulsa neste andar.', 'A rift pulses on this floor.'));
+    S.eventNote = [$t('Uma Fenda pulsa', 'A Rift pulses'), $t('Pise no rasgo roxo para abri-la. Crias surgem e deixam Estilhaços.', 'Step on the purple tear to open it. Spawn appear and drop Shards.')];
   }
+}
+
+/* ---------- The Horde ----------
+   Dozens of frail minions that die to one blow: the floor where an on-kill build runs wild.
+   Clearing the whole horde drops a chest; doing it within the turn par adds a rare item. */
+function startHorde(){
+  const st = stats();
+  // fewer regular enemies so the horde has room
+  const regular = S.enemies.filter(o => !o.elite && !o.boss && !o.group);
+  for (const o of shuffle(regular).slice(0, Math.floor(regular.length/2))) S.enemies = S.enemies.filter(q => q!==o);
+  const want = Math.round(W*H*.3); let n = 0;
+  for (let g=0; g<600 && n<want; g++){
+    const x = rint(W), y = rint(H-2);
+    if (occupied(x,y) || terrainAt(x,y) || cheb(x,y,S.player.x,S.player.y)<=2 || S.items.some(i => i.x===x && i.y===y)) continue;
+    const m = makeEnemy('P', x, y);
+    m.fodder = true; m.horde = true; m.label = $t('Lacaio da Horda', 'Horde Minion'); m.mods = [];
+    m.hp = m.maxHp = Math.max(1, Math.floor(st.dmg*.8)); m.dmg = Math.max(1, Math.ceil(m.dmg*.5));
+    S.enemies.push(m); n++;
+  }
+  if (!n) return;
+  S.horde = {total:n, killed:0, start:1, par:Math.ceil(n/2)+2};   // placed while the floor is built: it starts on turn 1
+  log($t(`Uma Horda de ${n} lacaios toma este andar. Limpe tudo em até ${S.horde.par} turnos para um bônus.`, `A Horde of ${n} minions takes this floor. Clear it all within ${S.horde.par} turns for a bonus.`));
+  S.eventNote = [$t('Horda', 'Horde'), $t(`${n} lacaios frágeis. Limpe a horda em até ${S.horde.par} turnos para um bônus.`, `${n} frail minions. Clear the horde within ${S.horde.par} turns for a bonus.`)];
+}
+function hordeKill(e){
+  const h = S.horde; if (!h || !e.horde) return;
+  h.killed++;
+  if (h.killed < h.total) return;
+  const fast = S.turn - h.start + 1 <= h.par;
+  const spot = [[e.x,e.y], ...ALL.map(([dx,dy]) => [e.x+dx,e.y+dy])].find(([x,y]) => inb(x,y) && !isWall(x,y) && !isPit(x,y) && !S.items.some(i => i.x===x && i.y===y));
+  if (spot) S.items.push({x:spot[0], y:spot[1], chest:true});
+  if (fast){ const s2 = ALL.map(([dx,dy]) => [e.x+dx,e.y+dy]).find(([x,y]) => inb(x,y) && !isWall(x,y) && !isPit(x,y) && !S.items.some(i => i.x===x && i.y===y)); if (s2) S.items.push({x:s2[0], y:s2[1], item:rollItem('rare', areaIlvl()+2)}); }
+  showBanner($t('Horda destruída', 'Horde destroyed'), fast ? $t(`Em ${S.turn - h.start + 1} turnos: baú e um item raro de bônus.`, `In ${S.turn - h.start + 1} turns: a chest and a bonus rare item.`) : $t('Um baú surgiu.', 'A chest appeared.'));
+  log(fast ? $t('Horda destruída a tempo: um baú e um item raro de bônus.', 'Horde destroyed in time: a chest and a bonus rare item.') : $t('Horda destruída: um baú surgiu.', 'Horde destroyed: a chest appeared.'));
+  S.horde = null;
 }
 
 /* ---------- Two versions of the frozen event, switchable in the camp ----------
@@ -64,12 +103,12 @@ function placeEvent(force){
 // the army version is kept in the code but switched off for now: only the checkmate version spawns
 const frozenMode = () => 'puzzle';
 const OPENINGS = [
-  {id:'italiana', name:'Abertura Italiana', fen:'r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R'},
-  {id:'siciliana', name:'Defesa Siciliana, Najdorf', fen:'rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R'},
-  {id:'francesa', name:'Defesa Francesa', fen:'rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPP2PPP/RNBQKBNR'},
-  {id:'carokann', name:'Defesa Caro-Kann', fen:'rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR'},
-  {id:'gambito', name:'Gambito da Dama Recusado', fen:'rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR'},
-  {id:'espanhola', name:'Ruy López (Espanhola)', fen:'r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R'}
+  {id:'italiana', name:$t('Abertura Italiana', 'Italian Game'), fen:'r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R'},
+  {id:'siciliana', name:$t('Defesa Siciliana, Najdorf', 'Sicilian Defense, Najdorf'), fen:'rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R'},
+  {id:'francesa', name:$t('Defesa Francesa', 'French Defense'), fen:'rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPP2PPP/RNBQKBNR'},
+  {id:'carokann', name:$t('Defesa Caro-Kann', 'Caro-Kann Defense'), fen:'rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR'},
+  {id:'gambito', name:$t('Gambito da Dama Recusado', 'Queen\'s Gambit Declined'), fen:'rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR'},
+  {id:'espanhola', name:$t('Ruy López (Espanhola)', 'Ruy López (Spanish)'), fen:'r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R'}
 ];
 const TIME_STOP = 3;
 // The black half of the opening appears on the top rows as NEW, frozen pieces (the floor's own enemies keep acting).
@@ -91,7 +130,7 @@ function startFrozenArmy(en){
     if (!cands.length) continue;
     const [x,y] = cands[0];
     const e = makeEnemy(p.t, x, y, {rx:x, ry:y});
-    e.frozenPiece = true; e.armyPiece = true; e.label = p.t==='K' ? 'Rei do Exército' : null;
+    e.frozenPiece = true; e.armyPiece = true; e.label = p.t==='K' ? $t('Rei do Exército', 'King of the Army') : null;
     if (p.t==='P') e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp*.6));
     e.mods = e.mods.filter(m => m!=='submerge');
     e.intent = {kind:'wait', frozen:true};
@@ -102,16 +141,16 @@ function startFrozenArmy(en){
   S.shattered = []; S.armyOpening = O.name; S.floorCleared = false;
   refreshDanger();
   fx.shake = Math.max(fx.shake, 6);
-  showBanner('Exército Congelado', `${O.name}: ${TIME_STOP} turnos para estilhaçar peças. Quando o gelo derreter, elas voltam, e só as estilhaçadas deixam saque.`);
-  log(`Exército Congelado: ${O.name}. ${TIME_STOP} turnos até o gelo derreter.`);
+  showBanner($t('Exército Congelado', 'Frozen Army'), $t(`${O.name}: ${TIME_STOP} turnos para estilhaçar peças. Quando o gelo derreter, elas voltam, e só as estilhaçadas deixam saque.`, `${O.name}: ${TIME_STOP} turns to shatter pieces. When the ice melts they come back, and only the shattered ones drop loot.`));
+  log($t(`Exército Congelado: ${O.name}. ${TIME_STOP} turnos até o gelo derreter.`, `Frozen Army: ${O.name}. ${TIME_STOP} turns until the ice melts.`));
 }
 // a frozen piece destroyed by you shatters: it leaves the board until the ice melts, marked for loot
 function shatterPiece(e){
   S.enemies = S.enemies.filter(o => o!==e);
   e.marked = true; S.shattered.push(e);
   burst(e.x, e.y, '#cfe6f5', 22); fx.shake = Math.max(fx.shake, 4);
-  floatText(e.x, e.y-0.3, 'estilhaçado', '#cfe6f5');
-  log(`${enemyName(e)} foi estilhaçado. Volta quando o gelo derreter, e aí pode deixar saque.`);
+  floatText(e.x, e.y-0.3, $t('estilhaçado', 'shattered'), '#cfe6f5');
+  log($t(`${enemyName(e)} foi estilhaçado. Volta quando o gelo derreter, e aí pode deixar saque.`, `${enemyName(e)} was shattered. It comes back when the ice melts, and then it can drop loot.`));
 }
 // end of each enemy phase: count down; at zero the army wakes and the shattered pieces come back
 function frozenTick(){
@@ -130,8 +169,8 @@ function frozenTick(){
   }
   const n = (S.shattered || []).length;
   S.shattered = [];
-  showBanner('O gelo derreteu', n ? `O exército despertou. ${n} ${n===1 ? 'peça estilhaçada voltou' : 'peças estilhaçadas voltaram'}, marcadas para deixar saque.` : 'O exército despertou.');
-  log(`O gelo derreteu. ${n} ${n===1?'peça marcada':'peças marcadas'} para saque.`);
+  showBanner($t('O gelo derreteu', 'The ice melted'), n ? $t(`O exército despertou. ${n} ${n===1 ? 'peça estilhaçada voltou' : 'peças estilhaçadas voltaram'}, marcadas para deixar saque.`, `The army awoke. ${n} ${n===1 ? 'shattered piece came back' : 'shattered pieces came back'}, marked to drop loot.`) : $t('O exército despertou.', 'The army awoke.'));
+  log($t(`O gelo derreteu. ${n} ${n===1?'peça marcada':'peças marcadas'} para saque.`, `The ice melted. ${n} ${n===1?'piece':'pieces'} marked for loot.`));
 }
 // loot for army pieces: only the marked ones, and better than usual; the marked King also gives a Seal
 function armyLoot(e){
@@ -139,8 +178,8 @@ function armyLoot(e){
   if (e.type==='K'){
     HERO.checkSeals = (HERO.checkSeals||0) + 1;
     S.items.push({x:e.x, y:e.y, item:genItem(true)});
-    floatText(e.x, e.y-0.5, '+1 Selo de Xeque', '#cfe6f5');
-    log('O Rei marcado caiu: +1 Selo de Xeque.');
+    floatText(e.x, e.y-0.5, $t('+1 Selo de Xeque', '+1 Check Seal'), '#cfe6f5');
+    log($t('O Rei marcado caiu: +1 Selo de Xeque.', 'The marked King fell: +1 Check Seal.'));
   } else if (rnd() < (e.type==='P' ? .3 : .65) + .1*atlasRank('aMarked')) S.items.push({x:e.x, y:e.y, item:genItem(e.type==='Q' || e.type==='R')});
 }
 
@@ -154,8 +193,8 @@ function frozenPlay(en){
     board[hero] = {...board[hero], hero:true};
     S.chess = {P, board, left:P.n, sel:null, last:null, hints:0, busy:false, at:[en.x,en.y], resolve, hintMove:null};
     S.phase = 'chess'; hover = null; $('tip').hidden = true;
-    showBanner('Partida Congelada', `${P.name}: dê xeque-mate em ${P.n} ${P.n===1 ? 'lance' : 'lances'}.`);
-    log(`Partida Congelada: ${P.name}. Mate em ${P.n}.`);
+    showBanner($t('Partida Congelada', 'Frozen Match'), $t(`${P.name}: dê xeque-mate em ${P.n} ${P.n===1 ? 'lance' : 'lances'}.`, `${P.name}: deliver checkmate in ${P.n} ${P.n===1 ? 'move' : 'moves'}.`));
+    log($t(`Partida Congelada: ${P.name}. Mate em ${P.n}.`, `Frozen Match: ${P.name}. Mate in ${P.n}.`));
     updateUI();
   });
 }
@@ -197,11 +236,11 @@ async function chessEnd(result){
   await sleep(reduce ? 200 : 700);
   if (result==='win'){
     const lines = frozenReward(c);
-    await openModal({title:'Xeque-mate!', body:`<p class="mtext">${c.P.name} resolvido${c.hints ? ` com ${c.hints} ${c.hints===1?'dica':'dicas'}` : ' sem dicas'}.</p><ul class="mtext">${lines.map(l => `<li>${l}</li>`).join('')}</ul>`,
-      note:'O saque está no chão, ao lado do tabuleiro de gelo.', actions:[{label:'Voltar ao andar', primary:true, value:'ok'}]});
+    await openModal({title:$t('Xeque-mate!', 'Checkmate!'), body:`<p class="mtext">${c.P.name} ${$t('resolvido', 'solved')}${c.hints ? $t(` com ${c.hints} ${c.hints===1?'dica':'dicas'}`, ` with ${c.hints} ${c.hints===1?'hint':'hints'}`) : $t(' sem dicas', ' with no hints')}.</p><ul class="mtext">${lines.map(l => `<li>${l}</li>`).join('')}</ul>`,
+      note:$t('O saque está no chão, ao lado do tabuleiro de gelo.', 'The loot is on the ground, next to the ice board.'), actions:[{label:$t('Voltar ao andar', 'Back to the floor'), primary:true, value:'ok'}]});
   } else {
-    await openModal({title:'O exército desperta', body:`<p class="mtext">${result==='stale' ? 'Afogamento não é mate.' : 'O mate não veio a tempo.'} As peças pretas ganham vida ao redor do tabuleiro de gelo.</p>`,
-      actions:[{label:'Voltar ao andar e lutar', primary:true, value:'ok'}]});
+    await openModal({title:$t('O exército desperta', 'The army awakens'), body:`<p class="mtext">${result==='stale' ? $t('Afogamento não é mate.', 'Stalemate is not mate.') : $t('O mate não veio a tempo.', 'The mate did not come in time.')} ${$t('As peças pretas ganham vida ao redor do tabuleiro de gelo.', 'The black pieces come to life around the ice board.')}</p>`,
+      actions:[{label:$t('Voltar ao andar e lutar', 'Back to the floor and fight'), primary:true, value:'ok'}]});
     thawArmy(c);
   }
   S.chess = null; S.phase = 'modal';
@@ -215,18 +254,18 @@ function frozenReward(c){
   if (!c.P.problem){
     const first = !HERO.grimoire[c.P.id];
     HERO.grimoire[c.P.id] = true;
-    if (first){ lines.push(`<b>Grimório:</b> ${c.P.name} aprendido. ${c.P.power}`); log(`Grimório: ${c.P.name} aprendido.`); }
+    if (first){ lines.push(`<b>${$t('Grimório:', 'Grimoire:')}</b> ${c.P.name} ${$t('aprendido.', 'learned.')} ${c.P.power}`); log($t(`Grimório: ${c.P.name} aprendido.`, `Grimoire: ${c.P.name} learned.`)); }
   }
   const seals = c.P.n>=4 ? 2 : 1;
   HERO.checkSeals = (HERO.checkSeals||0) + seals;
-  lines.push(`+${seals} ${seals===1 ? 'Selo' : 'Selos'} de Xeque`);
-  if (!c.hints){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; lines.push(`${RUNES[r].name} (bônus por não usar dicas)`); }
+  lines.push($t(`+${seals} ${seals===1 ? 'Selo' : 'Selos'} de Xeque`, `+${seals} Check ${seals===1 ? 'Seal' : 'Seals'}`));
+  if (!c.hints){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; lines.push($t(`${RUNES[r].name} (bônus por não usar dicas)`, `${RUNES[r].name} (bonus for using no hints)`)); }
   const n = c.P.n;
   const items = [rollItem(c.hints>=2 || n===1 ? 'magic' : 'rare', areaIlvl())];
   if (n>=3) items.push(rollItem(n>=4 || !c.hints ? 'rare' : 'magic', areaIlvl() + (n>=4 ? 2 : 0)));
   const spots = [[c.at[0],c.at[1]], ...ALL.map(([dx,dy]) => [c.at[0]+dx, c.at[1]+dy])].filter(([x,y]) => inb(x,y) && !isWall(x,y) && !isPit(x,y) && !S.items.some(i => i.x===x && i.y===y));
-  for (const it of items){ const s = spots.shift() || c.at; S.items.push({x:s[0], y:s[1], item:it}); lines.push(`<span class="rc-${it.rar}">${esc(it.name)}</span> no chão`); }
-  log(`Xeque-mate: ${c.P.name}.`);
+  for (const it of items){ const s = spots.shift() || c.at; S.items.push({x:s[0], y:s[1], item:it}); lines.push(`<span class="rc-${it.rar}">${esc(it.name)}</span> ${$t('no chão', 'on the ground')}`); }
+  log($t(`Xeque-mate: ${c.P.name}.`, `Checkmate: ${c.P.name}.`));
   burst(c.at[0], c.at[1], '#cfe6f5', 30); fx.rings.push({x:c.at[0], y:c.at[1], t:0, c:'207,230,245'});
   return lines;
 }
@@ -245,7 +284,7 @@ function thawArmy(c){
     S.enemies.push(e); burst(s[0], s[1], '#cfe6f5', 12);
   });
   S.floorCleared = false;
-  log('O exército congelado despertou.');
+  log($t('O exército congelado despertou.', 'The frozen army awoke.'));
 }
 
 /* ---------- The Rift (Fenda) ---------- */
@@ -253,8 +292,8 @@ function thawArmy(c){
 function openRift(en){
   S.rift = {x:en.x, y:en.y, turns:5 + atlasRank('aRift') - (atlasRank('kCollapse') ? 2 : 0), ext:0, kills:0, wave:0};
   S.floorCleared = false;
-  showBanner('A Fenda se abriu', `5 turnos de ondas cada vez maiores (até ${riftMaxAlive()} crias ao mesmo tempo). Crias deixam Estilhaços; a cada 3 abates perto dela, +1 turno (até +3).`);
-  log('A Fenda se abriu.');
+  showBanner($t('A Fenda se abriu', 'The Rift opened'), $t(`5 turnos de ondas cada vez maiores (até ${riftMaxAlive()} crias ao mesmo tempo). Crias deixam Estilhaços; a cada 3 abates perto dela, +1 turno (até +3).`, `5 turns of ever larger waves (up to ${riftMaxAlive()} spawn at once). Spawn drop Shards; every 3 kills near it, +1 turn (up to +3).`));
+  log($t('A Fenda se abriu.', 'The Rift opened.'));
   fx.rings.push({x:en.x, y:en.y, t:0, c:'180,140,255'}); fx.shake = Math.max(fx.shake, 8);
   riftSpawn(Math.min(3, riftMaxAlive()-1));
 }
@@ -266,7 +305,7 @@ function riftSpawn(n){
   for (const [x,y] of shuffle(spots).slice(0, Math.max(0,n))){
     const pool = eventPower()<4 ? ['P','P','P','N'] : eventPower()<10 ? ['P','P','N','B'] : ['P','P','N','B','R'];
     const e = makeEnemy(pick(pool), x, y, {rx:r.x, ry:r.y});
-    e.rift = true; e.label = 'Cria da Fenda'; e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp*.8));
+    e.rift = true; e.label = $t('Cria da Fenda', 'Rift Spawn'); e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp*.8));
     e.mods = e.mods.filter(m => m!=='submerge');
     S.enemies.push(e); burst(x, y, '#b48cff', 12);
   }
@@ -280,10 +319,14 @@ function riftTick(){
 }
 function closeRift(){
   const gone = S.enemies.filter(e => e.rift);
+  // surviving the whole rift pays a bonus (more on higher Torment)
+  const bonus = Math.round((5 + 2*(S.torment||0)) * (S.mapAff.has('rShards') ? 1.5 : 1));
+  HERO.riftShards = (HERO.riftShards||0) + bonus; S.riftShardsRun = (S.riftShardsRun||0) + bonus;
+  floatText(S.player.x, S.player.y-0.5, $t(`+${bonus} estilhaços`, `+${bonus} shards`), '#b48cff');
   S.enemies = S.enemies.filter(e => !e.rift);
   for (const e of gone) burst(e.x, e.y, '#b48cff', 14);
-  showBanner('A Fenda se fechou', `+${S.riftShardsRun||0} Estilhaços da Fenda nesta abertura.`);
-  log(`A Fenda se fechou. Estilhaços: ${HERO.riftShards||0}.`);
+  showBanner($t('A Fenda se fechou', 'The Rift closed'), $t(`+${S.riftShardsRun||0} Estilhaços da Fenda nesta abertura.`, `+${S.riftShardsRun||0} Rift Shards from this opening.`));
+  log($t(`A Fenda se fechou. Estilhaços: ${HERO.riftShards||0}.`, `The Rift closed. Shards: ${HERO.riftShards||0}.`));
   S.rift = null;
 }
 function riftKill(e){
@@ -291,25 +334,57 @@ function riftKill(e){
   if (e.rift){
     const n = Math.max(1, Math.round((1 + (e.type==='R' || e.type==='Q' ? 1 : 0)) * (S.mapAff.has('rShards') ? 1.5 : 1) * (1 + .1*atlasRank('aShards'))));
     HERO.riftShards = (HERO.riftShards||0) + n; S.riftShardsRun = (S.riftShardsRun||0) + n;
-    floatText(e.x, e.y-0.5, `+${n} estilhaço${n>1?'s':''}`, '#b48cff');
+    floatText(e.x, e.y-0.5, $t(`+${n} estilhaço${n>1?'s':''}`, `+${n} shard${n>1?'s':''}`), '#b48cff');
   }
   if (cheb(e.x,e.y,r.x,r.y)<=3){
     r.kills++;
-    if (r.kills%3===0 && r.ext<3){ r.ext++; r.turns++; floatText(r.x, r.y-0.6, '+1 turno', '#e6d6ff'); }
+    if (r.kills%3===0 && r.ext<3){ r.ext++; r.turns++; floatText(r.x, r.y-0.6, $t('+1 turno', '+1 turn'), '#e6d6ff'); }
   }
 }
 
 /* ---------- Uber boss: Rainha Suprema ---------- */
-const UBER_COST = {shards:80, seals:2};
+// about 3 Rifts and 3 Frozen Matches per uber boss
+const UBER_COST = {shards:45, seals:3};
 const UBER_UNIQUES = [
-  {slot:'arma', name:'Cetro da Suprema', affixes:[{k:'execute'},{k:'dmg',v:4},{k:'crit',v:15}]},
-  {slot:'armadura', name:'Manto da Coroa Partida', affixes:[{k:'aegisFirst'},{k:'hp',v:12},{k:'block',v:12}]},
-  {slot:'anel', name:'Anel da Fenda', affixes:[{k:'chain'},{k:'dmg',v:2},{k:'mf',v:30}]},
-  {slot:'botas', name:'Ferraduras do Corcel Supremo', affixes:[{k:'kingStep'},{k:'hp',v:10},{k:'block',v:10}]},
-  {slot:'elmo', name:'Ameias Gêmeas', affixes:[{k:'lineGuard'},{k:'resFire',v:25},{k:'resCold',v:25},{k:'resLight',v:25}]},
-  {slot:'anel', name:'Coroa do Peão Supremo', affixes:[{k:'fury'},{k:'crit',v:15},{k:'eliteDmg',v:25}]}
+  {slot:'arma', name:$t('Cetro da Suprema', 'Scepter of the Supreme'), affixes:[{k:'execute'},{k:'dmg',v:4},{k:'crit',v:15}]},
+  {slot:'armadura', name:$t('Manto da Coroa Partida', 'Cloak of the Broken Crown'), affixes:[{k:'aegisFirst'},{k:'hp',v:12},{k:'block',v:12}]},
+  {slot:'anel', name:$t('Anel da Fenda', 'Ring of the Rift'), affixes:[{k:'chain'},{k:'dmg',v:2},{k:'mf',v:30}]},
+  {slot:'botas', name:$t('Botas do Rei Supremo', 'Boots of the Supreme King'), affixes:[{k:'kingStep'},{k:'hp',v:10},{k:'block',v:10}]},
+  {slot:'elmo', name:$t('Elmo da Muralha Suprema', 'Helm of the Supreme Wall'), affixes:[{k:'lineGuard'},{k:'resFire',v:25},{k:'resCold',v:25},{k:'resLight',v:25}]},
+  {slot:'anel', name:$t('Anel da Fúria Suprema', 'Ring of Supreme Fury'), affixes:[{k:'fury'},{k:'crit',v:15},{k:'eliteDmg',v:25}]}
 ];
+// each uber boss also has two uniques of its own, with a rule that copies its mechanic
+const UBER_OWN = {
+  queen:[{slot:'elmo', name:$t('Coroa Estilhaçada', 'Shattered Crown'), affixes:[{k:'shatterCrown'},{k:'hp',v:8},{k:'crit',v:15}]},
+         {slot:'armadura', name:$t('Véu da Guarda Real', 'Veil of the Royal Guard'), affixes:[{k:'spectralGuard'},{k:'hp',v:10},{k:'shield',v:2}]}],
+  knight:[{slot:'arma', name:$t('Rédeas do Ímpeto', 'Reins of Momentum'), affixes:[{k:'momentum'},{k:'dmg',v:3}]},
+          {slot:'botas', name:$t('Ferraduras da Fuga', 'Horseshoes of Escape'), affixes:[{k:'flee'},{k:'hp',v:10},{k:'block',v:10}]}],
+  twins:[{slot:'elmo', name:$t('Ameias Gêmeas', 'Twin Battlements'), affixes:[{k:'link'},{k:'resFire',v:25},{k:'resCold',v:25},{k:'resLight',v:25}]},
+         {slot:'armadura', name:$t('Couraça da Forja Viva', 'Living Forge Cuirass'), affixes:[{k:'forgeWalk'},{k:'hp',v:12},{k:'resFire',v:30}]}],
+  pawn:[{slot:'elmo', name:$t('Coroa do Peão Supremo', 'Crown of the Supreme Pawn'), affixes:[{k:'supremePromo'},{k:'hp',v:8},{k:'eliteDmg',v:25}]},
+        {slot:'anel', name:$t('Anel do En Passant', 'En Passant Ring'), affixes:[{k:'enPassant'},{k:'dmg',v:1},{k:'mf',v:20}]}]
+};
 const canUber = h => (h.riftShards||0) >= UBER_COST.shards && (h.checkSeals||0) >= UBER_COST.seals;
+
+/* ---------- Pinnacle: the Fallen King ----------
+   Every uber boss drops a Crown Fragment of its own; one of each (4) opens the throne room. */
+const FALLEN_UNIQUES = [
+  {slot:'elmo', name:$t('Coroa do Rei Caído', 'Crown of the Fallen King'), affixes:[{k:'regicide'},{k:'hp',v:12},{k:'crit',v:20}]},
+  {slot:'armadura', name:$t('Manto do Exílio', 'Mantle of Exile'), affixes:[{k:'deathBurst'},{k:'hp',v:14},{k:'block',v:12}]},
+  {slot:'arma', name:$t('Cetro do Trono Vazio', 'Scepter of the Empty Throne'), affixes:[{k:'cleave'},{k:'dmg',v:4},{k:'eliteDmg',v:30}]}
+];
+const fragName = id => $t(`Fragmento da Coroa (${UBERS[id].name})`, `Crown Fragment (${UBERS[id].name})`);
+const canFallen = h => BOSS_ORDER.every(id => ((h.crownFrags||{})[id]||0) > 0);
+// is this unique in the hero's gear or stash?
+const ownsUnique = (h, name) => [...Object.values(h.equip), ...h.stash].some(it => it && it.name===name);
+// items renamed when the uber pool changed (old saves): [old pt, old en, slot, new]
+const RENAMED = [['Coroa do Peão Supremo', 'Crown of the Supreme Pawn', 'anel', 'Anel da Fúria Suprema'],
+  ['Ferraduras do Corcel Supremo', 'Horseshoes of the Supreme Steed', 'botas', 'Botas do Rei Supremo'],
+  ['Ameias Gêmeas', 'Twin Battlements', 'elmo', 'Elmo da Muralha Suprema', 'lineGuard']];
+function renameOld(it){
+  for (const [pt, en, slot, to, rule] of RENAMED)
+    if ((it.name===pt || it.name===en) && it.slot===slot && (!rule || it.affixes.some(a => a.k===rule))) it.name = relabel(to);
+}
 
 /* ---------- Maré de Sangue (Helltide-like) ----------
    A random floor event (from Act 2 on): blood pools, Embers from every kill, a Torment Chest that costs Embers,
@@ -327,10 +402,10 @@ function placeTide(){
   if (rnd() < .35 + .1*atlasRank('aHerald')){
     const cand = shuffle(S.enemies.filter(e => !e.boss && !e.elite && e.type!=='P'))[0];
     if (cand){
-      cand.elite = true; cand.herald = true; cand.label = 'Arauto da Maré';
+      cand.elite = true; cand.herald = true; cand.label = $t('Arauto da Maré', 'Herald of the Tide');
       cand.hp = cand.maxHp = Math.round(cand.maxHp*3); cand.dmg += 2;
       for (const m of shuffle(ELITE_MODS.filter(m => !cand.mods.includes(m))).slice(0,2)) cand.mods.push(m);
-      log('Um Arauto da Maré ronda este andar.');
+      log($t('Um Arauto da Maré ronda este andar.', 'A Herald of the Tide prowls this floor.'));
     }
   }
 }
@@ -352,14 +427,14 @@ function planTide(){
 function resolveTide(){
   if (S.tideRise){
     for (const [x,y] of S.tideRise) if (!isWall(x,y) && !terrainAt(x,y)){ S.terrain.set(key(x,y), 'blood'); burst(x, y, '#9e1a12', 10); }
-    log('A Maré subiu: poças de sangue se espalham.');
+    log($t('A Maré subiu: poças de sangue se espalham.', 'The Tide rose: blood pools spread.'));
     S.tideRise = null;
   }
   if (S.bloodRain){
     const dmg = 2 + Math.floor(S.lvl/6);
     for (const [x,y] of S.bloodRain.sq){
       burst(x, y, '#c41e14', 14); fx.rings.push({x, y, t:0, c:'200,30,20'});
-      if (isPlayer(x,y)) hurtPlayer(dmg, `A Chuva de Sangue te atingiu (${dmg}).`);
+      if (isPlayer(x,y)) hurtPlayer(dmg, $t(`A Chuva de Sangue te atingiu (${dmg}).`, `The Blood Rain hit you (${dmg}).`));
       const a = allyAt(x,y); if (a) damageAlly(a, dmg);
     }
     S.bloodRain = null;
@@ -374,7 +449,7 @@ function tideOverflow(){
   const spot = pick(pools.length ? pools : [[rint(W), rint(Math.ceil(H/2))]]);
   if (spot && !occupied(spot[0],spot[1])){
     const t = pick(['N','B','R']), e = makeEnemy(t, spot[0], spot[1]);
-    e.elite = true; e.herald = true; e.label = 'Arauto da Maré';
+    e.elite = true; e.herald = true; e.label = $t('Arauto da Maré', 'Herald of the Tide');
     e.hp = e.maxHp = Math.round(e.maxHp*3); e.dmg += 2;
     for (const m of shuffle(ELITE_MODS.filter(m => !e.mods.includes(m))).slice(0,2)) e.mods.push(m);
     e.intent = {kind:'wait'};
@@ -386,25 +461,25 @@ function tideOverflow(){
   S.bloodRain = {sq: shuffle(near).slice(0, 4 + rint(3)), pending:true};
   refreshDanger();
   fx.shake = Math.max(fx.shake, 10);
-  showBanner('A Maré transborda', 'Um Arauto se ergue do sangue, e uma Chuva de Sangue vai cair perto de você.');
-  log('A Maré transbordou: um Arauto surgiu e uma Chuva de Sangue se aproxima.');
+  showBanner($t('A Maré transborda', 'The Tide overflows'), $t('Um Arauto se ergue do sangue, e uma Chuva de Sangue vai cair perto de você.', 'A Herald rises from the blood, and a Blood Rain will fall near you.'));
+  log($t('A Maré transbordou: um Arauto surgiu e uma Chuva de Sangue se aproxima.', 'The Tide overflowed: a Herald appeared and a Blood Rain is coming.'));
 }
 function tideKill(e){
   if (!S.tide) return;
   const onBlood = terrainAt(e.x,e.y)==='blood';
   const n = Math.round((e.herald ? 15 : e.boss ? 8 : e.elite ? 3 : 1) * (1 + .15*atlasRank('aEmbers')) * (onBlood ? 2 : 1));
-  if (onBlood) floatText(e.x, e.y-0.7, 'sangue: brasas x2', '#ff6b4a');
+  if (onBlood) floatText(e.x, e.y-0.7, $t('sangue: brasas x2', 'blood: embers x2'), '#ff6b4a');
   if (!e.herald){ S.tideIra = (S.tideIra||0) + (e.elite ? 3 : 1); if (S.tideIra >= (S.tideGoal||8)) tideOverflow(); }
   HERO.embers = (HERO.embers||0) + n; S.embersRun = (S.embersRun||0) + n;
-  if (n>1) floatText(e.x, e.y-0.5, `+${n} brasas`, '#ff6b4a');
-  if (e.herald){ S.items.push({x:e.x, y:e.y, item:rollItem('rare', areaIlvl()+2)}); dropRune(e); log('O Arauto caiu: +15 brasas, um item raro e uma runa.'); }
+  if (n>1) floatText(e.x, e.y-0.5, $t(`+${n} brasas`, `+${n} embers`), '#ff6b4a');
+  if (e.herald){ S.items.push({x:e.x, y:e.y, item:rollItem('rare', areaIlvl()+2)}); dropRune(e); log($t('O Arauto caiu: +15 brasas, um item raro e uma runa.', 'The Herald fell: +15 embers, a rare item and a rune.')); }
 }
 // returns false when there are not enough Embers (the chest stays on the floor)
 function openTideChest(en){
   const cost = tideCost();
   if ((HERO.embers||0) < cost){
-    floatText(en.x, en.y-0.4, `precisa de ${cost} brasas`, '#ff6b4a');
-    log(`O Baú Tormentoso pede ${cost} Brasas de Sangue. Você tem ${HERO.embers||0}.`);
+    floatText(en.x, en.y-0.4, $t(`precisa de ${cost} brasas`, `needs ${cost} embers`), '#ff6b4a');
+    log($t(`O Baú Tormentoso pede ${cost} Brasas de Sangue. Você tem ${HERO.embers||0}.`, `The Torment Chest asks for ${cost} Blood Embers. You have ${HERO.embers||0}.`));
     return false;
   }
   HERO.embers -= cost;
@@ -412,19 +487,19 @@ function openTideChest(en){
   if (rnd()<.25){ const U = pick(classUniques(S.cls)); if (U) S.pendingLoot.push({item: makeUnique(U)}); }
   if (rnd()<.3) dropRune(en);
   burst(en.x, en.y, '#ff4a3a', 30); fx.rings.push({x:en.x, y:en.y, t:0, c:'255,80,60'});
-  log(`Baú Tormentoso aberto (−${cost} brasas).`);
+  log($t(`Baú Tormentoso aberto (−${cost} brasas).`, `Torment Chest opened (−${cost} embers).`));
   return true;
 }
 
 /* ---------- Rival (nemesis) ----------
    One rival per hero, of your own class. It may show up once per expedition; beat it for its gear.
    If it kills you, it grows stronger. */
-const RIVAL_NAMES = ['Aldric','Bertrand','Casimir','Dorian','Edmundo','Fausto','Gaspar','Heitor','Isolda','Jocasta','Leonor','Morgana','Ulrico','Vesna'];
-const RIVAL_EPITHETS = ['o Implacável','a Lâmina Cinza','o Usurpador','a Sombra da Torre','o Sem-Rei','a Coroa Quebrada','o Carrasco','a Dama de Ferro','o Gambito Negro','a Última Fileira'];
+const RIVAL_NAMES = ['Aldric','Bertrand','Casimir','Dorian',$t('Edmundo', 'Edmund'),$t('Fausto', 'Faust'),$t('Gaspar', 'Gaspard'),$t('Heitor', 'Hector'),$t('Isolda', 'Isolde'),'Jocasta',$t('Leonor', 'Eleanor'),'Morgana',$t('Ulrico', 'Ulric'),'Vesna'];
+const RIVAL_EPITHETS = [$t('o Implacável', 'the Relentless'),$t('a Lâmina Cinza', 'the Grey Blade'),$t('o Usurpador', 'the Usurper'),$t('a Sombra da Torre', 'the Shadow of the Tower'),$t('o Sem-Rei', 'the Kingless'),$t('a Coroa Quebrada', 'the Broken Crown'),$t('o Carrasco', 'the Executioner'),$t('a Dama de Ferro', 'the Iron Lady'),$t('o Gambito Negro', 'the Black Gambit'),$t('a Última Fileira', 'the Last Rank')];
 function heroRival(h){ if (!h.rival) h.rival = {name:`${pick(RIVAL_NAMES)} ${pick(RIVAL_EPITHETS)}`, tier:1, beaten:0, kills:0}; return h.rival; }
 function placeRival(){
   // the rival shows up from Act 2 on
-  if (['daily','uber','tutorial'].includes(S.exp.kind) || S.rivalMet || S.bossId || contentLvl()<4 || rnd()>=.15) return;
+  if (['daily','uber','pinnacle','tutorial'].includes(S.exp.kind) || S.rivalMet || S.bossId || contentLvl()<4 || rnd()>=.15) return;
   const R = heroRival(HERO);
   let spot = null;
   for (let g=0; g<200 && !spot; g++){ const x = rint(W), y = rint(Math.ceil(H/2)); if (!occupied(x,y) && !isLava(x,y) && !isPit(x,y)) spot = [x,y]; }
@@ -435,8 +510,8 @@ function placeRival(){
   e.dmg += 1 + R.tier;
   for (const m of shuffle(ELITE_MODS.filter(m => !e.mods.includes(m))).slice(0, Math.min(3, 1 + R.tier))) e.mods.push(m);
   S.enemies.push(e); S.rivalMet = true;
-  S.eventNote = [`${R.name} te encontrou`, `Seu rival, nível ${R.tier}. Derrote-o e fique com o equipamento dele.`];
-  log(`${R.name}, seu rival, está neste andar.`);
+  S.eventNote = [$t(`${R.name} te encontrou`, `${R.name} found you`), $t(`Seu rival, nível ${R.tier}. Derrote-o e fique com o equipamento dele.`, `Your rival, level ${R.tier}. Defeat them and keep their gear.`)];
+  log($t(`${R.name}, seu rival, está neste andar.`, `${R.name}, your rival, is on this floor.`));
 }
 function rivalKill(e){
   if (!e.rival) return;
@@ -445,16 +520,16 @@ function rivalKill(e){
   S.pendingLoot.push({item:rollItem(rnd()<.5 ? 'rare' : 'magic', areaIlvl()+3)});
   dropRune(e);
   const g = 40*R.tier; HERO.gold += g; S.goldFound += g;
-  log(`${R.name} caiu. Você ficou com o equipamento dele (+${g} de ouro).`);
+  log($t(`${R.name} caiu. Você ficou com o equipamento dele (+${g} de ouro).`, `${R.name} fell. You kept their gear (+${g} gold).`));
   HERO.rival = {name:`${pick(RIVAL_NAMES)} ${pick(RIVAL_EPITHETS)}`, tier:R.tier+1, beaten:R.beaten+1, kills:0};
 }
 
 /* ---------- Uber bosses ---------- */
 const UBERS = {
-  queen:{name:'Rainha Suprema', biome:'crypt', special:'Alterna a Cruz de 4 casas em volta de você e a Coroa Estilhaçada (as 8 linhas a partir dela). Guarda Real com 2 peões.'},
-  knight:{name:'Corcel Supremo', biome:'swamp', special:'Cerco Supremo: o anel a 2 casas de você e a sua casa. Fica exausto só depois de 4 fugas.'},
-  twins:{name:'Torres Supremas', biome:'forge', special:'Muralha Estrelada: cada torre atinge as 8 linhas a partir dela, alternando entre as duas.'},
-  pawn:{name:'Peão Supremo', biome:'cathedral', special:'Avanço Supremo: as três fileiras inteiras à frente dele.'}
+  queen:{name:$t('Rainha Suprema', 'Supreme Queen'), biome:'crypt', special:$t('Alterna a Cruz de 4 casas em volta de você e a Coroa Estilhaçada (as 8 linhas a partir dela). Guarda Real com 2 peões.', 'Alternates the 4-square Cross around you and the Shattered Crown (all 8 lines from her). Royal Guard with 2 pawns.')},
+  knight:{name:$t('Corcel Supremo', 'Supreme Steed'), biome:'swamp', special:$t('Cerco Supremo: o anel a 2 casas de você e a sua casa. Fica exausto só depois de 4 fugas.', 'Supreme Siege: the ring 2 squares from you and your own square. Only gets exhausted after 4 escapes.')},
+  twins:{name:$t('Torres Supremas', 'Supreme Rooks'), biome:'forge', special:$t('Muralha Estrelada: cada torre atinge as 8 linhas a partir dela, alternando entre as duas.', 'Starry Wall: each rook hits all 8 lines from it, alternating between the two.')},
+  pawn:{name:$t('Peão Supremo', 'Supreme Pawn'), biome:'cathedral', special:$t('Avanço Supremo: as três fileiras inteiras à frente dele.', 'Supreme Advance: the three full ranks in front of it.')}
 };
 
 /* ---------- Atlas completion: every biome x tier finished for the first time gives 1 Atlas point (see tree.js) ---------- */
@@ -463,16 +538,16 @@ function atlasComplete(map){
   HERO.atlas = HERO.atlas || {};
   if (HERO.atlas[k]) return;
   HERO.atlas[k] = true;
-  log(`Atlas: ${BIOMES[map.biome].name}, nível ${map.tier}, concluído. +1 ponto de Atlas.`);
+  log($t(`Atlas: ${BIOMES[map.biome].name}, nível ${map.tier}, concluído. +1 ponto de Atlas.`, `Atlas: ${BIOMES[map.biome].name}, tier ${map.tier}, completed. +1 Atlas point.`));
 }
 
 /* ---------- Map currencies ----------
    Endgame drops (after Act 4) used in the camp to reshape a map before opening it. */
 const CURRENCY = {
-  reforja:{name:'Fragmento de Reforja', short:'Reforja', d:'Sorteia de novo todos os afixos do mapa; o nível fica.', w:45, c:'#cfc6b6'},
-  lacre:{name:'Lacre', short:'Lacre', d:'Remove um afixo de dificuldade.', w:25, c:'#a9bfd6'},
-  fortuna:{name:'Pedra de Fortuna', short:'Fortuna', d:'Adiciona um afixo de recompensa (até 3).', w:20, c:'#ecd36a'},
-  ascensao:{name:'Selo Ascendente', short:'Ascensão', d:'Sobe o mapa 1 nível (até 10) e adiciona um afixo de dificuldade.', w:10, c:'#f08a3c'}
+  reforja:{name:$t('Fragmento de Reforja', 'Reforging Shard'), short:$t('Reforja', 'Reforge'), d:$t('Sorteia de novo todos os afixos do mapa; o nível fica.', 'Rerolls every affix on the map; the tier stays.'), w:45, c:'#cfc6b6'},
+  lacre:{name:$t('Lacre', 'Seal'), short:$t('Lacre', 'Seal'), d:$t('Remove um afixo de dificuldade.', 'Removes one difficulty affix.'), w:25, c:'#a9bfd6'},
+  fortuna:{name:$t('Pedra de Fortuna', 'Fortune Stone'), short:$t('Fortuna', 'Fortune'), d:$t('Adiciona um afixo de recompensa (até 3).', 'Adds one reward affix (up to 3).'), w:20, c:'#ecd36a'},
+  ascensao:{name:$t('Selo Ascendente', 'Ascendant Seal'), short:$t('Ascensão', 'Ascension'), d:$t('Sobe o mapa 1 nível (até 10) e adiciona um afixo de dificuldade.', 'Raises the map 1 tier (up to 10) and adds one difficulty affix.'), w:10, c:'#f08a3c'}
 };
 function rollCurrency(){ let r = rnd()*100; for (const [k,c] of Object.entries(CURRENCY)){ r -= c.w; if (r<0) return k; } return 'reforja'; }
 function currencyDrop(e){
@@ -487,21 +562,21 @@ function currencyDrop(e){
 // returns the message shown in the camp
 function applyCurrency(h, map, k){
   h.currency = h.currency || {};
-  if (!h.currency[k]) return 'Você não tem essa moeda.';
+  if (!h.currency[k]) return $t('Você não tem essa moeda.', 'You do not have that currency.');
   const keys = Object.keys(MAP_AFFIXES);
   const pen = map.affixes.filter(a => !isRewardAffix(a)), rew = map.affixes.filter(isRewardAffix);
   if (k==='reforja') map.affixes = makeMap(map.tier).affixes;
-  else if (k==='lacre'){ if (!pen.length) return 'Este mapa não tem afixos de dificuldade.'; const rm = pick(pen); map.affixes = map.affixes.filter(a => a!==rm); }
+  else if (k==='lacre'){ if (!pen.length) return $t('Este mapa não tem afixos de dificuldade.', 'This map has no difficulty affixes.'); const rm = pick(pen); map.affixes = map.affixes.filter(a => a!==rm); }
   else if (k==='fortuna'){
     const add = shuffle(keys.filter(a => isRewardAffix(a) && !rew.includes(a)))[0];
-    if (rew.length>=3 || !add) return 'Este mapa já tem o máximo de recompensas.';
+    if (rew.length>=3 || !add) return $t('Este mapa já tem o máximo de recompensas.', 'This map already has the maximum rewards.');
     map.affixes.push(add);
   } else if (k==='ascensao'){
-    if (map.tier>=10) return 'Este mapa já está no nível máximo.';
+    if (map.tier>=10) return $t('Este mapa já está no nível máximo.', 'This map is already at the maximum tier.');
     map.tier++;
     const add = shuffle(keys.filter(a => !isRewardAffix(a) && !pen.includes(a)))[0];
     if (add && pen.length<4) map.affixes.push(add);
   }
   h.currency[k]--;
-  return `${CURRENCY[k].name} usado em ${mapName(map)}.`;
+  return $t(`${CURRENCY[k].name} usado em ${mapName(map)}.`, `${CURRENCY[k].name} used on ${mapName(map)}.`);
 }

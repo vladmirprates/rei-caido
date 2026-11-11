@@ -775,13 +775,21 @@ function draw(time){
         ctx.beginPath(); ctx.moveTo(sx-ss, sy-ss); ctx.lineTo(sx+ss, sy-ss); ctx.lineTo(sx+ss, sy+ss*.2); ctx.lineTo(sx, sy+ss*1.2); ctx.lineTo(sx-ss, sy+ss*.2); ctx.closePath(); ctx.fill(); ctx.stroke();
       }
       if (u.marked && !u.frozenPiece){ const mx = (x+.82)*tile, my = y*tile+tile*.16, ms = tile*.08; ctx.fillStyle = '#e3b456'; ctx.strokeStyle = '#1a120c'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(mx, my-ms); ctx.lineTo(mx+ms, my); ctx.lineTo(mx, my+ms); ctx.lineTo(mx-ms, my); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+      if (u===S.linked){ ctx.strokeStyle = 'rgba(240,160,80,.95)'; ctx.setLineDash([4,3]); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc((x+.5)*tile, (y+.5)*tile, tile*.47, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
       if (u.judged){ ctx.strokeStyle = 'rgba(240,214,140,.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc((x+.5)*tile, (y+.5)*tile, tile*.44, 0, Math.PI*2); ctx.stroke(); }
       if (u.intent && u.intent.stunned){ ctx.fillStyle='#ecd36a'; ctx.font=`700 ${tile*.22}px ${BF}`; ctx.textAlign='center'; ctx.fillText('zz', (x+.2)*tile, y*tile+tile*.2); }
     } else {
-      drawPiece(u.type, x, y, S.color, {ally:true});
+      drawPiece(u.type, x, y, S.color, {ally:true, spectral:u.spectral});
       hpBar(u, x, y, '#7fb069');
     }
     if (showWarn && S.dangerSeen.has(key(u.x,u.y))) warnMark(x, y);
+  }
+  // Fallen King, checkmate phase: his escape squares, marked in gold
+  if (S.kingEscapes && S.phase!=='enemy') for (const [x,y] of S.kingEscapes){
+    const cx = (x+.5)*tile, cy = (y+.5)*tile, r = tile*.16;
+    ctx.strokeStyle = 'rgba(236,211,106,.9)'; ctx.lineWidth = 2; ctx.setLineDash([3,3]);
+    ctx.strokeRect(x*tile+tile*.12, y*tile+tile*.12, tile*.76, tile*.76); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(cx-r, cy); ctx.lineTo(cx+r, cy); ctx.moveTo(cx, cy-r); ctx.lineTo(cx, cy+r); ctx.stroke();
   }
   if (!S.dead) drawPiece(S.cls, S.player.rx+S.player.lx, S.player.ry+S.player.ly, S.color, {player:true});
   // interactive events: a bouncing marker says "step here"
