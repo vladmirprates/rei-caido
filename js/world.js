@@ -345,7 +345,7 @@ function nextFloor(){
   const st = stats();
   if (S.floor>1) S.player.hp = Math.min(st.hp, S.player.hp+5);
   if (st.gambit) S.player.hp = Math.max(1, Math.min(S.player.hp, Math.ceil(st.hp/2)));
-  Object.assign(S, {nullHit:!!st.aegisFirst, nextBonus:0, floorBonus:st.vanguard ? 2 : 0, pactUsed:false, promoted:false, lastStandUsed:false, lastBreathUsed:false, bribes:0, rhythmN:0, critReady:false});
+  Object.assign(S, {nullHit:!!st.aegisFirst, nextBonus:0, floorBonus:st.vanguard ? 2 : 0, pactUsed:false, promoted:false, lastStandUsed:false, lastBreathUsed:false, bribes:0, rhythmN:0, critReady:false, mired:false});
   S.shield = st.shield + (st.bulwark ? 6 : 0) + (st.g_dragona ? 3 : 0);
   S.cds = {}; for (const id of barSkills()) S.cds[id] = 0;
   S.actions = 1 + (st.firstStrike ? 1 : 0); S.mode = 'move'; S.turn = 1;

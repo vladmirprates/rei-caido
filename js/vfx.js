@@ -541,9 +541,14 @@ function drawVfx(){
   if (!hasV && !hasP) return;
   // only particles (a hit, a death): paint them straight onto the board, no extra layer and no glow
   if (!hasV){ drawSp(ctx); return; }
-  const t0 = performance.now(), main = ctx, L = fxLayers(), c = L.getContext('2d'), sc = L.width / cv.width;
-  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, L.width, L.height); c.setTransform(dpr*sc, 0, 0, dpr*sc, 0, 0);
-  ctx = c;   // skill effects draw into a layer of their own
+  const t0 = performance.now(), main = ctx, bloom = !fx.lowq && _fxCost < 7;
+  // with the glow pass the effects get a layer of their own; without it (slow device) they paint straight onto the board
+  let L = null, c = main;
+  if (bloom){
+    L = fxLayers(); c = L.getContext('2d'); const sc = L.width / cv.width;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, L.width, L.height); c.setTransform(dpr*sc, 0, 0, dpr*sc, 0, 0);
+  }
+  ctx = c;
   for (const v of fx.vfx){
     const fn = VFX_DRAW[v.kind]; if (!fn) continue;
     const p = _cl(v.t / v.dur), f = p < .72 ? 1 : Math.max(0, 1 - (p-.72)/.28);
@@ -553,7 +558,6 @@ function drawVfx(){
   }
   drawSp(c);
   ctx = main;
-  main.drawImage(L, 0, 0, cv.width/dpr, cv.height/dpr);
-  if (_fxCost < 7) bloomOnto(main, L);
+  if (bloom){ main.drawImage(L, 0, 0, cv.width/dpr, cv.height/dpr); bloomOnto(main, L); }
   _fxCost = _fxCost*.9 + (performance.now() - t0)*.1;
 }

@@ -178,15 +178,15 @@ function cmpMark(it){
   if (!HERO || !HERO.equip || Object.values(HERO.equip).includes(it)) return '';
   try { const a = statsFor(HERO.cls, HERO.color, HERO.equip), b = statsFor(HERO.cls, HERO.color, {...HERO.equip, [eqKey(HERO.equip, it)]:it});
     const sc = (b.dmg-a.dmg)*3 + (b.hp-a.hp)/5 + (b.shield-a.shield) + (b.cdr-a.cdr)*2 + (b.crit-a.crit)/3 + (b.resFire+b.resCold+b.resLight-a.resFire-a.resCold-a.resLight)/6;
-    return sc > .5 ? '<span class="cmp up" title="' + $t('Melhor que o equipado', 'Better than what you wear') + '">▲</span>' : sc < -.5 ? '<span class="cmp down" title="' + $t('Pior que o equipado', 'Worse than what you wear') + '">▼</span>' : ''; } catch(e){ return ''; }
+    return sc > .5 ? '<span class="cmpm up" title="' + $t('Melhor que o equipado', 'Better than what you wear') + '">▲</span>' : sc < -.5 ? '<span class="cmpm down" title="' + $t('Pior que o equipado', 'Worse than what you wear') + '">▼</span>' : ''; } catch(e){ return ''; }
 }
 function itemTile(it, act, selected, cmp){
   return `<button class="itile r-${it.rar} ${selected?'sel':''}" type="button" data-act="${act}" data-tip="${act.replace('selS:','s:').replace('selE:','e:')}" aria-pressed="${selected}" aria-label="${esc(it.name)}">
     ${cmp ? cmpMark(it) : ''}${slotIcon(it.slot)}<span class="iname">${esc(it.name)}</span></button>`;
 }
 // numeric changes and rule effects gained/lost when `it` replaces what is in its slot
-function swapDiff(h, it){
-  const key = eqKey(h.equip, it), cur = h.equip[key];
+function swapDiff(h, it, forceKey){
+  const key = forceKey || eqKey(h.equip, it), cur = h.equip[key];
   const a = statsFor(h.cls, h.color, h.equip), b = statsFor(h.cls, h.color, {...h.equip, [key]:it});
   const nums = [['dmg',$t('de dano', 'damage')],['hp',$t('de vida', 'health')],['shield',$t('de escudo por andar', 'shield per floor')],['cdr',$t('de recarga', 'cooldown')],['crit',$t('% de crítico', '% critical chance')],['eliteDmg',$t('% contra elites e chefes', '% against elites and bosses')],
     ['block',$t('% de bloqueio', '% block')],['healKill',$t('de cura ao matar', 'healing on kill')],['mf',$t('% de achado de itens', '% item find')],['gold',$t('% de ouro', '% gold')],
@@ -196,9 +196,11 @@ function swapDiff(h, it){
   return {nums, gain, lose};
 }
 function diffHtml(d){
-  const rows = d.nums.map(([l,v]) => `<li class="${v>0?'up':'down'}">${v>0?'+':''}${v}${l.startsWith('%') ? l : ' '+l}</li>`)
-    .concat(d.gain.map(t => `<li class="up">${$t('Ganha:', 'Gains:')} ${t}</li>`), d.lose.map(t => `<li class="down">${$t('Perde:', 'Loses:')} ${t}</li>`));
-  return rows.length ? `<ul class="diff">${rows.join('')}</ul>` : $t('<p class="muted small">Sem diferença nos atributos.</p>', '<p class="muted small">No difference in stats.</p>');
+  const chip = ([l,v]) => `<span class="dchip ${v>0?'up':'down'}">${v>0?'▲ +':'▼ '}${v}${l.startsWith('%') ? l : ' '+l}</span>`;
+  const rule = (cls, lbl, t) => `<div class="drule ${cls}"><b>${lbl}</b> ${t}</div>`;
+  const chips = d.nums.length ? `<div class="dchips">${d.nums.map(chip).join('')}</div>` : '';
+  const rules = d.gain.map(t => rule('up', $t('Ganha', 'Gains'), t)).concat(d.lose.map(t => rule('down', $t('Perde', 'Loses'), t))).join('');
+  return chips || rules ? chips + rules : $t('<p class="muted small">Sem diferença nos atributos.</p>', '<p class="muted small">No difference in stats.</p>');
 }
 function campGear(h){
   const st = statsFor(h.cls, h.color, h.equip);
@@ -850,18 +852,14 @@ $('modal').addEventListener('click', ev => {
   const b = ev.target.closest('[data-act]'); if (!b || b.disabled || !modalResolve) return;
   modalResolve(b.dataset.act);
 });
-function equippedMini(slot){
-  const it = S.equip[slot];
-  if (!it) return `<div class="eqmini"><span class="meta">${$t('Equipado em', 'Equipped in')} ${eqLabel(slot)}</span>${$t('Espaço vazio', 'Empty slot')}</div>`;
-  return `<div class="eqmini"><span class="meta">${$t('Equipado em', 'Equipped in')} ${eqLabel(slot)}</span>${itemBlock(it)}</div>`;
+function equippedMini(slot){ return itemCard(S.equip[slot], $t('Equipado em ', 'Equipped in ') + eqLabel(slot), 'mini'); }
+function itemCard(it, title, cls){
+  if (!it) return `<div class="lcard empty ${cls||''}"><span class="lk">${title}</span><b class="lname">${$t('Espaço vazio', 'Empty slot')}</b></div>`;
+  return `<div class="lcard ${cls||''}" style="--rc:${RAR[it.rar].c}"><div class="lhead">${slotIcon(it.slot)}<div class="ltx"><span class="lk">${title}</span><b class="lname">${esc(it.name)}</b><span class="lmeta">${RAR[it.rar].label} · ${SLOTS[it.slot].label}${it.ilvl ? $t(` · nível ${it.ilvl}`, ` · level ${it.ilvl}`) : ''}${it.legacy ? $t(' · herança', ' · heirloom') : ''}</span></div></div><ul class="llist">${it.affixes.map(affixLine).join('')}</ul></div>`;
 }
-function itemCard(it, title){
-  if (!it) return `<div class="card"><div class="meta">${title}</div><div class="nm" style="color:#6d6156">${$t('Espaço vazio', 'Empty slot')}</div></div>`;
-  return `<div class="card"><div class="meta">${title} · ${RAR[it.rar].label} · ${SLOTS[it.slot].label}${it.ilvl ? $t(` · nível ${it.ilvl}`, ` · level ${it.ilvl}`) : ''}${it.legacy ? $t(' · herança', ' · heirloom') : ''}</div>${itemBlock(it)}</div>`;
-}
-function equipItem(it){
+function equipItem(it, forceKey){
   const before = stats();
-  const key = eqKey(S.equip, it), old = S.equip[key];
+  const key = forceKey || eqKey(S.equip, it), old = S.equip[key];
   S.equip[key] = it;
   if (old){ if (HERO.stash.length<STASH_MAX){ HERO.stash.push(old); log($t(`${old.name} foi para o baú.`, `${old.name} went to the stash.`)); } else log($t(`${old.name} foi destruído (baú cheio).`, `${old.name} was destroyed (stash full).`)); }
   const after = stats();
@@ -871,21 +869,24 @@ function equipItem(it){
 }
 function stashItem(it){ if (HERO.stash.length>=STASH_MAX) return false; HERO.stash.push(it); log($t(`${it.name} foi para o baú.`, `${it.name} went to the stash.`)); return true; }
 async function showLoot(it){
-  const full = HERO.stash.length>=STASH_MAX;
-  const v = await openModal({title:$t('Saque', 'Loot'), body:`<div class="cmp">${itemCard(it,$t('Encontrado', 'Found'))}${itemCard(S.equip[eqKey(S.equip, it)],$t('Equipado', 'Equipped'))}</div><h4 class="dh">${$t('Se equipar', 'If equipped')}</h4>${diffHtml(swapDiff(HERO, it))}`,
+  const full = HERO.stash.length>=STASH_MAX, two = it.slot==='anel' && S.equip.anel && S.equip.anel2;
+  const body = two
+    ? `<div class="cmp lootcmp">${itemCard(it,$t('Encontrado', 'Found'), 'found')}${itemCard(S.equip.anel,$t('Equipado · Anel I', 'Equipped · Ring I'))}${itemCard(S.equip.anel2,$t('Equipado · Anel II', 'Equipped · Ring II'))}</div><div class="ldiff"><h4 class="dh">${$t('O que muda se trocar o Anel I', 'What changes if you replace Ring I')}</h4>${diffHtml(swapDiff(HERO, it, 'anel'))}</div><div class="ldiff"><h4 class="dh">${$t('O que muda se trocar o Anel II', 'What changes if you replace Ring II')}</h4>${diffHtml(swapDiff(HERO, it, 'anel2'))}</div>`
+    : `<div class="cmp lootcmp">${itemCard(it,$t('Encontrado', 'Found'), 'found')}${itemCard(S.equip[eqKey(S.equip, it)],$t('Equipado', 'Equipped'))}</div><div class="ldiff"><h4 class="dh">${$t('O que muda se você equipar', 'What changes if you equip it')}</h4>${diffHtml(swapDiff(HERO, it))}</div>`;
+  const v = await openModal({title:$t('Saque', 'Loot'), body,
     note:$t('Ao equipar, o item atual vai para o baú. Itens desta expedição só ficam seus se você voltar vivo ao acampamento.', 'When you equip it, the current item goes to the stash. Items from this expedition are only yours if you return to camp alive.'),
-    actions:[{label:$t('Equipar', 'Equip'), primary:true, value:'equip'}, {label:$t(`Guardar no baú${full?' (cheio)':''}`, `Move to stash${full?' (full)':''}`), value:'stash', disabled:full}, {label:$t('Deixar', 'Leave it'), value:'leave'}]});
-  if (v==='equip') equipItem(it); else if (v==='stash') stashItem(it); else log($t(`Você deixou ${it.name} para trás.`, `You left ${it.name} behind.`));
+    actions:[...(two ? [{label:$t('Trocar o Anel I', 'Replace Ring I'), primary:true, value:'equip:anel'}, {label:$t('Trocar o Anel II', 'Replace Ring II'), primary:true, value:'equip:anel2'}] : [{label:$t('Equipar', 'Equip'), primary:true, value:'equip'}]), {label:$t(`Guardar no baú${full?' (cheio)':''}`, `Move to stash${full?' (full)':''}`), value:'stash', disabled:full}, {label:$t('Deixar', 'Leave it'), value:'leave'}]});
+  if (v && v.startsWith('equip')) equipItem(it, v.split(':')[1]); else if (v==='stash') stashItem(it); else log($t(`Você deixou ${it.name} para trás.`, `You left ${it.name} behind.`));
   updateUI();
 }
 async function showRelics(relics, title){
   const full = HERO.stash.length>=STASH_MAX;
   const body = `<div class="cmp">${relics.map((it,i) => `<div class="relic">${itemCard(it, $t('Opção ', 'Option')+(i+1))}
-    ${equippedMini(eqKey(S.equip, it))}
-    <div class="row"><button class="primary sm" type="button" data-act="equip:${i}">${$t('Equipar', 'Equip')}</button><button class="ghost sm" type="button" data-act="stash:${i}" ${full?'disabled':''}>${$t('Guardar', 'Keep')}</button></div></div>`).join('')}</div>`;
+    ${it.slot==='anel' && S.equip.anel && S.equip.anel2 ? equippedMini('anel') + equippedMini('anel2') : equippedMini(eqKey(S.equip, it))}
+    <div class="row">${it.slot==='anel' && S.equip.anel && S.equip.anel2 ? `<button class="primary sm" type="button" data-act="equip:${i}|anel">${$t('Trocar o Anel I', 'Replace Ring I')}</button><button class="primary sm" type="button" data-act="equip:${i}|anel2">${$t('Trocar o Anel II', 'Replace Ring II')}</button>` : `<button class="primary sm" type="button" data-act="equip:${i}">${$t('Equipar', 'Equip')}</button>`}<button class="ghost sm" type="button" data-act="stash:${i}" ${full?'disabled':''}>${$t('Guardar', 'Keep')}</button></div></div>`).join('')}</div>`;
   const v = await openModal({title: title || $t('Relíquias do chefe', 'Boss relics'), body, minimizable:true, note:$t(`Escolha uma. ${relics.length>2 ? 'As outras se perdem' : 'A outra se perde'}. Minimizar deixa ver o tabuleiro e o painel.`, `Choose one. ${relics.length>2 ? 'The others are lost' : 'The other is lost'}. Minimizing lets you see the board and the panel.`), actions:[{label: relics.length>2 ? $t('Recusar todas', 'Refuse all') : $t('Recusar as duas', 'Refuse both'), value:'none'}]});
   const [act, i] = v.split(':');
-  if (act==='equip') equipItem(relics[+i]); else if (act==='stash') stashItem(relics[+i]); else log($t('Você recusou as relíquias.', 'You refused the relics.'));
+  if (act==='equip'){ const [ix, pk] = String(i).split('|'); equipItem(relics[+ix], pk); } else if (act==='stash') stashItem(relics[+i]); else log($t('Você recusou as relíquias.', 'You refused the relics.'));
   updateUI();
 }
 async function showShop(en){
@@ -1272,9 +1273,12 @@ cv.addEventListener('mousemove', ev => {
 cv.addEventListener('mouseleave', () => { hover = null; tipReady = false; clearTimeout(tipTimer); if (S && S.walls) hoverHint(); });
 
 /* ---------- Boot ---------- */
-let last = performance.now();
+let last = performance.now(), _ft = 16;
 function frame(now){
-  const dt = Math.min(.05, (now-last)/1000); last = now;
+  const raw = now-last, dt = Math.min(.05, raw/1000); last = now;
+  // adaptive quality: when frames take too long, drop the glow pass and thin out the particles; come back when it recovers
+  _ft = _ft*.9 + Math.min(raw, 100)*.1;
+  if (_ft > 25) fx.lowq = true; else if (_ft < 19) fx.lowq = false;
   updateFx(dt);
   if (!$('scrGame').hidden) draw(now/1000);
   requestAnimationFrame(frame);

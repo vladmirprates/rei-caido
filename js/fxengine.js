@@ -26,9 +26,10 @@ const _rate = (v, id, per) => { const dt = v.t - (v['_l'+id]===undefined ? v.t :
    al = alpha, g = gravity (tiles/s2, negative rises), drag, add = additive, kind = dot | streak | shard, r = scatter radius (tiles) */
 function emitP(n, o){
   if (typeof reduce !== 'undefined' && reduce) n = Math.ceil(n/4);
-  const T = tile;
+  else if (fx.lowq) n = Math.ceil(n/2);
+  const T = tile, cap = fx.lowq ? 160 : 400;
   for (let i=0;i<n;i++){
-    if (fx.sp.length > 400) return;
+    if (fx.sp.length > cap) return;
     const ang = o.a !== undefined ? o.a + _rnd(-(o.spread||0), (o.spread||0)) : _rnd(0, Math.PI*2);
     const sp = _rnd(o.s0||0, o.s1===undefined ? (o.s0||0) : o.s1) * T;
     const ox = o.r ? _rnd(-o.r, o.r)*T : 0, oy = o.r ? _rnd(-o.r, o.r)*T*.6 : 0;
@@ -104,7 +105,7 @@ function bloomOnto(main, L){
   b1.clearRect(0, 0, _bl1.width, _bl1.height); b1.imageSmoothingEnabled = true; b1.drawImage(L, 0, 0, _bl1.width, _bl1.height);
   b2.clearRect(0, 0, _bl2.width, _bl2.height); b2.imageSmoothingEnabled = true; b2.drawImage(_bl1, 0, 0, _bl2.width, _bl2.height);
   const cw = cv.width/dpr, ch = cv.height/dpr;
-  main.save(); main.globalCompositeOperation = 'lighter'; main.imageSmoothingEnabled = true; main.imageSmoothingQuality = 'high';
+  main.save(); main.globalCompositeOperation = 'lighter'; main.imageSmoothingEnabled = true; main.imageSmoothingQuality = 'low';
   main.globalAlpha = .34; main.drawImage(_bl1, 0, 0, cw, ch);
   main.globalAlpha = .28; main.drawImage(_bl2, 0, 0, cw, ch);
   main.restore();

@@ -664,8 +664,8 @@ canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none
 .dlbl{position:absolute;top:5px;left:0;right:0;text-align:center;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ash);opacity:.85}
 .dslot.empty .sicon{opacity:.35}
 .ds-elmo{grid-area:elmo} .ds-arma{grid-area:arma} .ds-armadura{grid-area:armadura} .ds-anel{grid-area:anel} .ds-botas{grid-area:botas}
-.cmp{position:absolute;top:4px;right:6px;font-size:.72rem;font-weight:700;line-height:1}
-.cmp.up{color:#8fd18a;text-shadow:0 0 8px rgba(143,209,138,.8)} .cmp.down{color:#ff8a7a}
+.cmpm{position:absolute;top:4px;right:6px;font-size:.72rem;font-weight:700;line-height:1}
+.cmpm.up{color:#8fd18a;text-shadow:0 0 8px rgba(143,209,138,.8)} .cmpm.down{color:#ff8a7a}
 .gearlayout:not(:has(.forge)){grid-template-columns:minmax(0,330px) minmax(0,1fr) minmax(0,290px)}
 .gearlayout .detail{position:sticky;top:12px}
 .runebag{align-items:stretch}
@@ -821,6 +821,36 @@ canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none
 /* mobile: the doll layout must not beat the small-screen rules */
 @media (max-width:1000px){.gearlayout:not(:has(.forge)){grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.gearlayout:not(:has(.forge)) .detail{grid-column:1/-1}}
 @media (max-width:640px){.gearlayout:not(:has(.forge)){grid-template-columns:minmax(0,1fr)}.doll{max-width:420px;margin:0 auto}}
+
+/* ===== loot popup and item cards ===== */
+.modal-box:has(.lootcmp),.modal-box:has(.lcard){max-width:760px}
+.lootcmp{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.lcard{--rc:var(--r-common);display:flex;flex-direction:column;gap:8px;min-width:0;padding:12px;background:#181310;border:1px solid color-mix(in srgb,var(--rc) 40%,#3d332a);border-top:3px solid var(--rc);border-radius:2px}
+.lcard.found{box-shadow:0 0 0 1px color-mix(in srgb,var(--rc) 35%,transparent),0 0 18px color-mix(in srgb,var(--rc) 16%,transparent)}
+.lcard.empty{border-top-color:#4a3b2e;color:var(--ash)}
+.lcard.mini{padding:8px 10px;gap:4px}
+.lcard.mini .sicon{width:26px;height:26px}.lcard.mini .lname{font-size:.98rem}
+.lhead{display:flex;align-items:center;gap:10px}
+.lhead .sicon{width:40px;height:40px;flex:none;color:var(--rc);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--rc) 40%,transparent))}
+.ltx{display:flex;flex-direction:column;min-width:0}
+.lk{font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ash)}
+.lname{font-family:var(--f-display);font-weight:400;font-size:1.15rem;line-height:1.15;color:var(--rc)}
+.lmeta{font-size:.74rem;color:var(--ash)}
+.llist{list-style:none;margin:0;padding:8px 0 0;border-top:1px solid #2c241d;display:flex;flex-direction:column;gap:4px;font-size:.84rem;color:var(--bone)}
+.llist li.rule{color:#f0a860}
+.ldiff{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid #2c241d;background:#14100d}
+.lootcmp+.ldiff{margin-top:12px}.ldiff+.ldiff{margin-top:8px}
+.ldiff .dh{margin:0;font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ash);font-weight:400}
+.dchips{display:flex;flex-wrap:wrap;gap:6px}
+.dchip{padding:3px 9px;border:1px solid;border-radius:2px;font-size:.8rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dchip.up{color:#8fd18a;border-color:#3f6a3c;background:rgba(143,209,138,.07)}
+.dchip.down{color:#ff8a7a;border-color:#7a3a33;background:rgba(255,138,122,.07)}
+.drule{padding:4px 9px;border-left:3px solid;font-size:.82rem;line-height:1.35}
+.drule b{font-weight:600;margin-right:4px}
+.drule.up{border-color:#3f6a3c;color:#c5e6c1}.drule.up b{color:#8fd18a}
+.drule.down{border-color:#7a3a33;color:#f0c4bd}.drule.down b{color:#ff8a7a}
+.modal-box #modalNote{font-size:.78rem;color:var(--ash)}
+@media (max-width:520px){.lootcmp{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head>
 <body>

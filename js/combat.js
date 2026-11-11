@@ -354,6 +354,8 @@ function skillCd(id){
 
 /* ---------- Player movement ---------- */
 // once every enemy is dead the floor is yours: you may walk to any free square
+// lava never covers a pickup or the stairs, and in free roam you may still walk onto one that sits on lava
+const keepClear = (x,y) => S.items.some(i => i.x===x && i.y===y) || !!(S.stairs && S.stairs.x===x && S.stairs.y===y);
 const freeRoam = () => !!S && !!S.floorCleared && !S.enemies.length && !S.chess && !S.tut;
 function classMoves(px, py, ignoreUnits){
   const st = stats(), out = [], seen = new Set([key(px,py)]);
@@ -385,7 +387,7 @@ function classMoves(px, py, ignoreUnits){
     }
   };
   if (!ignoreUnits && freeRoam()){
-    for (let y=0;y<H;y++) for (let x=0;x<W;x++) if ((x!==px || y!==py) && landable(x,y) && !isLava(x,y)) add(x,y,kindAt(x,y),null);
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++) if ((x!==px || y!==py) && landable(x,y) && (!isLava(x,y) || keepClear(x,y))) add(x,y,kindAt(x,y),null);
     return out;
   }
   switch (S.cls){
@@ -398,7 +400,7 @@ function classMoves(px, py, ignoreUnits){
   if (st.kingStep) jump(ALL);
   if (st.pilgrim) jump([[2,0],[-2,0],[0,2],[0,-2]]);
   // stuck in tar: no moving this turn, only attacks (and skills)
-  return S.mired && !ignoreUnits ? out.filter(o => o.kind==='attack') : out;
+  return S.mired && !ignoreUnits && !freeRoam() ? out.filter(o => o.kind==='attack') : out;
 }
 const playerTargets = () => {
   const list = classMoves(S.player.x, S.player.y, false);
@@ -1202,7 +1204,7 @@ async function enemyPhase(){
         const o = enemyAt(x,y); if (o && !o.boss) damageEnemy(o, 4, 'enemy');
         if (far && far[0]===x && far[1]===y && cheb(x,y,S.player.x,S.player.y)>1 && !occupied(x,y) && !S.items.some(i=>i.x===x&&i.y===y)) S.terrain.set(key(x,y), 'pit');
       } else if (kind==='flood'){ if (!isLava(x,y)) S.terrain.set(key(x,y), 'water'); burst(x, y, '#7fb0a8', 22); }
-      else if (kind==='lava'){ S.terrain.set(key(x,y), 'lava'); burst(x, y, '#f08a3c', 26); }
+      else if (kind==='lava'){ if (!keepClear(x,y)) S.terrain.set(key(x,y), 'lava'); burst(x, y, '#f08a3c', 26); }
       else if (kind==='frost'){ if (!isLava(x,y) && !isWater(x,y)) S.terrain.set(key(x,y), 'ice'); burst(x, y, '#dff0fa', 22); }
       else if (kind==='gust'){ const [gx, gy] = pick(ORTH); windPush(gx, gy, 2); }
       else if (kind==='whirl'){ if (!terrainAt(x,y)){ S.terrain.set(key(x,y), 'whirl'); burst(x, y, '#9fd8f0', 22); } }
@@ -1279,7 +1281,7 @@ async function enemyPhase(){
         const ox = e.x, oy = e.y;
         e.x = x; e.y = y; e.moved = true;
         if (isIce(x,y)){ [x,y] = slideEnd(x, y, x-ox, y-oy); e.x = x; e.y = y; }
-        if (e.mods.includes('lavaTrail') && !isPit(ox,oy)) S.terrain.set(key(ox,oy), 'lava');
+        if (e.mods.includes('lavaTrail') && !isPit(ox,oy) && !keepClear(ox,oy)) S.terrain.set(key(ox,oy), 'lava');
         if (e.mods.includes('trample')){
           await sleep(120);
           for (const [dx,dy] of ALL){
@@ -1339,7 +1341,9 @@ async function enemyPhase(){
     }
     for (const nk of spread) if (S.terrain.get(nk)==='tar' && !tf.has(nk)) tf.set(nk, 3);
     if (!alive()) return;
-    S.mired = !!S.player && ((terrainAt(S.player.x, S.player.y)==='tar' && !tf.has(key(S.player.x, S.player.y))) || terrainAt(S.player.x, S.player.y)==='quicksand');
+    // stuck for one turn only: if you spent the last one stuck you are free now (otherwise waiting on tar or sand would trap you forever)
+    const onMire = !!S.player && ((terrainAt(S.player.x, S.player.y)==='tar' && !tf.has(key(S.player.x, S.player.y))) || terrainAt(S.player.x, S.player.y)==='quicksand');
+    S.mired = onMire && !S.mired;
     if (S.mired) floatText(S.player.x, S.player.y-0.4, $t('preso', 'stuck'), '#c9a24a');
     for (const e of S.enemies) if (!e.boss && ((terrainAt(e.x,e.y)==='tar' && !tf.has(key(e.x,e.y))) || terrainAt(e.x,e.y)==='quicksand') && !(e.stunLeft>0) && !(e.stunImmune>=S.turn)){ e.stunLeft = 1; floatText(e.x, e.y-0.3, $t('preso', 'stuck'), '#c9a24a'); }
     for (const [k,t] of [...S.terrain]) if (t==='m_heal' || t==='m_glow' || t==='m_puff'){

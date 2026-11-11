@@ -1050,12 +1050,14 @@ function drawWall(x, y, env, time){
     const g=ctx.createLinearGradient(px+T*.26,0,px+T*.74,0); g.addColorStop(0,'#150d0a'); g.addColorStop(.42,'#433028'); g.addColorStop(1,'#100907');
     ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(px+T*.26,py+T*.86); ctx.lineTo(px+T*.33,py+T*.18); ctx.lineTo(px+T*.5,py+T*.05); ctx.lineTo(px+T*.67,py+T*.18); ctx.lineTo(px+T*.74,py+T*.86); ctx.closePath(); ctx.fill();
     const a = env ? (reduce ? 1 : .7+.3*Math.sin(time*16)) : (reduce ? .45 : .35+.15*Math.sin(time*2+x*1.7+y));
-    ctx.save(); ctx.shadowColor='rgba(255,120,30,1)'; ctx.shadowBlur=T*(env?.3:.15);
-    ctx.strokeStyle = env ? `rgba(255,220,120,${a})` : `rgba(255,110,40,${a})`; ctx.lineWidth=Math.max(1.4,T*(env?.04:.028));
+    // (a wide faint stroke under the crack stands in for a shadowBlur, which is very slow when redrawn every frame)
+    ctx.save();
     ctx.beginPath(); ctx.moveTo(px+T*.5,py+T*.12); ctx.lineTo(px+T*.45,py+T*.34); ctx.lineTo(px+T*.54,py+T*.5); ctx.lineTo(px+T*.47,py+T*.78);
     ctx.moveTo(px+T*.54,py+T*.5); ctx.lineTo(px+T*.64,py+T*.62);
     if (env){ ctx.moveTo(px+T*.45,py+T*.34); ctx.lineTo(px+T*.36,py+T*.44); ctx.moveTo(px+T*.4,py+T*.66); ctx.lineTo(px+T*.6,py+T*.72); }
-    ctx.stroke(); ctx.restore();
+    ctx.strokeStyle = `rgba(255,120,30,${a*.28})`; ctx.lineWidth = Math.max(3, T*(env?.1:.07)); ctx.stroke();
+    ctx.strokeStyle = env ? `rgba(255,220,120,${a})` : `rgba(255,110,40,${a})`; ctx.lineWidth=Math.max(1.4,T*(env?.04:.028)); ctx.stroke();
+    ctx.restore();
     if (env) glow(px+T*.5, py+T*.45, T*(reduce?1:.9+.15*Math.sin(time*16)), 'rgba(255,130,40,.5)');
     else glow(px+T*.5, py+T*.15, T*.35, `rgba(255,110,30,${a*.35})`);
   } else if (b==='storm'){
