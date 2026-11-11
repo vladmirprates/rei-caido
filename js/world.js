@@ -91,8 +91,10 @@ function makeBoss(id, x, y){
     e.hp = e.maxHp = Math.round(st.hp*3.2*(1+.04*(S.lvl-1)));
     e.dmg = st.dmg + 1 + Math.floor((S.lvl-1)/4) + (S.torment||0);
   } else {
-    e.hp = e.maxHp = Math.round(B.hp*enemyScale());
-    e.dmg = B.dmg + Math.floor((S.lvl-1)/3) + (S.mapAff.has('mDmg')?1:0) + (S.torment||0);
+    // bosses ramp up through the campaign: the Act 1 boss takes about 10 hits from a new hero, full strength from Act 4 on
+    const ramp = Math.min(1, .25 + .06*S.lvl);
+    e.hp = e.maxHp = Math.round(B.hp*enemyScale()*ramp);
+    e.dmg = B.dmg + Math.floor((S.lvl-1)/3) + (S.mapAff.has('mDmg')?1:0) + (S.torment||0) - (S.lvl<=3 ? 1 : 0);
   }
   Object.assign(e, {boss:true, bossId:id, origId:id, name:B.names[side], phase:1, side});
   const mods = new Set();
