@@ -26,6 +26,7 @@ function loadSave(){
   try { const raw = localStorage.getItem(SAVE_KEY); if (raw) SAVE = JSON.parse(raw); } catch(e){ SAVE = {heroes:[]}; }
   if (!SAVE || !Array.isArray(SAVE.heroes)) SAVE = {heroes:[]};
   for (const h of SAVE.heroes) for (const it of [...Object.values(h.equip), ...h.stash]) if (it){ if (it.id>uid) uid = it.id; it.name = relabel(it.name); renameOld(it); }
+  for (const h of SAVE.heroes) migrateSlots(h);
   for (const h of SAVE.heroes){ h.tree = h.tree || []; if (h.talents && Object.values(h.talents).some(v => v>0)){ h.talents = {}; legacyNotice = $t('Os talentos viraram uma Árvore de Passivas: seus pontos foram devolvidos. Veja a aba Árvore.', 'Talents became a Passive Tree: your points were refunded. See the Tree tab.'); } }
   for (const h of SAVE.heroes) if (h.atlasSpent){ delete h.atlasSpent; h.atlasTree = h.atlasTree || []; }
   let reforged = 0;
@@ -40,7 +41,7 @@ let legacyNotice = '';
 function persist(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch(e){ /* storage blocked: progress lasts this session only */ } }
 function newHero(name, cls, color, mode){
   return {id:'h'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), name, cls, color, mode,
-          level:1, xp:0, talents:{}, equip:{arma:null, elmo:null, armadura:null, botas:null, anel:null},
+          level:1, xp:0, talents:{}, equip:emptyEquip(),
           stash:[], gold:0, maps:[], actDone:0, bossesKilled:[], record:0, daily:'', torment:0, tormentMax:0, tree:[], created:Date.now()};
 }
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -62,6 +63,7 @@ function updateHeader(){
 }
 
 let pick_ = {cls:'N', color:'w', mode:'normal'}, delPending = null;
+let saveMsg = '';
 function showHeroes(){
   HERO = null; S = null;
   const cards = SAVE.heroes.map(h => `
@@ -79,6 +81,8 @@ function showHeroes(){
     <div class="col">
       <h2 class="sh">${$t('Seus heróis', 'Your heroes')}</h2>
       ${cards || $t('<p class="muted">Nenhum herói ainda. Crie o primeiro ao lado.</p>', '<p class="muted">No heroes yet. Create the first one alongside.</p>')}
+      <div class="savebar"><button class="ghost sm" type="button" data-act="export" ${SAVE.heroes.length?'':'disabled'}>${$t('Exportar save', 'Export save')}</button><button class="ghost sm" type="button" data-act="import">${$t('Importar save', 'Import save')}</button><input type="file" id="saveFile" accept="application/json,.json" hidden>
+        <p class="muted small">${saveMsg || $t('O progresso fica só neste navegador. Exporte um arquivo para ter uma cópia de segurança ou levar para outro aparelho.', 'Progress lives only in this browser. Export a file for a backup or to move to another device.')}</p></div>
     </div>
     <div class="col">
       <h2 class="sh">${$t('Novo herói', 'New hero')}</h2>
@@ -101,6 +105,23 @@ function showHeroes(){
     </div>`;
   showScreen('heroes');
 }
+$('scrHeroes').addEventListener('change', ev => {
+  if (!ev.target || ev.target.id!=='saveFile' || !ev.target.files[0]) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const data = JSON.parse(rd.result);
+      if (!data || !Array.isArray(data.heroes) || !data.heroes.every(h => h && h.id && h.cls && h.equip && Array.isArray(h.stash))) throw new Error('format');
+      const have = new Map(SAVE.heroes.map(h => [h.id, h]));
+      for (const h of data.heroes) have.set(h.id, h);
+      SAVE.heroes = [...have.values()]; if (data.opts) SAVE.opts = {...(SAVE.opts||{}), ...data.opts};
+      persist(); loadSave();
+      saveMsg = $t(`Save importado: ${data.heroes.length} ${data.heroes.length===1?'herói':'heróis'}. Heróis com o mesmo código foram substituídos.`, `Save imported: ${data.heroes.length} ${data.heroes.length===1?'hero':'heroes'}. Heroes with the same id were replaced.`);
+    } catch(e){ saveMsg = $t('Esse arquivo não parece um save do Rei Caído.', 'That file does not look like a Rei Caído save.'); }
+    showHeroes();
+  };
+  rd.readAsText(ev.target.files[0]);
+});
 $('scrHeroes').addEventListener('click', ev => {
   const b = ev.target.closest('[data-act]'); if (!b) return;
   const [act, arg] = b.dataset.act.split(':');
@@ -113,6 +134,12 @@ $('scrHeroes').addEventListener('click', ev => {
     SAVE.heroes.push(h); persist(); $('heroName').value = '';
     HERO = h; startExpedition({kind:'tutorial'});
   }
+  else if (act==='export'){
+    const blob = new Blob([JSON.stringify(SAVE)], {type:'application/json'}), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'rei-caido-save-' + todayStr() + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    saveMsg = $t('Save exportado.', 'Save exported.'); showHeroes();
+  }
+  else if (act==='import'){ $('saveFile').click(); }
   else if (act==='play'){ HERO = SAVE.heroes.find(h=>h.id===arg); delPending = null; showCamp(); }
   else if (act==='del'){
     if (delPending===arg){ SAVE.heroes = SAVE.heroes.filter(h=>h.id!==arg); delPending = null; persist(); }
@@ -140,17 +167,27 @@ const SLOT_ICON = {
   elmo:'<path d="M4.5 15a7.5 7.5 0 0 1 15 0v3.5h-15z"/><path d="M9.5 18.5v-4.5h5v4.5M12 7.5v-3"/>',
   armadura:'<path d="M8 3.5l4 2 4-2 4.5 4-3 2.5v10.5h-11V10l-3-2.5z"/><path d="M12 5.5v15"/>',
   botas:'<path d="M8 3.5h5.5v9l6 3.2v4.8H8z"/><path d="M8 17h11.5"/>',
-  anel:'<circle cx="12" cy="14.5" r="5.5"/><path d="M9.5 4.5h5l1.8 2.8-4.3 2.4-4.3-2.4z"/>'
+  anel:'<circle cx="12" cy="14.5" r="5.5"/><path d="M9.5 4.5h5l1.8 2.8-4.3 2.4-4.3-2.4z"/>',
+  luvas:'<path d="M7 21v-5.2L5 11.8l1.7-1 1.8 2.2V5.8a1.3 1.3 0 0 1 2.6 0V10m0-5a1.3 1.3 0 0 1 2.6 0v5m0-4a1.3 1.3 0 0 1 2.6 0v9.2c0 3.4-2.2 5.8-5.6 5.8z"/><path d="M7 18.5h9.4"/>',
+  cinto:'<rect x="2.5" y="9" width="19" height="6" rx="1"/><rect x="9" y="7.8" width="6" height="8.4" rx="1"/><path d="M5 12h2.2M16.8 12H19M12 10.5v3"/>',
+  amuleto:'<path d="M5 3.5c.9 5.2 3.4 8 7 8s6.1-2.8 7-8"/><path d="M12 11.5v2"/><path d="M12 13.5l3.2 3.4-3.2 4.4-3.2-4.4z"/>'
 };
 const slotIcon = (slot, cls='') => `<svg class="sicon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${SLOT_ICON[slot]}</svg>`;
-function itemTile(it, act, selected){
-  return `<button class="itile r-${it.rar} ${selected?'sel':''}" type="button" data-act="${act}" aria-pressed="${selected}" title="${esc(it.name)}">
-    ${slotIcon(it.slot)}<span class="iname">${esc(it.name)}</span></button>`;
+// a quick read of whether a stash item beats what is worn: +1 for each point of damage, health, shield, cooldown, crit
+function cmpMark(it){
+  if (!HERO || !HERO.equip || Object.values(HERO.equip).includes(it)) return '';
+  try { const a = statsFor(HERO.cls, HERO.color, HERO.equip), b = statsFor(HERO.cls, HERO.color, {...HERO.equip, [eqKey(HERO.equip, it)]:it});
+    const sc = (b.dmg-a.dmg)*3 + (b.hp-a.hp)/5 + (b.shield-a.shield) + (b.cdr-a.cdr)*2 + (b.crit-a.crit)/3 + (b.resFire+b.resCold+b.resLight-a.resFire-a.resCold-a.resLight)/6;
+    return sc > .5 ? '<span class="cmp up" title="' + $t('Melhor que o equipado', 'Better than what you wear') + '">▲</span>' : sc < -.5 ? '<span class="cmp down" title="' + $t('Pior que o equipado', 'Worse than what you wear') + '">▼</span>' : ''; } catch(e){ return ''; }
+}
+function itemTile(it, act, selected, cmp){
+  return `<button class="itile r-${it.rar} ${selected?'sel':''}" type="button" data-act="${act}" data-tip="${act.replace('selS:','s:').replace('selE:','e:')}" aria-pressed="${selected}" aria-label="${esc(it.name)}">
+    ${cmp ? cmpMark(it) : ''}${slotIcon(it.slot)}<span class="iname">${esc(it.name)}</span></button>`;
 }
 // numeric changes and rule effects gained/lost when `it` replaces what is in its slot
 function swapDiff(h, it){
-  const cur = h.equip[it.slot];
-  const a = statsFor(h.cls, h.color, h.equip), b = statsFor(h.cls, h.color, {...h.equip, [it.slot]:it});
+  const key = eqKey(h.equip, it), cur = h.equip[key];
+  const a = statsFor(h.cls, h.color, h.equip), b = statsFor(h.cls, h.color, {...h.equip, [key]:it});
   const nums = [['dmg',$t('de dano', 'damage')],['hp',$t('de vida', 'health')],['shield',$t('de escudo por andar', 'shield per floor')],['cdr',$t('de recarga', 'cooldown')],['crit',$t('% de crítico', '% critical chance')],['eliteDmg',$t('% contra elites e chefes', '% against elites and bosses')],
     ['block',$t('% de bloqueio', '% block')],['healKill',$t('de cura ao matar', 'healing on kill')],['mf',$t('% de achado de itens', '% item find')],['gold',$t('% de ouro', '% gold')],
     ['fireDmg',$t('de dano de fogo', 'fire damage')],['coldDmg',$t('de dano de gelo', 'cold damage')],['lightDmg',$t('de dano de raio', 'lightning damage')],['resFire',$t('% de resistência a fogo', '% fire resistance')],['resCold',$t('% de resistência a gelo', '% cold resistance')],['resLight',$t('% de resistência a raio', '% lightning resistance')]].map(([k,l]) => [l, b[k]-a[k]]).filter(([,d]) => d);
@@ -165,11 +202,10 @@ function diffHtml(d){
 }
 function campGear(h){
   const st = statsFor(h.cls, h.color, h.equip);
-  const slots = Object.keys(SLOTS).map(s => {
-    const it = h.equip[s], sel = campSel && campSel.from==='equip' && campSel.slot===s;
-    return it ? `<div class="eslot"><span class="lbl">${SLOTS[s].label}</span>${itemTile(it, 'selE:'+s, sel)}</div>`
-      : `<div class="eslot"><span class="lbl">${SLOTS[s].label}</span><div class="itile empty">${slotIcon(s)}<span class="iname">${$t('vazio', 'empty')}</span></div></div>`;
-  }).join('');
+  const dollSlot = s => { const it = h.equip[s], sel = campSel && campSel.from==='equip' && campSel.slot===s, ty = eqType(s);
+    return it ? `<button class="dslot ds-${s} itile r-${it.rar} ${sel?'sel':''}" type="button" data-act="selE:${s}" data-tip="e:${s}" aria-pressed="${!!sel}" aria-label="${esc(it.name)}"><span class="dlbl">${eqLabel(s)}</span>${slotIcon(ty)}<span class="iname">${esc(it.name)}</span></button>`
+      : `<div class="dslot ds-${s} itile empty"><span class="dlbl">${eqLabel(s)}</span>${slotIcon(ty)}<span class="iname">${$t('vazio', 'empty')}</span></div>`; };
+  const slots = `<div class="doll"><div class="doll-bg" aria-hidden="true"><span class="g ${h.color}">${GLYPH[h.cls]}</span></div>${EQ_SLOTS.map(dollSlot).join('')}</div>`;
   const list = h.stash.map((it,i) => ({it,i})).filter(o => campFilter==='all' || o.it.slot===campFilter)
     .sort((a,b) => ['legend','rare','magic','common'].indexOf(a.it.rar) - ['legend','rare','magic','common'].indexOf(b.it.rar));
   const chips = [['all',$t('Todos', 'All')], ...Object.keys(SLOTS).map(s => [s, SLOTS[s].label])].map(([k,l]) => {
@@ -177,16 +213,16 @@ function campGear(h){
     return `<button class="chip ${campFilter===k?'on':''}" type="button" data-act="filter:${k}" aria-pressed="${campFilter===k}">${l} <span>${n}</span></button>`;
   }).join('');
   const commons = h.stash.filter(it => it.rar==='common');
-  const grid = list.length ? `<div class="igrid">${list.map(o => itemTile(o.it, 'selS:'+o.i, campSel && campSel.from==='stash' && campSel.i===o.i)).join('')}</div>`
+  const grid = list.length ? `<div class="igrid">${list.map(o => itemTile(o.it, 'selS:'+o.i, campSel && campSel.from==='stash' && campSel.i===o.i, true)).join('')}</div>`
     : `<p class="muted">${h.stash.length ? $t('Nada deste tipo no baú.', 'Nothing of this type in the stash.') : $t('Vazio. Itens guardados nas expedições aparecem aqui.', 'Empty. Items stored on expeditions show up here.')}</p>`;
   // detail of the selected item
   let detail = $t('<p class="muted">Clique num item, equipado ou do baú, para ver os detalhes e comparar.</p>', '<p class="muted">Click an item, equipped or in the stash, to see its details and compare.</p>');
   if (campSel && campSel.from==='stash' && h.stash[campSel.i]){
-    const it = h.stash[campSel.i], cur = h.equip[it.slot];
+    const it = h.stash[campSel.i], ek = eqKey(h.equip, it), cur = h.equip[ek], twoRings = it.slot==='anel' && h.equip.anel && h.equip.anel2;
     detail = `${itemCard(it,$t('No baú', 'In the stash'))}
       <h4 class="dh">${$t('Se equipar, no lugar de', 'If equipped, replacing')} ${cur ? `<span class="rc-${cur.rar}">${esc(cur.name)}</span>` : 'nada'}</h4>${diffHtml(swapDiff(h, it))}
       ${cur ? `<details class="curd"><summary>${$t('Ver o item equipado', 'See the equipped item')}</summary>${itemCard(cur,$t('Equipado', 'Equipped'))}</details>` : ''}
-      <div class="row"><button class="primary sm" type="button" data-act="equip:${campSel.i}">${$t('Equipar', 'Equip')}</button>
+      <div class="row">${twoRings ? `<button class="primary sm" type="button" data-act="equip:${campSel.i}|anel">${$t('Trocar o Anel I', 'Replace Ring I')}</button><button class="primary sm" type="button" data-act="equip:${campSel.i}|anel2">${$t('Trocar o Anel II', 'Replace Ring II')}</button>` : `<button class="primary sm" type="button" data-act="equip:${campSel.i}">${$t('Equipar', 'Equip')}</button>`}
       <button class="ghost sm" type="button" data-act="sell:${campSel.i}">${$t('Vender por', 'Sell for')} ${sellPrice(it)}</button></div>`;
   } else if (campSel && campSel.from==='equip' && h.equip[campSel.slot]){
     const it = h.equip[campSel.slot], full = h.stash.length>=STASH_MAX;
@@ -197,7 +233,7 @@ function campGear(h){
   }
   return `<div class="gearlayout">
     <section class="gpanel">
-      <h3 class="sub">${$t('Equipado', 'Equipped')}</h3><div class="eslots">${slots}</div>
+      <h3 class="sub">${$t('Equipado', 'Equipped')}</h3>${slots}
       <dl class="stats st4"><div><dt>${$t('Dano', 'Damage')}</dt><dd>${st.dmg}</dd></div><div><dt>${$t('Vida', 'Health')}</dt><dd>${st.hp}</dd></div><div><dt>${$t('Escudo', 'Shield')}</dt><dd>${st.shield}</dd></div><div><dt>${$t('Recarga', 'Cooldown')}</dt><dd>-${st.cdr}</dd></div></dl><p class="resline"><b>${$t('Resistências', 'Resistances')}</b>${$t(': fogo', ': fire')} ${st.resFire}${$t('% · gelo', '% · cold')} ${st.resCold}${$t('% · raio', '% · lightning')} ${st.resLight}%${st.fireDmg+st.coldDmg+st.lightDmg ? `<br><b>${$t('Dano elemental', 'Elemental damage')}</b>${$t(': fogo +', ': fire +')}${st.fireDmg} ${$t('· gelo +', '· cold +')}${st.coldDmg} ${$t('· raio +', '· lightning +')}${st.lightDmg}` : ''}</p>
     </section>
     <section class="gpanel">
@@ -274,26 +310,47 @@ function forgeDo(h, op, ai){
   }
   return '';
 }
+/* Forge bench (inspired by bench crafting): pick an item, pick an option from the list, press Forge. */
+let forgeSel = null, forgeMsg = '';
+function forgeOptions(h, it){
+  const aff = [], misc = [];
+  it.affixes.forEach((a, i) => {
+    const rr = forgeCost(h, it, 'reroll', i), up = forgeCost(h, it, 'upgrade', i);
+    if (rr) aff.push({op:'reroll', ai:i, c:rr, t:$t('Refazer', 'Reroll'), d:AFX[a.k].t(a.v)});
+    if (up) aff.push({op:'upgrade', ai:i, c:up, t:$t(`Aprimorar T${a.t} → T${a.t+1}`, `Upgrade T${a.t} → T${a.t+1}`), d:AFX[a.k].t(a.v)});
+  });
+  const en = forgeCost(h, it, 'enchant', 0), tm = forgeCost(h, it, 'temper', 0), sv = forgeCost(h, it, 'salvage', 0);
+  if (en) misc.push({op:'enchant', ai:0, c:en, t:$t('Encantar', 'Enchant'), d:$t('Adiciona um novo afixo (até 3) e pode subir a raridade', 'Adds a new affix (up to 3) and may raise the rarity')});
+  if (tm) misc.push({op:'temper', ai:0, c:tm, t:$t('Temperar', 'Temper'), d:$t(`Leva os números de T${maxTier(it.ilvl||1)} a T${maxTier(forgeIlvl(h))}`, `Raises the numbers from T${maxTier(it.ilvl||1)} to T${maxTier(forgeIlvl(h))}`)});
+  if (sv) misc.push({op:'salvage', ai:0, c:sv, t:$t('Desmanchar', 'Salvage'), d:$t(`Destrói o item e dá ${SALVAGE[it.rar]||1} brasas`, `Destroys the item for ${SALVAGE[it.rar]||1} embers`)});
+  return {aff, misc};
+}
 function campForge(h){
-  const eq = Object.keys(SLOTS).filter(s => h.equip[s]).map(s => itemTile(h.equip[s], 'selE:'+s, campSel && campSel.from==='equip' && campSel.slot===s)).join('');
-  const st = h.stash.map((it,i) => itemTile(it, 'selS:'+i, campSel && campSel.from==='stash' && campSel.i===i)).join('');
-  const it = forgeItem(h);
-  const btn = (op, ai, label) => { const c = forgeCost(h, it, op, ai); if (!c) return '';
-    return `<button class="${canPay(h,c) && (op==='enchant' || op==='temper') ? 'primary' : 'ghost'} sm" type="button" data-act="forge:${op}|${ai}" ${canPay(h,c)?'':'disabled'}>${label}${costTxt(c) ? ` <small>(${costTxt(c)})</small>` : ''}</button>`; };
-  let detail = $t('<p class="muted">Escolha um item, equipado ou do baú.</p>', '<p class="muted">Pick an item, equipped or from the stash.</p>');
-  if (it){
-    const top = maxTier(it.ilvl||1);
-    const rows = it.affixes.map((a,i) => `<li class="frow ${isRuleAf(a)?'rule':''}"><span>${AFX[a.k].t(a.v)}${a.t ? ` <span class="tier t${a.t}">T${a.t}</span>` : ''}</span><span class="fbtns">${btn('reroll', i, $t('Refazer', 'Reroll'))}${btn('upgrade', i, $t('Aprimorar', 'Upgrade'))}</span></li>`).join('');
-    detail = `<div class="card"><div class="meta">${RAR[it.rar].label} · ${SLOTS[it.slot].label} · ${$t('nível', 'level')} ${it.ilvl||1} · ${$t('camada máxima', 'max tier')} T${top}</div><div class="nm rc-${it.rar}">${esc(it.name)}</div><ul class="flist">${rows}</ul></div>
-      <div class="row fops">${btn('enchant', 0, $t('Encantar: novo afixo', 'Enchant: new affix'))}${btn('temper', 0, $t(`Temperar: T${maxTier(it.ilvl||1)} → T${maxTier(forgeIlvl(h))}`, `Temper: T${maxTier(it.ilvl||1)} → T${maxTier(forgeIlvl(h))}`))}${it.rar==='legend' && !forgeCost(h, it, 'temper', 0) && maxTier(forgeIlvl(h)) < 5 ? `<span class="muted small">${$t(`Temperar sobe a camada dos números. A próxima (T${maxTier(forgeIlvl(h))+1}) libera no nível ${TIER_ILVL[maxTier(forgeIlvl(h))]}.`, `Tempering raises the tier of the numbers. The next one (T${maxTier(forgeIlvl(h))+1}) unlocks at level ${TIER_ILVL[maxTier(forgeIlvl(h))]}.`)}</span>` : ''}${campSel.from==='stash' ? `<button class="ghost sm" type="button" data-act="forge:salvage|0">${$t('Desmanchar', 'Salvage')} <small>(+${SALVAGE[it.rar]||1} ${$t('brasas', 'embers')})</small></button>` : ''}</div>
-      <p class="muted small">${it.rar==='legend' ? $t('Únicos não mudam de afixos. Os números de um único sobem por camada (níveis 1, 5, 10, 18 e 28); Temperar leva o item à camada do seu nível atual (nível do herói + 3 por Tormento liberado).', 'Uniques keep their affixes. A unique\'s numbers go up by tier (levels 1, 5, 10, 18 and 28); Tempering brings the item to the tier of your current level (hero level + 3 per unlocked Torment).')
-        : $t('Refazer troca um afixo por outro. Aprimorar sobe a camada até o máximo que o nível do item permite. Encantar adiciona um afixo (até 3) e sobe a raridade.', 'Reroll swaps an affix for another. Upgrade raises the tier up to the maximum the item level allows. Enchant adds an affix (up to 3) and raises the rarity.')}</p>`;
-  }
+  const it = forgeItem(h), selE = s => campSel && campSel.from==='equip' && campSel.slot===s, selS = i => campSel && campSel.from==='stash' && campSel.i===i;
+  const opts = it ? forgeOptions(h, it) : {aff:[], misc:[]}, all = [...opts.aff, ...opts.misc];
+  const cur = forgeSel && all.find(o => o.op===forgeSel.op && o.ai===forgeSel.ai) || null;
+  const eq = EQ_SLOTS.filter(s => h.equip[s]).map(s => itemTile(h.equip[s], 'selE:'+s, selE(s))).join('');
+  const chips = [['all', $t('Todos', 'All')], ...Object.keys(SLOTS).map(s => [s, SLOTS[s].label])].filter(([k]) => k==='all' || h.stash.some(x => x.slot===k)).map(([k, l]) =>
+    `<button class="chip ${campFilter===k?'on':''}" type="button" data-act="filter:${k}" aria-pressed="${campFilter===k}">${l}</button>`).join('');
+  const st = h.stash.map((x, i) => ({x, i})).filter(o => campFilter==='all' || o.x.slot===campFilter).map(o => itemTile(o.x, 'selS:'+o.i, selS(o.i), true)).join('');
+  const row = o => { const ok = canPay(h, o.c), txt = costTxt(o.c);
+    return `<button class="bopt ${cur===o?'on':''} ${ok?'':'poor'}" type="button" data-act="fsel:${o.op}|${o.ai}" aria-pressed="${cur===o}"><span class="bt">${o.t}</span><span class="bd">${o.d}</span><span class="bc">${txt || $t('grátis', 'free')}</span></button>`; };
+  const cat = (title, list) => list.length ? `<details class="bcat" open><summary>${title}</summary><div class="brows">${list.map(row).join('')}</div></details>` : '';
+  const list = it ? (cat($t('Afixos', 'Affixes'), opts.aff) + cat($t('Item', 'Item'), opts.misc) || `<p class="muted small">${$t('Nada a fazer com este item.', 'Nothing to do with this item.')}</p>`)
+    : `<p class="muted small">${$t('Escolha um item à esquerda.', 'Pick an item on the left.')}</p>`;
+  const frame = it ? `<div class="bmeta">${RAR[it.rar].label} · ${SLOTS[it.slot].label} · ${$t('nível', 'level')} ${it.ilvl||1} · T${maxTier(it.ilvl||1)}</div><div class="bname rc-${it.rar}">${esc(it.name)}</div>
+      <ul class="baff">${it.affixes.map((a, i) => affixLine(a).replace('<li class="', `<li class="${cur && cur.ai===i && cur.op!=='enchant' && cur.op!=='temper' && cur.op!=='salvage' ? 'hl ' : ''}`)).join('')}</ul>`
+    : `<p class="muted small bempty">${$t('Coloque um item na bancada.', 'Put an item on the bench.')}</p>`;
+  const can = cur && canPay(h, cur.c);
+  const sum = cur ? `<div class="bsel"><b>${cur.t}</b><span>${cur.d}</span><em class="${can?'':'poor'}">${costTxt(cur.c) || $t('grátis', 'free')}</em></div>` : `<div class="bsel none">${$t('Escolha uma opção na lista.', 'Choose an option from the list.')}</div>`;
   return `<div class="thead"><p class="muted">${$t('Ouro', 'Gold')} <b>${h.gold}</b> · ${$t('Brasas de Sangue', 'Blood Embers')} <b>${h.embers||0}</b>. ${$t('Brasas vêm da Maré de Sangue e de itens desmanchados aqui.', 'Embers come from the Blood Tide and from items salvaged here.')}</p></div>
-    <div class="gearlayout">
-      <section class="gpanel"><h3 class="sub">${$t('Equipado', 'Equipped')}</h3><div class="igrid">${eq || `<p class="muted small">${$t('Nada equipado.', 'Nothing equipped.')}</p>`}</div>
-        <h3 class="sub">${$t('Baú', 'Stash')} <span class="muted">${h.stash.length}/${STASH_MAX}</span></h3><div class="igrid">${st || `<p class="muted small">${$t('Vazio.', 'Empty.')}</p>`}</div></section>
-      <section class="gpanel detail forge" aria-live="polite"><h3 class="sub">${$t('Bigorna', 'Anvil')}</h3>${detail}</section>
+    <div class="bench">
+      <section class="bpick"><h3 class="sub">${$t('Equipado', 'Equipped')}</h3><div class="igrid">${eq || `<p class="muted small">${$t('Nada equipado.', 'Nothing equipped.')}</p>`}</div>
+        <h3 class="sub">${$t('Baú', 'Stash')} <span class="muted">${h.stash.length}/${STASH_MAX}</span></h3><div class="chips">${chips}</div><div class="igrid">${st || `<p class="muted small">${$t('Vazio.', 'Empty.')}</p>`}</div></section>
+      <section class="blist" aria-label="${$t('Opções da bancada', 'Bench options')}"><h3 class="sub">${$t('Bancada de Forja', 'Forge Bench')}</h3>${list}</section>
+      <section class="bframe" aria-live="polite"><div class="bslot">${frame}</div>${sum}${forgeMsg ? `<div class="bmsg">${forgeMsg}</div>` : ''}
+        <button class="primary craft" type="button" data-act="forge:${cur ? cur.op+'|'+cur.ai : 'none|0'}" ${can?'':'disabled'}>${$t('Forjar', 'Forge')}</button>
+        ${it && it.rar==='legend' ? `<p class="muted small">${$t('Únicos não mudam de afixos; Temperar sobe a camada dos números (nível do herói + 3 por Tormento liberado).', 'Uniques keep their affixes; Tempering raises the tier of the numbers (hero level + 3 per unlocked Torment).')}</p>` : ''}</section>
     </div>`;
 }
 let campNode = null;
@@ -314,6 +371,26 @@ function treeTip(ev){
   tip.style.left = x + 'px'; tip.style.top = y + 'px';
 }
 $('scrCamp').addEventListener('mousemove', treeTip);
+// hover/focus tooltip for any item in camp (equipped doll, stash, forge): the item, and for stash items what changes if worn
+function campItemTip(ev){
+  const g = ev.target.closest && ev.target.closest('[data-tip]');
+  let tip = document.getElementById('gearTip');
+  if (!g || !HERO || !HERO.equip){ if (tip) tip.hidden = true; return; }
+  const [k, v] = g.dataset.tip.split(':'), it = k==='s' ? HERO.stash[+v] : HERO.equip[v];
+  if (!it){ if (tip) tip.hidden = true; return; }
+  if (!tip){ tip = document.createElement('div'); tip.id = 'gearTip'; tip.className = 'ttip'; document.body.appendChild(tip); }
+  const ek = k==='s' ? eqKey(HERO.equip, it) : v, cur = k==='s' ? HERO.equip[ek] : null;
+  tip.innerHTML = `<span class="k">${RAR[it.rar].label} · ${SLOTS[it.slot].label}${it.ilvl ? $t(` · nível ${it.ilvl}`, ` · level ${it.ilvl}`) : ''}${k==='e' ? $t(' · equipado', ' · equipped') : ''}</span><b style="color:${RAR[it.rar].c}">${esc(it.name)}</b><ul>${it.affixes.map(affixLine).join('')}</ul>`
+    + (k==='s' ? `<span class="k tdh">${cur ? $t('Se equipar, no lugar de ', 'If equipped, replacing ') + esc(cur.name) : $t('Se equipar', 'If equipped')}</span>${diffHtml(swapDiff(HERO, it))}` : '');
+  tip.hidden = false;
+  const r = tip.getBoundingClientRect(), x = Math.min(ev.clientX + 16, innerWidth - r.width - 8), y = Math.max(8, Math.min(ev.clientY + 16, innerHeight - r.height - 8));
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+$('scrCamp').addEventListener('mousemove', campItemTip);
+$('scrCamp').addEventListener('focusin', ev => { const g = ev.target.closest && ev.target.closest('[data-tip]'); if (g){ const r = g.getBoundingClientRect(); campItemTip({target:g, clientX:r.right, clientY:r.top}); } });
+$('scrCamp').addEventListener('focusout', () => { const t = document.getElementById('gearTip'); if (t) t.hidden = true; });
+$('scrCamp').addEventListener('click', () => { const t = document.getElementById('gearTip'); if (t) t.hidden = true; }, true);
+$('scrCamp').addEventListener('mouseleave', () => { const t = document.getElementById('gearTip'); if (t) t.hidden = true; });
 // hover tooltip for the equipment icons on the game screen
 function gearTip(ev){
   const g = ev.target.closest && ev.target.closest('[data-gslot]');
@@ -322,8 +399,8 @@ function gearTip(ev){
   if (!tip){ tip = document.createElement('div'); tip.id = 'gearTip'; tip.className = 'ttip'; document.body.appendChild(tip); }
   const slot = g.dataset.gslot, it = S.equip[slot];
   tip.innerHTML = it
-    ? `<span class="k">${SLOTS[slot].label} · ${RAR[it.rar].label}${it.ilvl ? $t(` · nível ${it.ilvl}`, ` · level ${it.ilvl}`) : ''}</span><b style="color:${RAR[it.rar].c}">${esc(it.name)}</b>${affixList(it)}`
-    : `<span class="k">${SLOTS[slot].label}</span><p>${$t('Espaço vazio', 'Empty slot')}</p>`;
+    ? `<span class="k">${SLOTS[it.slot].label} · ${RAR[it.rar].label}${it.ilvl ? $t(` · nível ${it.ilvl}`, ` · level ${it.ilvl}`) : ''}</span><b style="color:${RAR[it.rar].c}">${esc(it.name)}</b>${affixList(it)}`
+    : `<span class="k">${eqLabel(slot)}</span><p>${$t('Espaço vazio', 'Empty slot')}</p>`;
   tip.hidden = false;
   const r = tip.getBoundingClientRect(), x = Math.min(ev.clientX + 16, innerWidth - r.width - 8), y = Math.min(ev.clientY + 16, innerHeight - r.height - 8);
   tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
@@ -359,7 +436,7 @@ function campTree(h){
   const list = big.length
     ? `<div class="sgrid">${big.map(n => `<div class="scard onbar"><div class="tt"><b>${esc(n.name)}</b><span class="muted small">${NODE_KIND[n.kind]} · ${esc(n.branch||'')}</span></div><p>${esc(n.d)}</p></div>`).join('')}</div>`
     : `<p class="muted">${$t('Nenhuma regra aprendida ainda. Abra a árvore para escolher o seu caminho.', 'No rules learned yet. Open the tree to choose your path.')}</p>`;
-  return `<div class="thead"><p class="muted">${pts>0 ? `${$t('Você tem', 'You have')} <b class="pts">${pts}</b> ${pts===1?$t('ponto', 'point'):$t('pontos', 'points')} ${$t('para gastar.', 'to spend.')}` : $t('Sem pontos livres.', 'No free points.')} ${$t('Ganha 1 por nível (até o 50) e até 8 no endgame: 2 pela campanha, 1 pelo Reflexo, 1 por chefe supremo e 1 pelo Rei Caído. A árvore tem mais nós do que pontos: escolha.', 'You gain 1 per level (up to 50) and up to 8 in the endgame: 2 for the campaign, 1 for the Reflection, 1 per uber boss and 1 for the Fallen King. The tree has more nodes than points: choose.')}</p>
+  return `<div class="thead"><p class="muted">${pts>0 ? `${$t('Você tem', 'You have')} <b class="pts">${pts}</b> ${pts===1?$t('ponto', 'point'):$t('pontos', 'points')} ${$t('para gastar.', 'to spend.')}` : $t('Sem pontos livres.', 'No free points.')} ${$t('Ganha 1 por nível (até o 50) e até 8 no endgame: 2 pela campanha, 1 pelo Reflexo, 1 por chefe pináculo e 1 pelo Rei Caído. A árvore tem mais nós do que pontos: escolha.', 'You gain 1 per level (up to 50) and up to 8 in the endgame: 2 for the campaign, 1 for the Reflection, 1 per pinnacle boss and 1 for the Fallen King. The tree has more nodes than points: choose.')}</p>
       <button class="primary sm" type="button" data-act="treeopen">${$t('Abrir a árvore', 'Open the tree')}</button>
       <button class="ghost sm" type="button" data-act="respec">${$t('Redistribuir pontos (grátis)', 'Reset points (free)')}</button></div>
     <div class="xcard"><span class="xk">${$t('Sua árvore', 'Your tree')}</span><b>${learned.length} / ${total} ${$t('nós', 'nodes')}</b></div>
@@ -379,7 +456,7 @@ function campSkins(h){
 function campAtlas(h){
   if (h.actDone<4) return $t('<p class="muted">Conclua o Ato 4 para liberar os mapas e o Atlas.</p>', '<p class="muted">Complete Act 4 to unlock maps and the Atlas.</p>');
   const T = atlasTree(), pts = atlasPoints(h), learned = (h.atlasTree||[]).map(id => T[id]).filter(Boolean), total = Object.keys(T).length - 1;
-  const col = {crypt:'#8a6a48', swamp:'#5f8a55', forge:'#d0602a', cathedral:'#8fb0d8', storm:'#5b8fd8', tar:'#c9a24a', fungal:'#8a5fc0'};
+  const col = {crypt:'#8a6a48', swamp:'#5f8a55', forge:'#d0602a', cathedral:'#8fb0d8', storm:'#5b8fd8', tar:'#c9a24a', fungal:'#8a5fc0', ash:'#c9a05a', sea:'#4a9ab8'};
   const prog = ACTS.map(b => { const n = [...Array(10).keys()].filter(i => (h.atlas||{})[b+'-'+(i+1)]).length;
     return `<div class="aprog"><span>${BIOMES[b].name}</span><div class="adots">${[...Array(10).keys()].map(i => `<i class="${(h.atlas||{})[b+'-'+(i+1)] ? 'done' : ''}" style="--bc:${col[b]}" title="${$t('Nível', 'Tier')} ${i+1}${(h.atlas||{})[b+'-'+(i+1)] ? $t(': concluído', ': completed') : ''}"></i>`).join('')}</div><small>${n}/10</small></div>`; }).join('');
   const big = learned.filter(n => n.kind!=='small');
@@ -414,47 +491,55 @@ function campExpeditions(h){
   const portals = `<div class="portals">
     ${portal('camp', $t('Campanha', 'Campaign'), prog>=4 ? $t('Concluída', 'Completed') : $t(`Ato ${nextAct+1}: ${BIOMES[ACTS[nextAct]].name}`, `Act ${nextAct+1}: ${BIOMES[ACTS[nextAct]].name}`), prog>=4 ? $t('Suba o Tormento ou repita um ato', 'Raise the Torment or replay an act') : $t('Continue a história', 'Continue the story'), false)}
     ${portal('maps', $t('Mapas', 'Maps'), mapsOpen(h) ? `${h.maps.length} ${h.maps.length===1?$t('mapa', 'map'):$t('mapas', 'maps')}` : $t('Bloqueado', 'Locked'), mapsOpen(h) ? $t('Dispositivo de Mapas', 'Map Device') : $t('Conclua o Ato 4 da campanha', 'Complete Act 4 of the campaign'), !mapsOpen(h))}
-    ${portal('bosses', $t('Chefes Supremos', 'Uber Bosses'), `${Object.keys(UBERS).length} ${$t('supremos', 'ubers')}`, canUber(h) ? $t('Você pode enfrentar um agora', 'You can face one now') : $t(`${h.riftShards||0}/${UBER_COST.shards} Estilhaços · ${h.checkSeals||0}/${UBER_COST.seals} Selos`, `${h.riftShards||0}/${UBER_COST.shards} Shards · ${h.checkSeals||0}/${UBER_COST.seals} Seals`), false)}
+    ${portal('bosses', $t('Chefes Pináculo', 'Pinnacle Bosses'), `${Object.keys(UBERS).length} ${$t('pináculos', 'pinnacles')}`, canUber(h) ? $t('Você pode enfrentar um agora', 'You can face one now') : $t(`${h.riftShards||0}/${UBER_COST.shards} Estilhaços · ${h.checkSeals||0}/${UBER_COST.seals} Selos`, `${h.riftShards||0}/${UBER_COST.shards} Shards · ${h.checkSeals||0}/${UBER_COST.seals} Seals`), false)}
     ${portal('chal', $t('Desafios', 'Challenges'), $t('Abismo e Desafio do dia', 'Abyss and Daily Challenge'), $t(`Recorde no Abismo: andar ${h.record||0}`, `Abyss record: floor ${h.record||0}`), false)}
   </div>`;
-  const torm = `<div class="tormbar"><div><span class="xk">${$t('Dificuldade · vale para tudo, menos o desafio do dia', 'Difficulty · applies to everything except the daily challenge')}</span><b>${h.torment ? $t('Tormento ', 'Torment')+h.torment : $t('Normal', 'Normal')}</b><p class="muted small">${tormentDesc(h.torment||0)}</p></div>
+  // grey at Normal, through orange, to dark red at Torment 10
+  const tormColor = t => { const f = Math.min(1, (t||0)/10), L = (a,b,k) => a.map((v,i) => Math.round(v + (b[i]-v)*k)),
+      c = f < .5 ? L([138,131,122], [224,122,50], f/.5) : L([224,122,50], [140,29,24], (f-.5)/.5); return `rgb(${c.join(',')})`; };
+  const torm = `<div class="tormbar" style="--tc:${tormColor(h.torment)}"><div><span class="xk">${$t('Dificuldade · vale para tudo, menos o desafio do dia', 'Difficulty · applies to everything except the daily challenge')}</span><b>${h.torment ? $t('Tormento ', 'Torment')+h.torment : $t('Normal', 'Normal')}</b><p class="muted small">${tormentDesc(h.torment||0)}</p></div>
       <div class="tstep"><button class="ghost sm" type="button" data-act="torm:-1" ${(h.torment||0)>0?'':'disabled'} aria-label="${$t('Diminuir tormento', 'Lower torment')}">−</button>
       <span>${h.torment||0} / ${h.tormentMax||0}</span>
       <button class="ghost sm" type="button" data-act="torm:1" ${(h.torment||0)<(h.tormentMax||0)?'':'disabled'} aria-label="${$t('Aumentar tormento', 'Raise torment')}">+</button></div></div>`;
   const body = campExp==='maps' ? expMaps(h, side) : campExp==='bosses' ? expBosses(h, side) : campExp==='chal' ? expChallenges(h) : expCampaign(h, side, prog);
   return portals + torm + `<div class="xbody">${body}</div>`;
 }
+const bossModel = (id, cls) => `<span class="model ${cls||''}" aria-hidden="true">${GLYPH[BOSSES[id].type]}</span>`;
+const ROMAN = ['I','II','III','IV'];
 function expCampaign(h, side, prog){
   if (campAct===null || campAct>Math.min(3,prog)) campAct = Math.min(3, prog);
-  const nodes = ACTS.map((b,i) => {
-    const open = i <= prog, done = i < prog;
-    return `<button class="actnode bio-${b} ${campAct===i?'on':''} ${done?'done':''}" type="button" data-act="actsel:${i}" ${open?'':'disabled'} aria-pressed="${campAct===i}">
-      <span class="an-n">${done ? '✓' : i+1}</span><span class="an-t"><b>${BIOMES[b].name}</b><small>${done ? $t('Concluído', 'Completed') : open ? $t('Disponível', 'Available') : $t('Bloqueado', 'Locked')}</small></span></button>`;
-  }).join('<span class="an-link" aria-hidden="true"></span>');
-  const b = ACTS[campAct], done = campAct < prog;
-  return `<div class="actpath">${nodes}</div>
-    <div class="actdetail bio-${b}">
-      <div><span class="xk">${$t('Ato', 'Act')} ${campAct+1}${h.torment ? $t(` · Tormento ${h.torment}`, ` · Torment ${h.torment}`) : ''}</span><h3 class="sh">${BIOMES[b].name}</h3>
-        <p>${BIOMES[b].rule}</p><p class="muted small">${$t('Três andares; o último é o chefe:', 'Three floors; the last one is the boss:')} ${BOSSES[BIOMES[b].boss].names[side]}.</p></div>
-      <button class="primary" type="button" data-act="act:${campAct}">${done ? $t('Repetir ato', 'Replay act') : $t(`Iniciar Ato ${campAct+1}`, `Start Act ${campAct+1}`)}</button>
+  const cards = ACTS.map((b,i) => {
+    const open = i <= prog, done = i < prog, cur = i === prog;
+    return `<button class="actcard bio-${b} ${campAct===i?'on':''} ${done?'done':''} ${cur?'cur':''}" type="button" data-act="actsel:${i}" ${open?'':'disabled'} aria-pressed="${campAct===i}" style="--img:url(img/biome-${b}.jpg)">
+      <span class="ac-n">${done ? '✓' : ROMAN[i]}</span>${bossModel(BIOMES[b].boss)}
+      <span class="ac-t"><small>${$t('Ato', 'Act')} ${i+1}</small><b>${BIOMES[b].name}</b><em>${done ? $t('Concluído', 'Completed') : cur ? $t('Em andamento', 'In progress') : open ? $t('Disponível', 'Available') : $t('🔒 Bloqueado', '🔒 Locked')}</em></span></button>`;
+  }).join('');
+  const b = ACTS[campAct], done = campAct < prog, bs = BOSSES[BIOMES[b].boss];
+  return `<div class="actrow">${cards}</div>
+    <div class="actdetail bio-${b}" style="--img:url(img/biome-${b}.jpg)">
+      <div class="ad-main"><span class="xk">${$t('Ato', 'Act')} ${campAct+1} ${$t('de 4', 'of 4')}${h.torment ? $t(` · Tormento ${h.torment}`, ` · Torment ${h.torment}`) : ''}</span><h3 class="sh">${BIOMES[b].name}</h3>
+        <p>${BIOMES[b].rule}</p>
+        <div class="floors" aria-label="${$t('Andares', 'Floors')}"><span><i></i>${$t('Andar 1', 'Floor 1')}</span><span><i></i>${$t('Andar 2', 'Floor 2')}</span><span class="boss"><i></i>${$t('Chefe', 'Boss')}</span></div>
+        <button class="primary" type="button" data-act="act:${campAct}">${done ? $t('Repetir ato', 'Replay act') : $t(`Iniciar Ato ${campAct+1}`, `Start Act ${campAct+1}`)}</button></div>
+      <div class="ad-boss">${bossModel(BIOMES[b].boss, 'big')}<span class="xk">${$t('Chefe do ato', 'Act boss')}</span><b>${bs.names[side]}</b><small>${bs.p1}</small></div>
     </div>
     <p class="muted small xfoot">${$t('Primeira vez?', 'First time?')} <button class="link" type="button" data-act="tutorial">${h.tutorialDone ? $t('Refazer o Pátio de Treino', 'Redo the Training Yard') : $t('Fazer o Pátio de Treino', 'Do the Training Yard')}</button></p>`;
 }
 function expBosses(h, side){
   const killed = h.bossesKilled.filter(id => BOSSES[id] && id!=='fallen');
   const hunts = killed.length ? `<div class="chips">${killed.map(id => `<button class="ghost sm" type="button" data-act="hunt:${id}">${BOSSES[id].names[side]}</button>`).join('')}</div>` : $t('<p class="muted small">Derrote um chefe na campanha para poder caçá-lo de novo.</p>', '<p class="muted small">Defeat a boss in the campaign to hunt it again.</p>');
-  return `<p class="muted small">${$t('Cada chefe supremo custa', 'Each uber boss costs')} ${UBER_COST.shards} ${$t('Estilhaços (você tem', 'Shards (you have')} ${h.riftShards||0}) e ${UBER_COST.seals} ${$t('Selos (você tem', 'Seals (you have')} ${h.checkSeals||0}${$t('). Estilhaços vêm das Fendas; Selos, das Partidas Congeladas.', '). Shards come from Rifts; Seals, from Frozen Matches.')}</p>
-    <div class="xgrid">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard bio-${U.biome}"><span class="xk">${$t('Supremo', 'Uber')}</span><b>${U.name}</b>
+  return `<p class="muted small">${$t('Cada chefe pináculo custa', 'Each pinnacle boss costs')} ${UBER_COST.shards} ${$t('Estilhaços (você tem', 'Shards (you have')} ${h.riftShards||0}) e ${UBER_COST.seals} ${$t('Selos (você tem', 'Seals (you have')} ${h.checkSeals||0}${$t('). Estilhaços vêm das Fendas; Selos, das Partidas Congeladas.', '). Shards come from Rifts; Seals, from Frozen Matches.')}</p>
+    <div class="xgrid ubers">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard uber bio-${U.biome}" style="--img:url(img/biome-${U.biome}.jpg)"><div class="ub-model">${bossModel(id, 'big')}<span class="ub-shards">${(((h.crownFrags||{})[id])||0)} ${$t('frag.', 'frag.')}</span></div><div class="ub-body"><span class="xk">${$t('Pináculo', 'Pinnacle')}</span><b>${U.name}</b>
       <p>${U.special}</p>
       <ul class="uown">${UBER_OWN[id].map(o => `<li class="${ownsUnique(h, o.name)?'have':''}" title="${esc(AFX[o.affixes[0].k].t())}">${ownsUnique(h, o.name)?'✓ ':''}<span class="rc-legend">${esc(o.name)}</span></li>`).join('')}</ul>
-      <p class="muted small">${$t('Deixa um destes ou um único supremo comum, e um Fragmento da Coroa.', 'Drops one of these or a common uber unique, and a Crown Fragment.')} ${((h.crownFrags||{})[id]||0) ? $t(`Fragmentos: ${h.crownFrags[id]}.`, `Fragments: ${h.crownFrags[id]}.`) : ''}</p>
-      <button class="${canUber(h)?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${canUber(h)?'':'disabled'}>${$t('Enfrentar', 'Face')}</button></div>`).join('')}</div>
-    <div class="xcard pinnacle"><span class="xk">${$t('Pináculo', 'Pinnacle')}</span><b>${$t('O Rei Caído', 'The Fallen King')}</b>
+      <p class="muted small">${$t('Deixa um destes ou um único pináculo comum, e um Fragmento da Coroa.', 'Drops one of these or a common pinnacle unique, and a Crown Fragment.')} ${((h.crownFrags||{})[id]||0) ? $t(`Fragmentos: ${h.crownFrags[id]}.`, `Fragments: ${h.crownFrags[id]}.`) : ''}</p>
+      <button class="${canUber(h)?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${canUber(h)?'':'disabled'}>${$t('Enfrentar', 'Face')}</button></div></div>`).join('')}</div>
+    <div class="xcard pinnacle"><div class="ub-model"><span class="model big king" aria-hidden="true">${GLYPH.K}</span></div><div class="ub-body"><span class="xk">${$t('Uber Pináculo', 'Uber Pinnacle')}</span><b>${$t('O Rei Caído', 'The Fallen King')}</b>
       <p>${BOSSES.fallen.p1}</p><p>${BOSSES.fallen.p2}</p><p>${BOSSES.fallen.p3}</p>
       <div class="frags">${BOSS_ORDER.map(id => `<span class="${((h.crownFrags||{})[id]||0)>0?'have':''}">${UBERS[id].name}<b>${(h.crownFrags||{})[id]||0}</b></span>`).join('')}</div>
       <ul class="uown">${FALLEN_UNIQUES.map(o => `<li class="${ownsUnique(h, o.name)?'have':''}" title="${esc(AFX[o.affixes[0].k].t())}">${ownsUnique(h, o.name)?'✓ ':''}<span class="rc-legend">${esc(o.name)}</span>: ${AFX[o.affixes[0].k].t()}</li>`).join('')}</ul>
-      <p class="muted small">${$t('A entrada custa um Fragmento da Coroa de cada supremo. Cada supremo derrotado deixa o seu.', 'Entry costs one Crown Fragment from each uber boss. Each uber you defeat drops its own.')}${h.fallenKills ? $t(` Derrotado ${h.fallenKills}×.`, ` Defeated ${h.fallenKills}×.`) : ''}</p>
-      <button class="${canFallen(h)?'primary':'ghost'} sm" type="button" data-act="pinnacle" ${canFallen(h)?'':'disabled'}>${$t('Entrar na sala do trono', 'Enter the throne room')}</button></div>
+      <p class="muted small">${$t('A entrada custa um Fragmento da Coroa de cada pináculo. Cada pináculo derrotado deixa o seu.', 'Entry costs one Crown Fragment from each pinnacle boss. Each pinnacle you defeat drops its own.')}${h.fallenKills ? $t(` Derrotado ${h.fallenKills}×.`, ` Defeated ${h.fallenKills}×.`) : ''}</p>
+      <button class="${canFallen(h)?'primary':'ghost'} sm" type="button" data-act="pinnacle" ${canFallen(h)?'':'disabled'}>${$t('Entrar na sala do trono', 'Enter the throne room')}</button></div></div>
     <h3 class="sub">${$t('Caça ao chefe', 'Boss hunt')} <span class="muted">${$t('um andar só, com o chefe e as relíquias dele', 'a single floor, with the boss and its relics')}</span></h3>${hunts}`;
 }
 function expChallenges(h){
@@ -471,7 +556,7 @@ function expChallenges(h){
 }
 function mapTile(m, on){
   const pen = m.affixes.filter(a => !isRewardAffix(a)).length, rew = m.affixes.length - pen, new_ = ACTS.includes(m.biome) && !(HERO.atlas||{})[`${m.biome}-${m.tier}`];
-  return `<button class="mtile bio-${m.biome} ${on?'on':''}" type="button" data-act="dev:${m.id}" aria-pressed="${on}" title="${esc(mapName(m))}">
+  return `<button class="mtile bio-${m.biome} ${on?'on':''}" style="--img:url(img/biome-${m.biome}.jpg)" type="button" data-act="dev:${m.id}" aria-pressed="${on}" title="${esc(mapName(m))}">
     <span class="mt-tier">${m.tier}</span><span class="mt-name">${BIOMES[m.biome].name}</span>
     <span class="mt-aff">${'<i class="pen"></i>'.repeat(pen)}${'<i class="rew"></i>'.repeat(rew)}</span>${new_ ? $t('<span class="mt-new">novo</span>', '<span class="mt-new">new</span>') : ''}</button>`;
 }
@@ -483,7 +568,7 @@ function expMaps(h, side){
   const cur = Object.keys(CURRENCY).map(k => { const n = (h.currency||{})[k]||0;
     return `<button class="curbtn" type="button" data-act="cur:${m?m.id:''}|${k}" ${n&&m?'':'disabled'} title="${CURRENCY[k].d}" style="--cc:${CURRENCY[k].c}"><b>${CURRENCY[k].short}</b><span>${n}</span><small>${CURRENCY[k].d}</small></button>`; }).join('');
   const done = Object.keys(h.atlas||{}).length;
-  const device = m ? `<div class="dev-core bio-${m.biome}"><span class="xk">${$t('Nível', 'Tier')}</span><span class="dc-tier">${m.tier}</span><span class="dc-name">${BIOMES[m.biome].name}</span></div>
+  const device = m ? `<div class="dev-core bio-${m.biome}" style="--img:url(img/biome-${m.biome}.jpg)"><span class="xk">${$t('Nível', 'Tier')}</span><span class="dc-tier">${m.tier}</span><span class="dc-name">${BIOMES[m.biome].name}</span></div>
       <div class="dev-info">
         <p class="muted small">${$t('Chefe no 3º andar:', 'Boss on floor 3:')} <b>${BOSSES[m.boss].names[side]}</b>${!ACTS.includes(m.biome) ? $t(' · bioma raro: não dá ponto de Atlas', ' · rare biome: gives no Atlas point') : (h.atlas||{})[`${m.biome}-${m.tier}`] ? $t(' · já concluído no Atlas', ' · already completed in the Atlas') : $t(' · primeira conclusão: +1 ponto de Atlas', ' · first completion: +1 Atlas point')}</p>
         <ul class="maff">${m.affixes.filter(a=>!isRewardAffix(a)).map(a => `<li class="pen">${MAP_AFFIXES[a]}</li>`).join('')}${m.affixes.filter(isRewardAffix).map(a => `<li class="rew">${MAP_AFFIXES[a].replace($t('Recompensa: ', 'Reward:'),'')}</li>`).join('')}</ul>
@@ -494,25 +579,29 @@ function expMaps(h, side){
       <section class="mstash" aria-label="${$t('Seus mapas', 'Your maps')}"><h3 class="sub">${$t('Seus mapas', 'Your maps')} <span class="muted">${maps.length} ${$t('· clique para pôr no dispositivo', '· click to put in the device')}</span></h3>
         <div class="mgrid">${maps.map(x => mapTile(x, x.id===campDev)).join('') || $t('<p class="muted small">Vazio.</p>', '<p class="muted small">Empty.</p>')}</div>
         <p class="muted small">${$t('Atlas:', 'Atlas:')} ${done} ${done===1?$t('mapa concluído', 'map completed'):$t('mapas concluídos', 'maps completed')}${$t('. Pontos e bônus na aba Atlas.', '. Points and bonuses in the Atlas tab.')}</p></section>
-      <section class="device" aria-label="${$t('Dispositivo de Mapas', 'Map Device')}"><h3 class="sub">${$t('Dispositivo de Mapas', 'Map Device')}</h3>
+      <section class="device ${m ? 'bio-'+m.biome : ''}" ${m ? `style="--img:url(img/biome-${m.biome}.jpg)"` : ''} aria-label="${$t('Dispositivo de Mapas', 'Map Device')}"><h3 class="sub">${$t('Dispositivo de Mapas', 'Map Device')}</h3>
         <div class="dev-main">${device}</div>
         <div class="dev-cur"><span class="xk">${$t('Moedas · aplicar no mapa do dispositivo', 'Currency · apply to the map in the device')}</span><div class="curgrid">${cur}</div></div>
       </section>
     </div>`;
 }
+const RUNE_GLYPHS = ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ'], RUNE_COLS = ['#e0a85a','#7ad0e8','#e8705e','#a98cf5','#6fd48e','#f2cf4e','#ee8dbd','#8fb6f4'];
+const runeLook = k => { const i = Math.max(0, Object.keys(RUNES).indexOf(k)); return {g:RUNE_GLYPHS[i % RUNE_GLYPHS.length], c:RUNE_COLS[i % RUNE_COLS.length]}; };
+const runeGlyph = k => `<span class="rglyph" style="--rc:${runeLook(k).c}">${runeLook(k).g}</span>`;
 function campSkills(h){
   const pool = classPool(h.cls), st = statsFor(h.cls, h.color, h.equip);
   barSkills();   // initialises h.skills for older heroes
   const onBar = h.skills.filter(id => pool.includes(id) && h.level >= skillUnlock(h.cls, id)).slice(0, BAR_MAX);
   h.runes = h.runes || {}; h.skillRunes = h.skillRunes || {};
-  const bag = Object.keys(RUNES).filter(r => h.runes[r]>0).map(r => `<span class="rchip" title="${RUNES[r].d}">${RUNES[r].name}<b>×${h.runes[r]}</b></span>`).join('');
   const card = id => {
     const sk = SKILLS[id], fixed = id==='shift', lv = fixed ? 0 : skillUnlock(h.cls, id), lock = h.level < lv, on = onBar.includes(id);
     const r = h.skillRunes[id];
     const fits = Object.keys(RUNES).filter(k => h.runes[k]>0 && (!RUNES[k].hit || sk.hits));
+    const short = k => RUNES[k].name.replace(/^Runa (d[aeo]s? )?|^Rune of /i, '');
     const rune = lock ? '' : r
-      ? `<div class="rslot"><span><b>${RUNES[r].name}</b>: ${RUNES[r].d}</span><div class="rpick"><button class="ghost sm" type="button" data-act="unrune:${id}">${$t('Remover runa', 'Remove rune')}</button></div></div>`
-      : `<div class="rslot"><span>${$t('Encaixe de runa vazio', 'Empty rune socket')}${fits.length ? '' : $t(' · nenhuma runa que sirva', ' · no rune that fits')}</span>${fits.length ? `<div class="rpick">${fits.map(k => `<button class="ghost sm" type="button" data-act="rune:${id}|${k}" title="${RUNES[k].d}">${RUNES[k].name}</button>`).join('')}</div>` : ''}</div>`;
+      ? `<div class="rsock filled" style="--rc:${runeLook(r).c}">${runeGlyph(r)}<div class="rtx"><b>${short(r)}</b><small>${RUNES[r].d}</small></div><button class="rx" type="button" data-act="unrune:${id}" title="${$t('Remover runa', 'Remove rune')}" aria-label="${$t('Remover runa', 'Remove rune')}">✕</button></div>`
+      : fits.length ? `<details class="rsel"><summary class="rsock empty"><span class="rglyph plus">+</span><span>${$t('Encaixar uma runa', 'Socket a rune')}</span><small>${fits.length} ${$t('disponíveis', 'available')}</small></summary><div class="rlist">${fits.map(k => `<button type="button" class="ropt" style="--rc:${runeLook(k).c}" data-act="rune:${id}|${k}">${runeGlyph(k)}<span class="rtx"><b>${short(k)}</b><small>${RUNES[k].d}</small></span><em>×${h.runes[k]}</em></button>`).join('')}</div></details>`
+      : `<div class="rsock none"><span class="rglyph plus">·</span><span>${$t('Sem runa que sirva', 'No rune fits')}</span></div>`;
     const btn = fixed ? $t('<span class="muted small">Sempre na barra (Bispo)</span>', '<span class="muted small">Always on the bar (Bishop)</span>')
       : lock ? `<span class="muted small">${$t('Libera no nível', 'Unlocks at level')} ${lv}</span>`
       : on ? `<button class="ghost sm" type="button" data-act="skillOff:${id}" ${onBar.length<=1?'disabled':''}>${$t('Tirar da barra', 'Remove from bar')}</button>`
@@ -522,9 +611,9 @@ function campSkills(h){
       <p>${sk.desc(skillView(st, id))}.</p>${btn}${rune}</div>`;
   };
   const cards = pool.map(card).join('') + (h.cls==='B' ? card('shift') : '');
-  return `<div class="thead"><p class="muted">${$t('Escolha até', 'Choose up to')} ${BAR_MAX} ${$t('habilidades para a barra (', 'skills for the bar (')}${onBar.length}/${BAR_MAX}${$t('), de qualquer parte da lista. Os aprimoramentos de cada habilidade ficam na Árvore. Runas mudam uma habilidade; caem de elites, chefes e baús.', '), from anywhere in the list. Each skill\'s upgrades are in the Tree. Runes change a skill; they drop from elites, bosses and chests.')}</p></div>
-    <div class="runebag">${bag || $t('<span class="muted small">Você ainda não tem runas.</span>', '<span class="muted small">You have no runes yet.</span>')}</div>
-    <div class="sgrid">${cards}</div>`;
+  const runeN = Object.values(h.runes).reduce((a,b)=>a+b,0);
+  return `<div class="thead"><p class="muted">${$t('Escolha até', 'Choose up to')} ${BAR_MAX} ${$t('habilidades para a barra (', 'skills for the bar (')}${onBar.length}/${BAR_MAX}${$t('), de qualquer parte da lista. Os aprimoramentos de cada habilidade ficam na Árvore. Runas mudam uma habilidade; caem de elites, chefes e baús.', '), from anywhere in the list. Each skill\'s upgrades are in the Tree. Runes change a skill; they drop from elites, bosses and chests.')} ${$t(runeN ? `Você tem ${runeN} runas.` : 'Você ainda não tem runas.', runeN ? `You have ${runeN} runes.` : 'You have no runes yet.')}</p></div>
+    <div class="sgrid skills">${cards}</div>`;
 }
 function miniBoard(fen){
   const b = chParse(fen);
@@ -547,7 +636,7 @@ function showCamp(notice){
   if (campSel && campSel.from==='stash' && !h.stash[campSel.i]) campSel = null;
   if (campSel && campSel.from==='equip' && !h.equip[campSel.slot]) campSel = null;
   const runeN = Object.values(h.runes||{}).reduce((a,b)=>a+b,0);
-  const tabs = [['exp',$t('Expedições', 'Expeditions')],['gear',$t('Equipamento', 'Gear')],['forge',$t('Forja', 'Forge')],['skl', $t(`Habilidades${runeN?` <span class="badge">${runeN}</span>`:''}`, `Skills${runeN?` <span class="badge">${runeN}</span>`:''}`)],['tal', $t(`Árvore${pts>0?` <span class="badge">${pts}</span>`:''}`, `Tree${pts>0?` <span class="badge">${pts}</span>`:''}`)],['skn', $t('Aparência', 'Appearance')],['atl', $t(`Atlas${h.actDone>=4 && atlasPoints(h)>0 ? ` <span class="badge">${atlasPoints(h)}</span>` : ''}`, `Atlas${h.actDone>=4 && atlasPoints(h)>0 ? ` <span class="badge">${atlasPoints(h)}</span>` : ''}`)],['gri', `${$t('Grimório', 'Grimoire')} <span class="muted small">${MATES.filter(m=>(h.grimoire||{})[m.id]).length}/${MATES.length}</span>`]]
+  const tabs = [['exp',$t('Expedições', 'Expeditions')],['gear',$t('Equipamento', 'Gear')],['forge',$t('Forja', 'Forge')],['skl', $t(`Habilidades${runeN?` <span class="badge">${runeN}</span>`:''}`, `Skills${runeN?` <span class="badge">${runeN}</span>`:''}`)],['tal', $t(`Árvore${pts>0?` <span class="badge">${pts}</span>`:''}`, `Tree${pts>0?` <span class="badge">${pts}</span>`:''}`)],['atl', $t(`Atlas${h.actDone>=4 && atlasPoints(h)>0 ? ` <span class="badge">${atlasPoints(h)}</span>` : ''}`, `Atlas${h.actDone>=4 && atlasPoints(h)>0 ? ` <span class="badge">${atlasPoints(h)}</span>` : ''}`)],['skn', $t('Aparência', 'Appearance')],['gri', `${$t('Grimório', 'Grimoire')} <span class="muted small">${MATES.filter(m=>(h.grimoire||{})[m.id]).length}/${MATES.length}</span>`]]
     .map(([k,l]) => `<button class="tab ${campTab===k?'on':''}" type="button" role="tab" aria-selected="${campTab===k}" data-act="tab:${k}">${l}</button>`).join('');
   const body = campTab==='gear' ? campGear(h) : campTab==='forge' ? campForge(h) : campTab==='tal' ? campTree(h) : campTab==='skn' ? campSkins(h) : campTab==='skl' ? campSkills(h) : campTab==='gri' ? campGrimoire(h) : campTab==='atl' ? campAtlas(h) : campExpeditions(h);
   $('scrCamp').innerHTML = `
@@ -569,7 +658,9 @@ $('scrCamp').addEventListener('click', ev => {
   const [act, arg] = b.dataset.act.split(':');
   const h = HERO;
   campNotice = '';
+  if (act!=='forge' && act!=='fsel' && act!=='filter') forgeMsg = '';
   if (act==='tab'){ campTab = arg; }
+  else if (act==='fsel'){ const [op, ai] = arg.split('|'); forgeSel = {op, ai:+ai}; }
   else if (act==='xsub'){ campExp = arg; }
   else if (act==='actsel'){ campAct = +arg; }
   else if (act==='dev'){ campDev = +arg; }
@@ -593,9 +684,9 @@ $('scrCamp').addEventListener('click', ev => {
   else if (act==='torm') h.torment = Math.max(0, Math.min(h.tormentMax||0, (h.torment||0) + Number(arg)));
   else if (act==='unequip'){ if (h.stash.length<STASH_MAX && h.equip[arg]){ h.stash.push(h.equip[arg]); h.equip[arg] = null; campSel = {from:'stash', i:h.stash.length-1}; } }
   else if (act==='equip'){
-    const it = h.stash[+arg];
-    if (it){ h.stash.splice(+arg,1); const old = h.equip[it.slot]; if (old) h.stash.push(old); h.equip[it.slot] = it;
-      campSel = {from:'equip', slot:it.slot}; campNotice = $t(`Equipado: ${esc(it.name)}${old ? `. ${esc(old.name)} foi para o baú` : ''}.`, `Equipped: ${esc(it.name)}${old ? `. ${esc(old.name)} went to the stash` : ''}.`); }
+    const [ixs, pk] = arg.split('|'), ix = +ixs, it = h.stash[ix];
+    if (it){ const key = eqKey(h.equip, it, pk); h.stash.splice(ix,1); const old = h.equip[key]; if (old) h.stash.push(old); h.equip[key] = it;
+      campSel = {from:'equip', slot:key}; campNotice = $t(`Equipado: ${esc(it.name)}${old ? `. ${esc(old.name)} foi para o baú` : ''}.`, `Equipped: ${esc(it.name)}${old ? `. ${esc(old.name)} went to the stash` : ''}.`); }
   }
   else if (act==='sell'){ const it = h.stash[+arg]; if (it){ h.stash.splice(+arg,1); h.gold += sellPrice(it); campSel = null; campNotice = $t(`Vendido: ${esc(it.name)} (+${sellPrice(it)} de ouro).`, `Sold: ${esc(it.name)} (+${sellPrice(it)} gold).`); } }
   else if (act==='sellcommons'){
@@ -612,7 +703,7 @@ $('scrCamp').addEventListener('click', ev => {
   else if (act==='uber'){ if (canUber(h)){ h.riftShards -= UBER_COST.shards; h.checkSeals -= UBER_COST.seals; persist(); startExpedition({kind:'uber', boss:arg||'queen'}); return; } }
   else if (act==='daily'){ startExpedition({kind:'daily'}); return; }
   else if (act==='pinnacle'){ if (canFallen(h)){ for (const id of BOSS_ORDER) h.crownFrags[id]--; persist(); startExpedition({kind:'pinnacle'}); return; } }
-  else if (act==='forge'){ const [op, ai] = arg.split('|'); campNotice = forgeDo(h, op, +ai); }
+  else if (act==='forge'){ const [op, ai] = arg.split('|'); forgeMsg = op==='none' ? '' : forgeDo(h, op, +ai); }
   else if (act==='hunt'){ startExpedition({kind:'hunt', boss:arg}); return; }
   else if (act==='map'){ const m = h.maps.find(m=>String(m.id)===arg); if (m){ startExpedition({kind:'map', map:m}); return; } }
   persist(); showCamp();
@@ -761,8 +852,8 @@ $('modal').addEventListener('click', ev => {
 });
 function equippedMini(slot){
   const it = S.equip[slot];
-  if (!it) return `<div class="eqmini"><span class="meta">${$t('Equipado em', 'Equipped in')} ${SLOTS[slot].label}</span>${$t('Espaço vazio', 'Empty slot')}</div>`;
-  return `<div class="eqmini"><span class="meta">${$t('Equipado em', 'Equipped in')} ${SLOTS[slot].label}</span>${itemBlock(it)}</div>`;
+  if (!it) return `<div class="eqmini"><span class="meta">${$t('Equipado em', 'Equipped in')} ${eqLabel(slot)}</span>${$t('Espaço vazio', 'Empty slot')}</div>`;
+  return `<div class="eqmini"><span class="meta">${$t('Equipado em', 'Equipped in')} ${eqLabel(slot)}</span>${itemBlock(it)}</div>`;
 }
 function itemCard(it, title){
   if (!it) return `<div class="card"><div class="meta">${title}</div><div class="nm" style="color:#6d6156">${$t('Espaço vazio', 'Empty slot')}</div></div>`;
@@ -770,8 +861,8 @@ function itemCard(it, title){
 }
 function equipItem(it){
   const before = stats();
-  const old = S.equip[it.slot];
-  S.equip[it.slot] = it;
+  const key = eqKey(S.equip, it), old = S.equip[key];
+  S.equip[key] = it;
   if (old){ if (HERO.stash.length<STASH_MAX){ HERO.stash.push(old); log($t(`${old.name} foi para o baú.`, `${old.name} went to the stash.`)); } else log($t(`${old.name} foi destruído (baú cheio).`, `${old.name} was destroyed (stash full).`)); }
   const after = stats();
   S.player.hp = Math.max(1, Math.min(after.hp, S.player.hp+(after.hp-before.hp)));
@@ -781,7 +872,7 @@ function equipItem(it){
 function stashItem(it){ if (HERO.stash.length>=STASH_MAX) return false; HERO.stash.push(it); log($t(`${it.name} foi para o baú.`, `${it.name} went to the stash.`)); return true; }
 async function showLoot(it){
   const full = HERO.stash.length>=STASH_MAX;
-  const v = await openModal({title:$t('Saque', 'Loot'), body:`<div class="cmp">${itemCard(it,$t('Encontrado', 'Found'))}${itemCard(S.equip[it.slot],$t('Equipado', 'Equipped'))}</div><h4 class="dh">${$t('Se equipar', 'If equipped')}</h4>${diffHtml(swapDiff(HERO, it))}`,
+  const v = await openModal({title:$t('Saque', 'Loot'), body:`<div class="cmp">${itemCard(it,$t('Encontrado', 'Found'))}${itemCard(S.equip[eqKey(S.equip, it)],$t('Equipado', 'Equipped'))}</div><h4 class="dh">${$t('Se equipar', 'If equipped')}</h4>${diffHtml(swapDiff(HERO, it))}`,
     note:$t('Ao equipar, o item atual vai para o baú. Itens desta expedição só ficam seus se você voltar vivo ao acampamento.', 'When you equip it, the current item goes to the stash. Items from this expedition are only yours if you return to camp alive.'),
     actions:[{label:$t('Equipar', 'Equip'), primary:true, value:'equip'}, {label:$t(`Guardar no baú${full?' (cheio)':''}`, `Move to stash${full?' (full)':''}`), value:'stash', disabled:full}, {label:$t('Deixar', 'Leave it'), value:'leave'}]});
   if (v==='equip') equipItem(it); else if (v==='stash') stashItem(it); else log($t(`Você deixou ${it.name} para trás.`, `You left ${it.name} behind.`));
@@ -790,7 +881,7 @@ async function showLoot(it){
 async function showRelics(relics, title){
   const full = HERO.stash.length>=STASH_MAX;
   const body = `<div class="cmp">${relics.map((it,i) => `<div class="relic">${itemCard(it, $t('Opção ', 'Option')+(i+1))}
-    ${equippedMini(it.slot)}
+    ${equippedMini(eqKey(S.equip, it))}
     <div class="row"><button class="primary sm" type="button" data-act="equip:${i}">${$t('Equipar', 'Equip')}</button><button class="ghost sm" type="button" data-act="stash:${i}" ${full?'disabled':''}>${$t('Guardar', 'Keep')}</button></div></div>`).join('')}</div>`;
   const v = await openModal({title: title || $t('Relíquias do chefe', 'Boss relics'), body, minimizable:true, note:$t(`Escolha uma. ${relics.length>2 ? 'As outras se perdem' : 'A outra se perde'}. Minimizar deixa ver o tabuleiro e o painel.`, `Choose one. ${relics.length>2 ? 'The others are lost' : 'The other is lost'}. Minimizing lets you see the board and the panel.`), actions:[{label: relics.length>2 ? $t('Recusar todas', 'Refuse all') : $t('Recusar as duas', 'Refuse both'), value:'none'}]});
   const [act, i] = v.split(':');
@@ -954,6 +1045,9 @@ function hoverHint(){
   if (S.storm && S.storm.sq.some(([a,b]) => a===x && b===y)) parts.push($t('Trovão: cai aqui no fim do turno e causa 3 de dano a quem estiver na casa (você, aliados e inimigos).', 'Thunder: strikes here at the end of the turn, dealing 3 damage to whoever is on the square (you, allies and enemies).'));
   { const VT = S.vents && S.vents.find(q => q.sq.some(([a,b]) => a===x && b===y)); if (VT) parts.push($t('O gêiser vai cobrir esta casa de piche' + (VT.fire ? ' em chamas (3 de dano)' : '') + ' no fim do turno.', 'The geyser will cover this square in tar' + (VT.fire ? ' that is on fire (3 damage)' : '') + ' at the end of the turn.')); }
   if (S.grow && S.grow.sq.some(([a,b]) => a===x && b===y)) parts.push($t('Brota um cogumelo aqui no fim do turno, se a casa estiver livre.', 'A mushroom sprouts here at the end of the turn, if the square is free.'));
+  if (t==='quicksand') parts.push($t('Areia movediça: quem termina o turno aqui fica preso (no turno seguinte só ataca ou usa habilidades) e leva 2 de dano.', 'Quicksand: whoever ends the turn here gets stuck (next turn they can only attack or use skills) and takes 2 damage.'));
+  if (t==='whirl') parts.push($t('Redemoinho: no fim do turno puxa 1 casa quem estiver a até 2 casas. Quem termina o turno dentro dele leva 3 de dano e é arremessado para longe.', 'Whirlpool: at the end of the turn it pulls whoever is within 2 squares 1 square closer. Whoever ends the turn inside takes 3 damage and is flung away.'));
+  if (S.wind && (e || isPlayer(x,y) || allyAt(x,y))) parts.push(windSheltered(x, y, S.wind.dx, S.wind.dy) ? $t('Abrigado do vento por uma parede.', 'Sheltered from the wind by a wall.') : $t('O vento vai empurrar esta peça 1 casa no fim do turno.', 'The wind will push this piece 1 square at the end of the turn.'));
   if (t==='blood') parts.push($t('Poça de Sangue: inimigo em cima causa +1 de dano e se cura 1 por turno, mas matá-lo aqui dá o dobro de Brasas.', 'Blood Pool: an enemy on it deals +1 damage and heals 1 per turn, but killing it here gives double Embers.'));
   if (S.tideRise && S.tideRise.some(([a,b]) => a===x && b===y)) parts.push($t('A Maré vai subir aqui no fim do turno: vira Poça de Sangue.', 'The Tide will rise here at the end of the turn: it becomes a Blood Pool.'));
   if (S.bloodRain && S.bloodRain.sq.some(([a,b]) => a===x && b===y)) parts.push($t('Chuva de Sangue: cai aqui no fim do turno.', 'Blood Rain: falls here at the end of the turn.'));
@@ -961,7 +1055,7 @@ function hoverHint(){
   if (S.burn.has(key(x,y))) parts.push($t('Brasas: quem terminar o turno aqui leva 2 de dano.', 'Embers: whoever ends the turn here takes 2 damage.'));
   if (S.clock && S.clock.sq.some(([a,b]) => a===x && b===y)) parts.push(CLOCK_TEXT[S.clock.kind]);
   if (S.enemies.some(o => o.intent && o.intent.mark && o.intent.mark[0]===x && o.intent.mark[1]===y)) parts.push($t('Casa marcada pelo chefe: quem estiver aqui no fim do turno leva o golpe.', 'Square marked by the boss: whoever is here at the end of the turn takes the blow.'));
-  if (isWall(x,y)) parts.push(S.env && S.env.wall[0]===x && S.env.wall[1]===y ? $t('Pilar instável: vai explodir no fim do turno.', 'Unstable pillar: it will explode at the end of the turn.') : $t(`${({swamp:'Árvore morta', cathedral:'Coluna', storm:'Rocha do trovão', tar:'Resto preso no piche', fungal:'Fungo gigante'})[S.biome]||'Pilar'}. Bloqueia ataques em linha.`, `${({swamp:'Dead tree', cathedral:'Column', storm:'Thunder rock', tar:'Tar-trapped remains', fungal:'Giant fungus'})[S.biome]||'Pillar'}. Blocks line attacks.`));
+  if (isWall(x,y)) parts.push(S.env && S.env.wall[0]===x && S.env.wall[1]===y ? $t('Pilar instável: vai explodir no fim do turno.', 'Unstable pillar: it will explode at the end of the turn.') : $t(`${({swamp:'Árvore morta', cathedral:'Coluna', storm:'Rocha do trovão', tar:'Resto preso no piche', fungal:'Fungo gigante', ash:'Cacto ou rocha', sea:'Coral ou naufrágio'})[S.biome]||'Pilar'}. Bloqueia ataques em linha.`, `${({swamp:'Dead tree', cathedral:'Column', storm:'Thunder rock', tar:'Tar-trapped remains', fungal:'Giant fungus', ash:'Cactus or rock', sea:'Coral or wreck'})[S.biome]||'Pillar'}. Blocks line attacks.`));
   if (!e && S.dangerSeen.has(key(x,y))) parts.push($t('Esta casa será atacada no fim do turno.', 'This square will be attacked at the end of the turn.'));
   if (S.threatNext && S.threatNext.has(key(x,y)) && !S.dangerSeen.has(key(x,y))) parts.push($t('Visão tática: ameaçada no turno seguinte.', 'Tactical sight: threatened next turn.'));
   if (S.mode==='quake' && SKILLS[S.mode].targets().some(([sx,sy])=>sx===x&&sy===y)) parts.push($t(`Pousar aqui causa ${st.dmg+st.darkQuake} a cada vizinho.`, `Landing here deals ${st.dmg+st.darkQuake} to each neighbor.`));
@@ -1040,7 +1134,7 @@ function bossSheet(bosses){
   if (S.bossId){
     const used = S.clocks||0, big = S.exp.kind==='uber' || S.exp.kind==='pinnacle', every = big ? 4 : 5, max = big ? 8 : 4;
     let ck = 0; if (!S.clock){ ck = 1; while ((S.turn+ck) % every !== every-1) ck++; }
-    const what = {crypt:$t('o teto desaba perto de você', 'the ceiling collapses near you'), swamp:$t('a água sobe e a névoa fecha', 'the water rises and the fog closes in'), forge:$t('a lava se espalha', 'the lava spreads'), cathedral:$t('o gelo avança', 'the ice advances'), storm:$t('trovões caem do céu', 'thunder falls from the sky'), tar:$t('o piche sobe', 'the tar rises'), fungal:$t('os cogumelos brotam', 'the mushrooms sprout')}[S.biome] || $t('a arena piora', 'the arena gets worse');
+    const what = {crypt:$t('o teto desaba perto de você', 'the ceiling collapses near you'), swamp:$t('a água sobe e a névoa fecha', 'the water rises and the fog closes in'), forge:$t('a lava se espalha', 'the lava spreads'), cathedral:$t('o gelo avança', 'the ice advances'), storm:$t('trovões caem do céu', 'thunder falls from the sky'), tar:$t('o piche sobe', 'the tar rises'), fungal:$t('os cogumelos brotam', 'the mushrooms sprout'), ash:$t('uma rajada varre a arena', 'a gust sweeps the arena'), sea:$t('um redemoinho se abre', 'a whirlpool opens')}[S.biome] || $t('a arena piora', 'the arena gets worse');
     extra.push(`<div class="bi-row"><b>${$t('Arena ·', 'Arena ·')} ${used>=max ? $t('estável', 'stable') : whenTxt(S.clock ? 0 : ck)}</b>${$t(`A cada ${every} turnos`, `Every ${every} turns`)} ${what} (${Math.max(0,max-used)} ${$t(`de ${max} restantes).`, `of ${max} remaining).`)}</div>`);
   }
   return cards.join('') + (extra.length ? `<div class="bi-card">${extra.join('')}</div>` : '');
@@ -1086,7 +1180,7 @@ function updateUI(){
   $('btnWait').disabled = !canAct;
   // the build at a glance: one chip per named rule you carry
   const ruleChips = []; for (const s in S.equip){ const it = S.equip[s]; if (!it) continue; for (const a of it.affixes){ const d = AFX[a.k]; if (!d || !d.rule) continue; const txt = d.t(a.v), nm = txt.includes(':') ? txt.split(':')[0] : null; if (nm && nm.length<=20 && !ruleChips.some(r => r[0]===nm)) ruleChips.push([nm, txt]); } }
-  $('gear').innerHTML = (ruleChips.length ? `<div class="chips2 rulechips">${ruleChips.map(([n,t]) => `<span class="mchip" style="--mc:#e3b456" title="${esc(t)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 6 6.4.6-4.9 4.2 1.5 6.4L12 17l-5.6 3.2 1.5-6.4L3 9.6 9.4 9z" fill="#e3b45655"/></svg>${esc(n)}</span>`).join('')}</div>` : '') + `<div class="gearicons">${Object.keys(SLOTS).map(s => { const it = S.equip[s]; return `<div class="itile gt ${it ? 'r-'+it.rar : 'empty'}" data-gslot="${s}" tabindex="0" aria-label="${esc(it ? it.name : SLOTS[s].label)}">${slotIcon(s)}</div>`; }).join('')}</div>`;
+  $('gear').innerHTML = (ruleChips.length ? `<div class="chips2 rulechips">${ruleChips.map(([n,t]) => `<span class="mchip" style="--mc:#e3b456" title="${esc(t)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 6 6.4.6-4.9 4.2 1.5 6.4L12 17l-5.6 3.2 1.5-6.4L3 9.6 9.4 9z" fill="#e3b45655"/></svg>${esc(n)}</span>`).join('')}</div>` : '') + `<div class="gearicons">${EQ_SLOTS.map(s => { const it = S.equip[s]; return `<div class="itile gt ${it ? 'r-'+it.rar : 'empty'}" data-gslot="${s}" tabindex="0" aria-label="${esc(it ? it.name : eqLabel(s))}">${slotIcon(eqType(s))}</div>`; }).join('')}</div>`;
   $('log').innerHTML = S.log.map(l => `<li>${l}</li>`).join('');
   const bosses = S.enemies.filter(e=>e.boss);
   $('bossBar').hidden = !bosses.length;

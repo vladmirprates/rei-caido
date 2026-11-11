@@ -5,8 +5,41 @@ const SLOTS = {
   elmo:{label:$t('Elmo', 'Helm'), bases:[$t('Elmo', 'Helm'),$t('Capuz', 'Hood'),$t('Diadema', 'Diadem'),$t('Máscara', 'Mask')]},
   armadura:{label:$t('Armadura', 'Armor'), bases:[$t('Cota', 'Mail'),$t('Couraça', 'Cuirass'),$t('Gibão', 'Doublet'),$t('Manto', 'Cloak')]},
   botas:{label:$t('Botas', 'Boots'), bases:[$t('Botas', 'Boots'),$t('Grevas', 'Greaves'),$t('Sapatos', 'Shoes'),$t('Sandálias', 'Sandals')]},
-  anel:{label:$t('Anel', 'Ring'), bases:[$t('Anel', 'Ring'),$t('Selo', 'Seal'),$t('Aliança', 'Band'),$t('Amuleto', 'Amulet')]}
+  luvas:{label:$t('Luvas', 'Gloves'), bases:[$t('Luvas', 'Gloves'),$t('Manoplas', 'Gauntlets'),$t('Mitenes', 'Mitts'),$t('Braçadeiras', 'Bracers')]},
+  cinto:{label:$t('Cinto', 'Belt'), bases:[$t('Cinto', 'Belt'),$t('Faixa', 'Sash'),$t('Cinturão', 'Girdle'),$t('Corrente', 'Chain')]},
+  anel:{label:$t('Anel', 'Ring'), bases:[$t('Anel', 'Ring'),$t('Selo', 'Seal'),$t('Aliança', 'Band'),$t('Sinete', 'Signet')]},
+  amuleto:{label:$t('Amuleto', 'Amulet'), bases:[$t('Amuleto', 'Amulet'),$t('Colar', 'Necklace'),$t('Talismã', 'Talisman'),$t('Medalhão', 'Medallion')]}
 };
+/* Equipment slots worn by the hero: nine, because rings can be worn two at a time (item.slot is the item type, the key is where it sits) */
+const EQ_SLOTS = ['arma','elmo','armadura','luvas','cinto','botas','amuleto','anel','anel2'];
+const eqType = k => k==='anel2' ? 'anel' : k;
+const eqLabel = k => k==='anel' ? $t('Anel I', 'Ring I') : k==='anel2' ? $t('Anel II', 'Ring II') : SLOTS[k].label;
+const emptyEquip = () => Object.fromEntries(EQ_SLOTS.map(k => [k, null]));
+const RAR_ORDER = ['common','magic','rare','legend'];
+// where an item would be worn: its own slot; a ring takes the free hand, the one you point at, or replaces the weaker ring
+function eqKey(equip, it, prefer){
+  if (it.slot!=='anel') return it.slot;
+  if (prefer && eqType(prefer)==='anel') return prefer;
+  if (!equip.anel) return 'anel';
+  if (!equip.anel2) return 'anel2';
+  const w = x => RAR_ORDER.indexOf(x.rar)*100 + (x.ilvl||1);
+  return w(equip.anel2) <= w(equip.anel) ? 'anel2' : 'anel';
+}
+/* Old saves: amulets used to be rings, uniques may have changed slot, and there were only five slots. Rebuild the nine. */
+function migrateSlots(h){
+  const all = [...Object.values(h.equip||{}), ...(h.stash||[])].filter(Boolean);
+  for (const it of all){
+    const U = UNIQUES.find(U => U.name===it.name);
+    if (U && U.slot!==it.slot) it.slot = U.slot;
+    else if (it.slot==='anel' && /^(Amuleto|Amulet)\b/.test(it.name)) it.slot = 'amuleto';
+  }
+  const eq = emptyEquip(), loose = [];
+  for (const [k, it] of Object.entries(h.equip||{})){ if (!it) continue; const w = eqKey(eq, it, k); if (eq[w]) loose.push(it); else eq[w] = it; }
+  h.equip = h.equip || {};
+  for (const k of Object.keys(h.equip)) if (!EQ_SLOTS.includes(k)) delete h.equip[k];
+  for (const k of EQ_SLOTS) h.equip[k] = eq[k];
+  h.stash = h.stash || []; h.stash.push(...loose);
+}
 const RAR = {common:{label:$t('Comum', 'Common'), c:'#cfc6b6'}, magic:{label:$t('Mágico', 'Magic'), c:'#8aa4ff'}, rare:{label:$t('Raro', 'Rare'), c:'#ecd36a'}, legend:{label:$t('Único', 'Unique'), c:'#f08a3c'}};
 const AFX = {
   dmg:{t:v=>$t(`+${v} de dano`, `+${v} damage`), suf:$t('da Ruína', 'of Ruin')},
@@ -66,6 +99,23 @@ const AFX = {
   banner:{t:()=>$t('Aliados ao seu lado causam +1 de dano e recebem 1 a menos', 'Allies next to you deal +1 damage and take 1 less'), rule:true},
   kingStep:{t:()=>$t('Pode andar 1 casa em qualquer direção', 'Can move 1 square in any direction'), rule:true},
   execute:{t:()=>$t('Xeque-mate: inimigos que ficam com menos de 3 de vida após seu golpe morrem', 'Checkmate: enemies left below 3 health after your blow die'), rule:true},
+  // gloves, belts and amulets: each one opens a style of play
+  bloodPact:{t:()=>$t('Pacto de Sangue: cada habilidade custa 2 de vida (nunca te mata), mas os acertos de habilidade causam +4 de dano', 'Blood Pact: each skill costs 2 health (it never kills you), but skill hits deal +4 damage'), rule:true},
+  parry:{t:()=>$t('Aparar: um bloqueio bem-sucedido anula o golpe por completo e devolve metade do dano ao atacante', 'Parry: a successful block nullifies the blow entirely and sends half the damage back at the attacker'), rule:true},
+  necroGrip:{t:()=>$t('Mão do Coveiro: ao abater, 25% de chance de erguer o inimigo como um peão aliado (1 por turno, respeitando o limite de aliados)', "Gravedigger's Hand: on a kill, 25% chance to raise the enemy as an allied pawn (1 per turn, within the ally limit)"), rule:true},
+  plague:{t:()=>$t('Peste: seus golpes e habilidades envenenam por 2 turnos; envenenar de novo soma +1 de dano por turno (até 3)', 'Plague: your blows and skills poison for 2 turns; poisoning again adds +1 damage per turn (up to 3)'), rule:true},
+  pyre:{t:()=>$t('Pira: um inimigo que morre sobre uma casa em chamas incendeia as 8 casas ao redor por 2 turnos', 'Pyre: an enemy that dies on a burning square sets the 8 squares around it ablaze for 2 turns'), rule:true},
+  overkill:{t:()=>$t('Transbordo: o dano que sobra de um abate (até 10) atinge o vizinho mais frágil do morto', 'Overkill: the damage left over from a kill (up to 10) hits the weakest neighbor of the dead enemy'), rule:true},
+  shieldBurst:{t:()=>$t('Detonador: quando o escudo se quebra por completo, explode e causa aos vizinhos o valor que absorveu', 'Detonator: when your shield breaks completely, it explodes and deals the amount it absorbed to your neighbors'), rule:true},
+  stand:{t:()=>$t('Bastião Imóvel: terminar o turno sem se mover dá 3 de escudo (até 12)', 'Unmoving Bastion: ending the turn without moving gives 3 shield (up to 12)'), rule:true},
+  bribe:{t:()=>$t('Suborno: um golpe que te acertaria custa 40 de ouro e causa metade do dano (2 vezes por andar)', 'Bribe: a blow that would hit you costs 40 gold and deals half damage (twice per floor)'), rule:true},
+  overheal:{t:()=>$t('Excesso Vital: a cura acima da vida máxima vira escudo (até 12)', 'Vital Excess: healing above your maximum health becomes shield (up to 12)'), rule:true},
+  grudge:{t:()=>$t('Rancor Crescente: cada vez que você perde vida, ganha +1 de dano até o fim do andar (até +5)', 'Growing Grudge: each time you lose health you gain +1 damage until the end of the floor (up to +5)'), rule:true},
+  glass:{t:()=>$t('Vidro: +50% de dano, mas a vida máxima cai 35%', 'Glass: +50% damage, but maximum health drops 35%'), rule:true},
+  unison:{t:()=>$t('Prisma Unificado: cada dano elemental seu passa a valer ao menos 60% do seu maior elemento', 'Unified Prism: each of your elemental damages becomes at least 60% of your highest element'), rule:true},
+  secondLife:{t:()=>$t('Segunda Vida: uma vez por expedição, ao morrer você volta com 20% da vida', 'Second Life: once per expedition, when you die you return with 20% health'), rule:true},
+  rhythm:{t:()=>$t('Ritmo: a cada 5 abates no andar, seu próximo ataque básico é um crítico garantido', 'Rhythm: every 5 kills on a floor, your next basic attack is a guaranteed critical'), rule:true},
+  huntMark:{t:()=>$t('Presa Marcada: elites e chefes sofrem +2 de dano de todas as suas fontes (aliados, fogo e veneno incluídos)', 'Marked Prey: elites and bosses take +2 damage from all your sources (allies, fire and poison included)'), rule:true},
   // uber boss uniques: each copies its boss's own mechanic
   shatterCrown:{t:()=>$t('Coroa: a cada 4 turnos, seu golpe também atinge o primeiro inimigo em cada uma das 8 linhas a partir de você, com metade do dano', 'Crown: every 4 turns, your blow also hits the first enemy on each of the 8 lines from you, for half damage'), rule:true},
   spectralGuard:{t:()=>$t('Guarda Real: começa cada andar com 2 peões espectrais ao seu lado (somem no fim do andar)', 'Royal Guard: start each floor with 2 spectral pawns next to you (they vanish at the end of the floor)'), rule:true},
@@ -120,7 +170,7 @@ const UNIQUES = [
   {cls:['N'], slot:'elmo', name:$t('Elmo do Cavalo Sombrio', 'Helm of the Dark Horse'), affixes:[{k:'darkQuake'},{k:'trample'}]},
   {cls:['N'], slot:'botas', name:$t('Ferraduras do Abismo', 'Horseshoes of the Abyss'), affixes:[{k:'longJump'},{k:'hp',v:3}]},
   {cls:['N'], slot:'arma', name:$t('Lança do Garfo', 'Fork Lance'), affixes:[{k:'fork'},{k:'dmg',v:1}]},
-  {cls:['N'], slot:'anel', name:$t('Rédeas de Sangue', 'Blood Reins'), affixes:[{k:'chain'},{k:'hp',v:4}]},
+  {cls:['N'], slot:'cinto', name:$t('Rédeas de Sangue', 'Blood Reins'), affixes:[{k:'chain'},{k:'hp',v:4}]},
   {cls:['N'], slot:'anel', name:$t('Selo da Cavalaria', 'Cavalry Seal'), affixes:[{k:'cavalry'},{k:'dmg',v:1}]},
   {cls:['N'], slot:'armadura', name:$t('Barda de Obsidiana', 'Obsidian Barding'), affixes:[{k:'aegisFirst'},{k:'hp',v:6}]},
   {cls:['R'], slot:'botas', name:$t('Grevas da Fortaleza', 'Fortress Greaves'), affixes:[{k:'pushPower'},{k:'fortify'}]},
@@ -133,7 +183,7 @@ const UNIQUES = [
   {cls:['B'], slot:'arma', name:$t('Báculo da Diagonal Longa', 'Crozier of the Long Diagonal'), affixes:[{k:'pierceShot'},{k:'dmg',v:1}]},
   {cls:['B'], slot:'armadura', name:$t('Vitral Sagrado', 'Sacred Stained Glass'), affixes:[{k:'stainedGlass'},{k:'holy'}]},
   {cls:['B'], slot:'botas', name:$t('Sandálias do Peregrino', 'Pilgrim\'s Sandals'), affixes:[{k:'pilgrim'},{k:'hp',v:3}]},
-  {cls:['B'], slot:'anel', name:$t('Rosário de Ossos', 'Rosary of Bones'), affixes:[{k:'rosary'},{k:'hp',v:3}]},
+  {cls:['B'], slot:'amuleto', name:$t('Rosário de Ossos', 'Rosary of Bones'), affixes:[{k:'rosary'},{k:'hp',v:3}]},
   {cls:['B'], slot:'arma', name:$t('Incensário Profano', 'Profane Censer'), affixes:[{k:'censer'}]},
   {cls:['Q'], slot:'elmo', name:$t('Coroa da Rainha de Vidro', 'Crown of the Glass Queen'), affixes:[{k:'fury'},{k:'bladeStorm'}]},
   {cls:['Q'], slot:'arma', name:$t('Cetro do Xeque', 'Scepter of Check'), affixes:[{k:'check'},{k:'dmg',v:1}]},
@@ -146,7 +196,7 @@ const UNIQUES = [
   {cls:['K'], slot:'armadura', name:$t('Manto do Roque', 'Castling Cloak'), affixes:[{k:'freeSwap'},{k:'hp',v:4}]},
   {cls:['K'], slot:'botas', name:$t('Botas da Promoção', 'Boots of Promotion'), affixes:[{k:'earlyPromo'}]},
   {cls:['K'], slot:'anel', name:$t('Anel do Mártir', 'Martyr\'s Ring'), affixes:[{k:'martyr'},{k:'hp',v:3}]},
-  {cls:['K'], slot:'anel', name:$t('Estandarte Real', 'Royal Banner'), affixes:[{k:'banner'}]},
+  {cls:['K'], slot:'cinto', name:$t('Estandarte Real', 'Royal Banner'), affixes:[{k:'banner'}]},
   // archetype support (any class): allies and elements
   {cls:null, slot:'elmo', name:$t('Coroa do Ossuário', 'Ossuary Crown'), affixes:[{k:'ossuary'},{k:'hp',v:4}]},
   {cls:null, slot:'armadura', name:$t('Mortalha do Dízimo', 'Tithe Shroud'), affixes:[{k:'soulTithe'},{k:'hp',v:6}]},
@@ -197,7 +247,24 @@ const UNIQUES = [
   {cls:null, slot:'arma', name:$t('Lâmina da Corrente Rubra', 'Blade of the Crimson Chain'), affixes:[{k:'chain'},{k:'dmg',v:2}]},
   {cls:null, slot:'anel', name:$t('Anel da Sede Negra', 'Ring of Black Thirst'), affixes:[{k:'vamp'},{k:'thorns'}]},
   {cls:null, slot:'botas', name:$t('Botas do Peão Ancestral', 'Boots of the Ancestral Pawn'), affixes:[{k:'kingStep'},{k:'shield',v:2}]},
-  {cls:null, slot:'armadura', name:$t('Peitoral do Xeque-Mate', 'Checkmate Breastplate'), affixes:[{k:'execute'},{k:'hp',v:8}]}
+  {cls:null, slot:'armadura', name:$t('Peitoral do Xeque-Mate', 'Checkmate Breastplate'), affixes:[{k:'execute'},{k:'hp',v:8}]},
+  // gloves, belts and amulets: each one opens a style of play
+  {cls:null, slot:'luvas', name:$t("Luvas do Pactuário", "Pactbinder's Gloves"), affixes:[{k:'bloodPact'},{k:'dmg',v:1}]},
+  {cls:null, slot:'luvas', name:$t("Manoplas do Duelista", "Duelist's Gauntlets"), affixes:[{k:'parry'},{k:'block',v:12}]},
+  {cls:null, slot:'luvas', name:$t("Mãos do Coveiro", "Gravedigger's Hands"), affixes:[{k:'necroGrip'},{k:'hp',v:4}]},
+  {cls:null, slot:'luvas', name:$t("Garras da Peste", "Plague Claws"), affixes:[{k:'plague'},{k:'hp',v:3}]},
+  {cls:null, slot:'luvas', name:$t("Punhos da Pira", "Pyre Fists"), affixes:[{k:'pyre'},{k:'fireDmg',v:2}]},
+  {cls:null, slot:'luvas', name:$t("Manoplas Transbordantes", "Overflowing Gauntlets"), affixes:[{k:'overkill'},{k:'dmg',v:1}]},
+  {cls:null, slot:'cinto', name:$t("Cinto Detonador", "Detonator Belt"), affixes:[{k:'shieldBurst'},{k:'shield',v:3}]},
+  {cls:null, slot:'cinto', name:$t("Cinturão do Imóvel", "Girdle of the Unmoving"), affixes:[{k:'stand'},{k:'block',v:8}]},
+  {cls:null, slot:'cinto', name:$t("Cinto do Corruptor", "Briber's Belt"), affixes:[{k:'bribe'},{k:'gold',v:30}]},
+  {cls:null, slot:'cinto', name:$t("Faixa da Vida Excessiva", "Sash of Excess"), affixes:[{k:'overheal'},{k:'hp',v:5}]},
+  {cls:null, slot:'cinto', name:$t("Cinto do Rancor", "Belt of Grudges"), affixes:[{k:'grudge'},{k:'hp',v:4}]},
+  {cls:null, slot:'amuleto', name:$t("Amuleto de Vidro", "Glass Amulet"), affixes:[{k:'glass'},{k:'crit',v:10}]},
+  {cls:null, slot:'amuleto', name:$t("Prisma de Três Faces", "Three-Faced Prism"), affixes:[{k:'unison'},{k:'fireDmg',v:3}]},
+  {cls:null, slot:'amuleto', name:$t("Talismã da Segunda Vida", "Second Life Talisman"), affixes:[{k:'secondLife'},{k:'hp',v:6}]},
+  {cls:null, slot:'amuleto', name:$t("Colar do Ritmista", "Rhythmist's Necklace"), affixes:[{k:'rhythm'},{k:'crit',v:8}]},
+  {cls:null, slot:'amuleto', name:$t("Medalhão do Caçador", "Hunter's Medallion"), affixes:[{k:'huntMark'},{k:'eliteDmg',v:20}]}
 ];
 // how a boss turns the relic it wields into a power
 const BOSS_ITEM_MAP = {
@@ -213,6 +280,7 @@ const BOSS_ITEM_MAP = {
   prism:'double', skillPower:'double', skillShield:'armor',
   venom:'vamp', rot:'thorns', ironSkin:'armor', emberTrail:'lavaTrail', kindling:'lavaTrail', shatter:'frost', bloodPrice:'vamp', skillLeech:'vamp', opener:'swift', lone:'double', ward:'regen',
   vigor:'regen', crowd:'trample', mercenary:'double', flow:'swift', critStun:'double', critHeal:'vamp', thick:'armor', echoSkill:'fastSummon', bounty:'vamp', vanguard:'swift', lastBreath:'armor', reprisal:'thorns',
+  bloodPact:'vamp', parry:'armor', necroGrip:'fastSummon', plague:'vamp', pyre:'lavaTrail', overkill:'double', shieldBurst:'armor', stand:'armor', bribe:'armor', overheal:'regen', grudge:'double', glass:'double', unison:'double', secondLife:'regen', rhythm:'swift', huntMark:'double',
   supremePromo:'regen', enPassant:'thorns', regicide:'double', deathBurst:'explode', cleave:'double', killFury:'double', killCdr:'fastSummon', killStep:'swift'
 };
 
@@ -223,22 +291,22 @@ const TIER_ILVL = [1, 5, 10, 18, 28];
 const maxTier = ilvl => TIER_ILVL.filter(t => ilvl >= t).length;
 // where each affix can roll and its [min,max] per tier (null = not at that tier)
 const POOL = {
-  dmg:     {slots:{arma:[[1,1],[1,2],[2,3],[3,4],[4,5]], anel:[null,null,[1,1],[1,2],[2,2]]}},
-  crit:    {slots:['arma','anel','elmo'], t:[[5,5],[8,8],[12,12],[16,16],[20,20]]},
-  eliteDmg:{slots:['arma','anel'], t:[[10,10],[15,15],[20,20],[25,25],[30,30]]},
-  hp:      {slots:['armadura','elmo','botas'], t:[[3,4],[5,6],[6,8],[8,10],[10,12]]},
-  shield:  {slots:['armadura','elmo'], t:[[1,1],[1,2],[2,3],[3,3],[3,4]]},
-  block:   {slots:['armadura','botas'], t:[[5,5],[8,8],[10,10],[13,13],[15,15]]},
-  healKill:{slots:['arma','anel'], t:[[1,1],[1,1],[1,2],[2,2],[2,3]]},
+  dmg:     {slots:{arma:[[1,1],[1,2],[2,3],[3,4],[4,5]], anel:[null,null,[1,1],[1,2],[2,2]], luvas:[null,[1,1],[1,2],[2,2],[2,3]], amuleto:[null,null,[1,1],[1,1],[1,2]]}},
+  crit:    {slots:['arma','anel','elmo','luvas','amuleto'], t:[[5,5],[8,8],[12,12],[16,16],[20,20]]},
+  eliteDmg:{slots:['arma','anel','luvas','amuleto'], t:[[10,10],[15,15],[20,20],[25,25],[30,30]]},
+  hp:      {slots:['armadura','elmo','botas','cinto','amuleto'], t:[[3,4],[5,6],[6,8],[8,10],[10,12]]},
+  shield:  {slots:['armadura','elmo','cinto','luvas'], t:[[1,1],[1,2],[2,3],[3,3],[3,4]]},
+  block:   {slots:['armadura','botas','cinto','luvas'], t:[[5,5],[8,8],[10,10],[13,13],[15,15]]},
+  healKill:{slots:['arma','anel','luvas','amuleto'], t:[[1,1],[1,1],[1,2],[2,2],[2,3]]},
   cdr:     {slots:['elmo','anel'], t:[null,null,[1,1],[1,1],[1,1]]},
-  mf:      {slots:['anel','elmo','botas'], t:[[10,10],[15,15],[20,20],[30,30],[40,40]]},
-  gold:    {slots:['arma','elmo','armadura','botas','anel'], t:[[15,15],[25,25],[35,35],[45,45],[60,60]]},
-  fireDmg: {slots:['arma','anel'], t:[[1,1],[1,2],[2,2],[2,3],[3,4]]},
-  coldDmg: {slots:['arma','anel'], t:[[1,1],[1,2],[2,2],[2,3],[3,4]]},
-  lightDmg:{slots:['arma','anel'], t:[[1,1],[1,2],[2,2],[2,3],[3,4]]},
-  resFire: {slots:['armadura','elmo','botas','anel'], t:[[8,8],[12,12],[16,16],[22,22],[30,30]]},
-  resCold: {slots:['armadura','elmo','botas','anel'], t:[[8,8],[12,12],[16,16],[22,22],[30,30]]},
-  resLight:{slots:['armadura','elmo','botas','anel'], t:[[8,8],[12,12],[16,16],[22,22],[30,30]]}
+  mf:      {slots:['anel','elmo','botas','amuleto','cinto'], t:[[10,10],[15,15],[20,20],[30,30],[40,40]]},
+  gold:    {slots:['arma','elmo','armadura','botas','anel','luvas','cinto','amuleto'], t:[[15,15],[25,25],[35,35],[45,45],[60,60]]},
+  fireDmg: {slots:['arma','anel','luvas','amuleto'], t:[[1,1],[1,2],[2,2],[2,3],[3,4]]},
+  coldDmg: {slots:['arma','anel','luvas','amuleto'], t:[[1,1],[1,2],[2,2],[2,3],[3,4]]},
+  lightDmg:{slots:['arma','anel','luvas','amuleto'], t:[[1,1],[1,2],[2,2],[2,3],[3,4]]},
+  resFire: {slots:['armadura','elmo','botas','anel','cinto','amuleto'], t:[[8,8],[12,12],[16,16],[22,22],[30,30]]},
+  resCold: {slots:['armadura','elmo','botas','anel','cinto','amuleto'], t:[[8,8],[12,12],[16,16],[22,22],[30,30]]},
+  resLight:{slots:['armadura','elmo','botas','anel','cinto','amuleto'], t:[[8,8],[12,12],[16,16],[22,22],[30,30]]}
 };
 function tiersFor(k, slot){
   const p = POOL[k]; if (!p) return null;

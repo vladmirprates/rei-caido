@@ -28,7 +28,7 @@ const GLYPH = {K:'♚', Q:'♛', R:'♜', B:'♝', N:'♞', P:'♟︎'};
 const ORTH = [[1,0],[-1,0],[0,1],[0,-1]], DIAG = [[1,1],[1,-1],[-1,1],[-1,-1]], ALL = ORTH.concat(DIAG);
 const KN  = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
 const KN3 = [[1,3],[3,1],[-1,3],[-3,1],[1,-3],[3,-1],[-1,-3],[-3,-1]];
-const MAX_ALLIES = 5, POTION_HEAL = 6, STASH_MAX = 24;
+const MAX_ALLIES = 5, POTION_HEAL = 6, STASH_MAX = 36;
 
 /* Randomness: everything goes through rnd() so the daily challenge can be seeded */
 let rng = Math.random;
@@ -90,7 +90,7 @@ const BOSSES = {
 // the pinnacle: fought only with one Crown Fragment from each uber boss
 BOSSES.fallen = {type:'K', hp:60, dmg:4, names:{dark:$t('O Rei Caído', 'The Fallen King'), holy:$t('O Rei Caído', 'The Fallen King')},
   p1:$t('Fase 1, O Rei e a Corte: move e ataca como rei. A cada 2 turnos alterna o Decreto Real (todas as casas a até 2 dele) e uma Ordem Real: convoca peões, promove um peão a rainha ou dá o Grito de Guerra (cura a corte e dá escudo a ele). Golpeado de perto, pode fazer Roque com um peão distante.', 'Phase 1, The King and his Court: moves and attacks like a king. Every 2 turns he alternates the Royal Decree (every square up to 2 from him) and a Royal Order: summons pawns, promotes a pawn to queen or gives the War Cry (heals his court and shields himself). Struck up close, he may castle with a distant pawn.'),
-  p2:$t('Fase 2, com 60% da vida, A Coroa Estilhaçada: ele toma a forma dos supremos, uma de cada vez: Torre, Bispo, Cavalo e Rainha. Move, ataca e usa o decreto da forma atual. Cada troca o deixa exposto por 2 turnos e chama dois guardas.', 'Phase 2, at 60% health, The Shattered Crown: he takes the forms of the ubers, one at a time: Rook, Bishop, Knight and Queen. He moves, attacks and uses the decree of his current form. Each change leaves him exposed for 2 turns and calls two guards.'),
+  p2:$t('Fase 2, com 60% da vida, A Coroa Estilhaçada: ele toma a forma dos pináculos, uma de cada vez: Torre, Bispo, Cavalo e Rainha. Move, ataca e usa o decreto da forma atual. Cada troca o deixa exposto por 2 turnos e chama dois guardas.', 'Phase 2, at 60% health, The Shattered Crown: he takes the forms of the pinnacles, one at a time: Rook, Bishop, Knight and Queen. He moves, attacks and uses the decree of his current form. Each change leaves him exposed for 2 turns and calls two guards.'),
   p3:$t('Fase 3, com 25%, O Último Rei: volta a ser rei e a corte inteira se ergue. Guarda Real: com 3 ou mais peças da corte vivas, recebe metade do dano. Encurralado: com 2 casas de fuga ou menos, recebe +50%.', 'Phase 3, at 25%, The Last King: he is a king again and the whole court rises. Royal Guard: with 3 or more court pieces alive, he takes half damage. Cornered: with 2 escape squares or fewer, he takes +50%.')};
 const BOSS_ORDER = ['queen','knight','twins','pawn'];
 
@@ -112,12 +112,16 @@ BIOMES.tar = {name:$t('Poço de Piche', 'Tar Pits'), boss:'knight', sizes:[8,9,1
   rule:$t('Piche: quem termina o turno nele fica preso (no turno seguinte só ataca ou usa habilidades). Dois gêiseres cospem piche a cada 2 turnos, e a cada 3ª erupção ele pega fogo. Fogo incendeia o piche (3 de dano) e se espalha.', 'Tar: whoever ends the turn in it gets stuck (next turn they can only attack or use skills). Two geysers spit tar every 2 turns, and every 3rd eruption it catches fire. Fire ignites tar (3 damage) and spreads.')};
 BIOMES.fungal = {name:$t('Gruta Fúngica', 'Fungal Grotto'), boss:'twins', sizes:[8,9], tiles:['#3d3249','#271f33'],
   rule:$t('Cogumelos brotam pelo andar: quem termina o turno em cima consome (você, aliado ou inimigo). Verde cura 6; azul dá +4 no golpe e 4 de escudo; a bufa estoura (4 de dano em volta e atordoa).', 'Mushrooms sprout around the floor: whoever ends the turn on one consumes it (you, an ally or an enemy). Green heals 6; blue gives +4 to your blow and 4 shield; the puffball bursts (4 damage around and stuns).')};
-const MAP_BIOMES = ['storm','tar','fungal'];
+BIOMES.ash = {name:$t('Deserto de Cinzas', 'Ashen Desert'), boss:'queen', sizes:[8,9], tiles:['#6f5d43','#54452f'],
+  rule:$t('Vento: a cada 3 turnos empurra 1 casa quem estiver exposto (setas mostram quem). Rochas e cactos abrigam. Areia movediça prende e fere (2).', 'Wind: every 3 turns it pushes whoever is exposed 1 square (arrows show who). Rocks and cacti give shelter. Quicksand holds and hurts (2).')};
+BIOMES.sea = {name:$t('Mar Sombrio', 'Dark Sea'), boss:'knight', sizes:[8,9], tiles:['#2c4a55','#1f3641'],
+  rule:$t('Redemoinhos puxam 1 casa quem estiver a até 2 casas. Quem termina o turno dentro leva 3 de dano e é arremessado.', 'Whirlpools pull whoever is within 2 squares 1 square closer. Whoever ends the turn inside takes 3 damage and is flung away.')};
+const MAP_BIOMES = ['storm','tar','fungal','ash'];   // the Dark Sea ('sea') is shelved: its code stays, but it no longer rolls on maps
 const MUSH = ['m_heal','m_glow','m_puff'];   // the three mushrooms of the Fungal Grotto
 const ACTS = ['crypt','swamp','forge','cathedral'];
 // damage types: each biome's enemies hit with its element and resist it by 50%
 const DTYPES = {phys:{n:$t('físico', 'physical')}, fire:{n:$t('fogo', 'fire'), c:'#f08a3c'}, cold:{n:$t('gelo', 'cold'), c:'#9fd3ff'}, light:{n:$t('raio', 'lightning'), c:'#ecd36a'}};
-const BIOME_ELEMENT = {crypt:'phys', swamp:'light', forge:'fire', cathedral:'cold', storm:'light', tar:'fire', fungal:'phys'};
+const BIOME_ELEMENT = {crypt:'phys', swamp:'light', forge:'fire', cathedral:'cold', storm:'light', tar:'fire', fungal:'phys', ash:'fire', sea:'cold'};
 const RES_KEY = {fire:'resFire', cold:'resCold', light:'resLight'};
 
 /* ---------- Skill unlocks and runes ----------

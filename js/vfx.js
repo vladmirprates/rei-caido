@@ -1,7 +1,7 @@
 /* Rei Caído — skill effects drawn by hand, one per ascension skill (no reuse of the generic beam/ring).
    vfx(kind, x1,y1, x2,y2, opts) queues an effect; drawVfx() paints them over the board each frame (render.js). */
 
-const VFX_DUR = {beam:.5, hit:.45, slam:.8, shockline:.6, bladestorm:.7, shout:.8, nova:.6, summon:.9, shield:.8, shift:.6, gallop:.7, arcane:.7, shove:.5, thunder:.9, lance:.9, claw:.8, wall:.9, boulder:1.05, forgeburst:.9, judgment:1, holy:1.3, poison:1.1, bloodburst:.9, frost:1.2, shadow:.8, xslash:.5, thrust:.6, crown:1.2, hand:1.1};
+const VFX_DUR = {geyser:.9, beam:.5, hit:.45, slam:.8, shockline:.6, bladestorm:.7, shout:.8, nova:.6, summon:.9, shield:.8, shift:.6, gallop:.7, arcane:.7, shove:.5, thunder:.9, lance:.9, claw:.8, wall:.9, boulder:1.05, forgeburst:.9, judgment:1, holy:1.3, poison:1.1, bloodburst:.9, frost:1.2, shadow:.8, xslash:.5, thrust:.6, crown:1.2, hand:1.1};
 const VFX_N = {thunder:8, claw:6, wall:16, boulder:14, forgeburst:12, holy:14, poison:16, bloodburst:18, frost:20, shadow:10, crown:8, hand:12};
 
 const _line = (c, pts, w, col, a) => { c.save(); c.strokeStyle = col; c.globalAlpha = Math.max(0, Math.min(1, a)); c.lineWidth = w; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath(); pts.forEach(([x,y], i) => i ? c.lineTo(x,y) : c.moveTo(x,y)); c.stroke(); c.restore(); };
@@ -260,6 +260,24 @@ const VFX_DRAW = {
       c.save(); c.globalCompositeOperation = 'lighter'; c.strokeStyle = `rgba(255,225,130,${(1-k)*.9})`; c.lineWidth = 2; c.beginPath(); c.ellipse(ax, ay + T*.2, T*(.15 + k*.4), T*(.06 + k*.16), 0, 0, Math.PI*2); c.stroke();
       const gs = T*.3*Math.sin(k*Math.PI); c.fillStyle = `rgba(255,245,200,${1-k})`; c.beginPath(); c.moveTo(ax, ay - T*.2 - gs); c.lineTo(ax + gs*.2, ay - T*.2); c.lineTo(ax, ay - T*.2 + gs); c.lineTo(ax - gs*.2, ay - T*.2); c.closePath(); c.moveTo(ax - gs, ay - T*.2); c.lineTo(ax, ay - T*.2 + gs*.2); c.lineTo(ax + gs, ay - T*.2); c.lineTo(ax, ay - T*.2 - gs*.2); c.closePath(); c.fill(); c.restore();
     });
+  },
+  // a tar geyser erupting: a column of black tar (or fire) shoots up, droplets arc out and fall back, steam rolls off, a splash spreads on the ground
+  geyser(c, v, p, f, s){
+    const T = tile, fire = !!v.fire, base = s[1] + T*.1, k = _out(_cl(p/.28)), rise = T*(1.5*k)*(1 - _cl((p-.45)/.5)*.7);
+    _once(v, 'a', true, () => {
+      emitP(26, {x:s[0], y:base - T*.2, s0:2.5, s1:6.5, a:-Math.PI/2, spread:.55, l0:.6, l1:1.15, z0:.07, z1:.04, c:fire ? '255,160,60' : '96,70,38', add:false, g:9});
+      emitP(10, {x:s[0], y:base - T*.2, s0:2, s1:6, a:-Math.PI/2, spread:.5, l0:.4, l1:.9, z0:.04, z1:.01, c:fire ? '255,220,140' : '235,190,100', add:true, kind:'streak', g:8});
+      emitP(12, {x:s[0], y:base - T*.4, s0:.4, s1:1.6, a:-Math.PI/2, spread:.7, l0:.8, l1:1.5, z0:.14, z1:.4, c:fire ? '255,140,50' : '120,112,96', al:.35, drag:1.2, add:fire});
+      if (fire) emitP(16, {x:s[0], y:base - T*.3, s0:2, s1:5, a:-Math.PI/2, spread:.8, l0:.4, l1:.9, z0:.05, z1:.01, c:'255,220,120', add:true, kind:'streak', g:3});
+    });
+    const w = T*(.3 - .1*p), cg = c.createLinearGradient(0, base, 0, base - rise);
+    if (fire){ cg.addColorStop(0, 'rgba(255,120,30,.95)'); cg.addColorStop(.6, 'rgba(255,190,70,.8)'); cg.addColorStop(1, 'rgba(255,240,170,0)'); } else { cg.addColorStop(0, 'rgba(14,10,6,.95)'); cg.addColorStop(.7, 'rgba(34,24,14,.85)'); cg.addColorStop(1, 'rgba(60,44,26,0)'); }
+    c.save(); if (fire) c.globalCompositeOperation = 'lighter';
+    c.fillStyle = cg; c.beginPath(); c.moveTo(s[0] - w, base); c.quadraticCurveTo(s[0] - w*.5 + Math.sin(p*20)*T*.02, base - rise*.5, s[0], base - rise); c.quadraticCurveTo(s[0] + w*.5 - Math.sin(p*20)*T*.02, base - rise*.5, s[0] + w, base); c.closePath(); c.fill(); c.restore();
+    if (fire) _glowDisk(c, s[0], base - rise*.4, T*1.1, '255,120,40', .5*f);
+    else _glowDisk(c, s[0], base - rise*.5, T*.9, '201,150,60', .28*f);
+    if (!fire){ c.save(); c.globalCompositeOperation = 'lighter'; _line(c, [[s[0] - w*.45, base], [s[0] - w*.1, base - rise*.9]], T*.05, 'rgba(230,190,100,.55)', f); c.restore(); }
+    c.save(); c.strokeStyle = fire ? 'rgba(255,170,70,' + (.7*(1-p)) + ')' : 'rgba(80,60,34,' + (.8*(1-p)) + ')'; c.lineWidth = Math.max(2, T*.1*(1-p)); c.beginPath(); c.ellipse(s[0], base, T*(.2 + p*.6), T*(.08 + p*.22), 0, 0, Math.PI*2); c.stroke(); c.restore();
   },
   /* ----- generic building blocks, reused by many skills ----- */
   // energy beam: it shoots out to the target, a hot white core inside a colored glow, sparks along it and a flash at the end
