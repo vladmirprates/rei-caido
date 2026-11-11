@@ -395,11 +395,14 @@ $('scrCamp').addEventListener('click', () => { const t = document.getElementById
 $('scrCamp').addEventListener('mouseleave', () => { const t = document.getElementById('gearTip'); if (t) t.hidden = true; });
 // hover tooltip for the equipment icons on the game screen
 function gearTip(ev){
-  const g = ev.target.closest && ev.target.closest('[data-gslot]');
+  const g = ev.target.closest && ev.target.closest('[data-gslot],[data-rule]');
   let tip = document.getElementById('gearTip');
   if (!g || !S || !S.equip){ if (tip) tip.hidden = true; return; }
   if (!tip){ tip = document.createElement('div'); tip.id = 'gearTip'; tip.className = 'ttip'; document.body.appendChild(tip); }
   const slot = g.dataset.gslot, it = S.equip[slot];
+  if (g.dataset.rule){ const c = RAR[g.dataset.rrar] ? RAR[g.dataset.rrar].c : '#e3b456';
+    tip.innerHTML = `<span class="k">${$t('Regra', 'Rule')}</span><b style="color:var(--r-legend)">${g.dataset.rule}</b><p>${g.dataset.rtxt}</p><span class="k tdh">${$t('Vem de', 'From')} <i style="color:${c};font-style:normal">${g.dataset.rsrc}</i></span>`;
+  } else
   tip.innerHTML = it
     ? `<span class="k">${SLOTS[it.slot].label} · ${RAR[it.rar].label}${it.ilvl ? $t(` · nível ${it.ilvl}`, ` · level ${it.ilvl}`) : ''}</span><b style="color:${RAR[it.rar].c}">${esc(it.name)}</b>${affixList(it)}`
     : `<span class="k">${eqLabel(slot)}</span><p>${$t('Espaço vazio', 'Empty slot')}</p>`;
@@ -409,7 +412,7 @@ function gearTip(ev){
 }
 $('scrGame').addEventListener('mousemove', gearTip);
 $('scrGame').addEventListener('mouseleave', () => { const t = document.getElementById('gearTip'); if (t) t.hidden = true; });
-$('scrGame').addEventListener('focusin', ev => { const g = ev.target.closest && ev.target.closest('[data-gslot]'); if (g){ const r = g.getBoundingClientRect(); gearTip({target:g, clientX:r.right, clientY:r.top}); } });
+$('scrGame').addEventListener('focusin', ev => { const g = ev.target.closest && ev.target.closest('[data-gslot],[data-rule]'); if (g){ const r = g.getBoundingClientRect(); gearTip({target:g, clientX:r.right, clientY:r.top}); } });
 $('scrGame').addEventListener('focusout', () => { const t = document.getElementById('gearTip'); if (t) t.hidden = true; });
 $('scrCamp').addEventListener('mouseleave', () => { const t = document.getElementById('treeTip'); if (t) t.hidden = true; });
 // draws any radial tree (hero passives or Atlas) as SVG; nodes carry data-act="<nodeAct>:<id>"
@@ -852,7 +855,7 @@ $('modal').addEventListener('click', ev => {
   const b = ev.target.closest('[data-act]'); if (!b || b.disabled || !modalResolve) return;
   modalResolve(b.dataset.act);
 });
-function equippedMini(slot){ return itemCard(S.equip[slot], $t('Equipado em ', 'Equipped in ') + eqLabel(slot), 'mini'); }
+function equippedMini(slot){ return itemCard(S.equip[slot], $t('Equipado em ', 'Equipped in ') + eqLabel(slot), 'compact'); }
 function itemCard(it, title, cls){
   if (!it) return `<div class="lcard empty ${cls||''}"><span class="lk">${title}</span><b class="lname">${$t('Espaço vazio', 'Empty slot')}</b></div>`;
   return `<div class="lcard ${cls||''}" style="--rc:${RAR[it.rar].c}"><div class="lhead">${slotIcon(it.slot)}<div class="ltx"><span class="lk">${title}</span><b class="lname">${esc(it.name)}</b><span class="lmeta">${RAR[it.rar].label} · ${SLOTS[it.slot].label}${it.ilvl ? $t(` · nível ${it.ilvl}`, ` · level ${it.ilvl}`) : ''}${it.legacy ? $t(' · herança', ' · heirloom') : ''}</span></div></div><ul class="llist">${it.affixes.map(affixLine).join('')}</ul></div>`;
@@ -873,7 +876,7 @@ async function showLoot(it){
   const body = two
     ? `<div class="cmp lootcmp">${itemCard(it,$t('Encontrado', 'Found'), 'found')}${itemCard(S.equip.anel,$t('Equipado · Anel I', 'Equipped · Ring I'))}${itemCard(S.equip.anel2,$t('Equipado · Anel II', 'Equipped · Ring II'))}</div><div class="ldiff"><h4 class="dh">${$t('O que muda se trocar o Anel I', 'What changes if you replace Ring I')}</h4>${diffHtml(swapDiff(HERO, it, 'anel'))}</div><div class="ldiff"><h4 class="dh">${$t('O que muda se trocar o Anel II', 'What changes if you replace Ring II')}</h4>${diffHtml(swapDiff(HERO, it, 'anel2'))}</div>`
     : `<div class="cmp lootcmp">${itemCard(it,$t('Encontrado', 'Found'), 'found')}${itemCard(S.equip[eqKey(S.equip, it)],$t('Equipado', 'Equipped'))}</div><div class="ldiff"><h4 class="dh">${$t('O que muda se você equipar', 'What changes if you equip it')}</h4>${diffHtml(swapDiff(HERO, it))}</div>`;
-  const v = await openModal({title:$t('Saque', 'Loot'), body,
+  const v = await openModal({title:$t('Saque', 'Loot'), body, minimizable:true,
     note:$t('Ao equipar, o item atual vai para o baú. Itens desta expedição só ficam seus se você voltar vivo ao acampamento.', 'When you equip it, the current item goes to the stash. Items from this expedition are only yours if you return to camp alive.'),
     actions:[...(two ? [{label:$t('Trocar o Anel I', 'Replace Ring I'), primary:true, value:'equip:anel'}, {label:$t('Trocar o Anel II', 'Replace Ring II'), primary:true, value:'equip:anel2'}] : [{label:$t('Equipar', 'Equip'), primary:true, value:'equip'}]), {label:$t(`Guardar no baú${full?' (cheio)':''}`, `Move to stash${full?' (full)':''}`), value:'stash', disabled:full}, {label:$t('Deixar', 'Leave it'), value:'leave'}]});
   if (v && v.startsWith('equip')) equipItem(it, v.split(':')[1]); else if (v==='stash') stashItem(it); else log($t(`Você deixou ${it.name} para trás.`, `You left ${it.name} behind.`));
@@ -1180,8 +1183,8 @@ function updateUI(){
   $('pactDesc').textContent = S.pactUsed ? $t('Já usado neste andar', 'Already used on this floor') : $t('Paga 4 de vida e zera as recargas', 'Pay 4 health and reset cooldowns');
   $('btnWait').disabled = !canAct;
   // the build at a glance: one chip per named rule you carry
-  const ruleChips = []; for (const s in S.equip){ const it = S.equip[s]; if (!it) continue; for (const a of it.affixes){ const d = AFX[a.k]; if (!d || !d.rule) continue; const txt = d.t(a.v), nm = txt.includes(':') ? txt.split(':')[0] : null; if (nm && nm.length<=20 && !ruleChips.some(r => r[0]===nm)) ruleChips.push([nm, txt]); } }
-  $('gear').innerHTML = (ruleChips.length ? `<div class="chips2 rulechips">${ruleChips.map(([n,t]) => `<span class="mchip" style="--mc:#e3b456" title="${esc(t)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 6 6.4.6-4.9 4.2 1.5 6.4L12 17l-5.6 3.2 1.5-6.4L3 9.6 9.4 9z" fill="#e3b45655"/></svg>${esc(n)}</span>`).join('')}</div>` : '') + `<div class="gearicons">${EQ_SLOTS.map(s => { const it = S.equip[s]; return `<div class="itile gt ${it ? 'r-'+it.rar : 'empty'}" data-gslot="${s}" tabindex="0" aria-label="${esc(it ? it.name : eqLabel(s))}">${slotIcon(eqType(s))}</div>`; }).join('')}</div>`;
+  const ruleChips = []; for (const s in S.equip){ const it = S.equip[s]; if (!it) continue; for (const a of it.affixes){ const d = AFX[a.k]; if (!d || !d.rule) continue; const txt = d.t(a.v), nm = txt.includes(':') ? txt.split(':')[0] : null; if (nm && nm.length<=20 && !ruleChips.some(r => r[0]===nm)) ruleChips.push([nm, txt, it]); } }
+  $('gear').innerHTML = (ruleChips.length ? `<div class="chips2 rulechips">${ruleChips.map(([n,t,src]) => `<span class="mchip" tabindex="0" data-rule="${esc(n)}" data-rtxt="${esc(t.includes(':') ? t.slice(t.indexOf(':')+1).trim() : t)}" data-rsrc="${esc(src.name)}" data-rrar="${src.rar}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 6 6.4.6-4.9 4.2 1.5 6.4L12 17l-5.6 3.2 1.5-6.4L3 9.6 9.4 9z"/></svg>${esc(n)}</span>`).join('')}</div>` : '') + `<div class="gearicons">${EQ_SLOTS.map(s => { const it = S.equip[s]; return `<div class="itile gt ${it ? 'r-'+it.rar : 'empty'}" data-gslot="${s}" tabindex="0" aria-label="${esc(it ? it.name : eqLabel(s))}">${slotIcon(eqType(s))}</div>`; }).join('')}</div>`;
   $('log').innerHTML = S.log.map(l => `<li>${l}</li>`).join('');
   const bosses = S.enemies.filter(e=>e.boss);
   $('bossBar').hidden = !bosses.length;
