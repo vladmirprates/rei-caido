@@ -381,6 +381,9 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .board-frame[data-biome="forge"]{--bf-edge:#6a3220;--bf-glow:rgba(240,100,30,.22)}
 .board-frame[data-biome="cathedral"]{--bf-edge:#5a6a7e;--bf-glow:rgba(150,190,240,.18)}
 canvas{display:block;width:100%;height:100%;cursor:pointer;touch-action:manipulation}
+/* phones: no blue tap flash, no text selection or long-press menu on the board and controls */
+*{-webkit-tap-highlight-color:transparent}
+canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .hotbar{width:100%;max-width:640px;margin:4px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
 .hk{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:linear-gradient(var(--stone-2),#1a1512);color:var(--bone);border:1px solid var(--line);padding:9px 10px 8px;font:inherit;cursor:pointer;min-width:0;min-height:76px}
 .hk:hover:not(:disabled){border-color:var(--ember)}
