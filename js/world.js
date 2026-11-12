@@ -345,10 +345,11 @@ function nextFloor(){
   const st = stats();
   if (S.floor>1) S.player.hp = Math.min(st.hp, S.player.hp+5);
   if (st.gambit) S.player.hp = Math.max(1, Math.min(S.player.hp, Math.ceil(st.hp/2)));
-  Object.assign(S, {nullHit:!!st.aegisFirst, nextBonus:0, floorBonus:st.vanguard ? 2 : 0, pactUsed:false, promoted:false, lastStandUsed:false, lastBreathUsed:false, bribes:0, rhythmN:0, critReady:false, mired:false});
+  Object.assign(S, {nullHit:!!st.aegisFirst, nextBonus:0, floorBonus:st.vanguard ? 2 : 0, pactUsed:false, promoted:false, lastStandUsed:false, lastBreathUsed:false, bribes:0, rhythmN:0, decreeN:0, swellN:0, deferred:0, mines:[], shadows:[], stone:0, markUsed:false, coinUsed:false, lostThis:0, debt:0, critReady:false, mired:false});
+  S.standard = st.standard ? {x:S.player.x, y:S.player.y} : null;
   S.shield = st.shield + (st.bulwark ? 6 : 0) + (st.g_dragona ? 3 : 0);
   S.cds = {}; for (const id of barSkills()) S.cds[id] = 0;
-  S.actions = 1 + (st.firstStrike ? 1 : 0); S.mode = 'move'; S.turn = 1;
+  S.actions = 1 + (st.firstStrike ? 1 : 0) + (st.blitz ? 2 : 0); S.mode = 'move'; S.turn = 1;
   newRound();
   if (st.royalGuard) for (let i=0;i<2 && S.allies.length<allyCap();i++){ const f = freeAdj(); if (f.length) S.allies.push(makeAlly('P', f[0][0], f[0][1])); }
   // Veil of the Royal Guard: two spectral pawns that only last this floor

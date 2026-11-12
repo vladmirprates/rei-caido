@@ -54,27 +54,6 @@ function drawSleep(x, y, time){
   }
   ctx.restore();
 }
-function drawFlames(x, y, time, hostile, k){
-  const bx = x*tile, base = y*tile + tile*.84, cx0 = bx + tile/2;
-  glow(cx0, base - tile*.2, tile*.75*k, hostile ? 'rgba(255,60,30,.34)' : 'rgba(255,150,50,.3)');
-  ctx.fillStyle = hostile ? 'rgba(90,10,4,.55)' : 'rgba(110,40,8,.5)';
-  ctx.beginPath(); ctx.ellipse(cx0, base, tile*.36, tile*.08, 0, 0, Math.PI*2); ctx.fill();
-  for (let i=0;i<4;i++){
-    const t = reduce ? 0 : time, cx = bx + tile*(.24 + .17*i);
-    const h = tile*k*(.34 + .2*Math.abs(Math.sin(t*7 + i*2.1 + x*1.7 + y*.9))), w = tile*.1, sway = reduce ? 0 : Math.sin(t*5 + i)*tile*.04;
-    const g = ctx.createLinearGradient(0, base, 0, base - h);
-    g.addColorStop(0, hostile ? 'rgba(200,30,15,.95)' : 'rgba(235,80,20,.95)'); g.addColorStop(.55, hostile ? 'rgba(255,110,40,.85)' : 'rgba(255,170,50,.9)'); g.addColorStop(1, 'rgba(255,240,170,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(cx - w, base);
-    ctx.quadraticCurveTo(cx - w*1.2, base - h*.55, cx + sway, base - h);
-    ctx.quadraticCurveTo(cx + w*1.2, base - h*.55, cx + w, base); ctx.closePath(); ctx.fill();
-  }
-  if (!reduce) for (let i=0;i<3;i++){
-    const f = (time*.9 + i*.33 + x*.17 + y*.29) % 1;
-    ctx.fillStyle = `rgba(255,${200-i*30},90,${(1-f)*.9})`;
-    ctx.fillRect(bx + tile*(.3 + .2*i) + Math.sin(time*3+i)*tile*.05, base - f*tile*.75, tile*.035, tile*.035);
-  }
-}
 function burst(x,y,color,n){
   if (reduce) n = Math.ceil(n/4);
   for (let i=0;i<n;i++){
@@ -244,10 +223,7 @@ function drawPiece(type, x, y, side, o){
     ctx.save(); ctx.translate(cx, cy - lift + down + sz*.45); ctx.scale(1 + .012*br, 1 + .024*br);
     ctx.drawImage(sp.cv, -sp.w/2, -sp.h/2 - sz*.45, sp.w, sp.h); ctx.restore(); }
   if (o.prop) drawAscProp(o.prop, o.propColor, cx, cy, sz, down, time);   // ascension: each subclass carries its own emblem
-  if (o.horde && !reduce && Math.random()<.012) fx.embers.push({x:x+.3+Math.random()*.4, y:y+.6, vy:-(.5+Math.random()*.6), life:.8, c:'255,120,50'});
-  if (o.boss && !reduce && Math.random()<.35){
-    fx.embers.push({x:x+.2+Math.random()*.6, y:y+.7, vy:-(.6+Math.random()*.8), life:1, c:o.holy ? '240,214,140' : '240,110,50'});
-  }
+  if (o.horde || o.boss || o.elite || o.rift || o.spectral) pieceAura(o, x, y, time);
 }
 // Modifier icons: vector line icons (24x24 paths), one per modifier, drawn in a row above the piece.
 // [color, path, filled]. The same paths feed the tooltip chips (modIconSvg in ui.js).
@@ -1833,31 +1809,6 @@ function lootBeam(it, time){
   const g = ctx.createLinearGradient(0, cy, 0, cy-h); g.addColorStop(0, `rgba(${col},${.5*pul})`); g.addColorStop(1, `rgba(${col},0)`);
   ctx.fillStyle = g; ctx.fillRect(cx-w/2, cy-h, w, h); glow(cx, cy, tile*.45, `rgba(${col},${.35*pul})`); ctx.restore();
 }
-// the hero's build, made visible: element-colored glow and one orbiting spark per unique or pair of rules
-function buildProfile(){
-  const sig = Object.values(S.equip).map(i => i ? i.id : 0).join(',') + '|' + S.color + '|' + (HERO.tree||[]).length;
-  if (buildProfile.sig===sig) return buildProfile.v;
-  const st = stats(), items = Object.values(S.equip).filter(Boolean); let rules = 0, legends = 0, rares = 0;
-  for (const it of items){ if (it.rar==='legend') legends++; else if (it.rar==='rare') rares++; for (const a of it.affixes) if (AFX[a.k] && AFX[a.k].rule) rules++; }
-  const cols = [];
-  if (st.fireDmg) cols.push('255,130,50'); if (st.coldDmg) cols.push('140,205,255'); if (st.lightDmg) cols.push('236,222,110');
-  if (st.vamp > (S.color==='b' ? 1 : 0)) cols.push('210,60,60'); if (st.thorns) cols.push('130,210,120'); if (st.chain || st.regicide) cols.push('227,180,86');
-  if (st.deathBurst) cols.push('180,70,210'); if (st.execute) cols.push('240,138,60'); if (!cols.length) cols.push('227,180,86');
-  buildProfile.sig = sig; return (buildProfile.v = {cols, power: rules + legends*1.5 + rares*.5, orbs: Math.min(9, legends + Math.ceil(rules/2))});
-}
-function playerAura(x, y, time){
-  const P = buildProfile(), cx = (x+.5)*tile, cy = (y+.5)*tile;
-  if (P.power < 1 && !P.orbs) return;
-  glow(cx, cy+tile*.05, tile*(.5 + Math.min(.55, P.power*.035)), `rgba(${P.cols[0]},${Math.min(.34, .1 + P.power*.012)})`);
-  const n = P.orbs, t = reduce ? 0 : time;
-  for (let i=0; i<n; i++){
-    const a = t*1.6 + i*Math.PI*2/n, col = P.cols[i % P.cols.length];
-    const ox = cx + Math.cos(a)*tile*.42, oy = cy + tile*.2 + Math.sin(a)*tile*.13;
-    ctx.globalAlpha = Math.sin(a) < 0 ? .55 : 1;
-    glow(ox, oy, tile*.12, `rgba(${col},.55)`); ctx.fillStyle = `rgb(${col})`; ctx.beginPath(); ctx.arc(ox, oy, tile*.035, 0, Math.PI*2); ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-}
 function draw(time){
   const size = tile*W;
   ctx = mainCtx;
@@ -1875,6 +1826,9 @@ function draw(time){
   if (S.tideRise) for (const [x,y] of S.tideRise){ const pul = reduce ? .5 : .5+.5*Math.sin(time*5); ctx.fillStyle = `rgba(160,20,10,${.15+.15*pul})`; ctx.fillRect(x*tile, y*tile, tile, tile); ctx.strokeStyle = `rgba(255,80,60,${.6+.3*pul})`; ctx.setLineDash([4,3]); ctx.lineWidth = 2; ctx.strokeRect(x*tile+3, y*tile+3, tile-6, tile-6); ctx.setLineDash([]); }
   if (S.tide){ ctx.fillStyle = `rgba(140,10,0,${reduce?.09:.07+.03*Math.sin(time*.9)})`; ctx.fillRect(0, 0, size, size); }
   for (const [k,t] of S.fire){ const [x,y] = unkey(k); drawFlames(x, y, time, false, t>1 ? 1 : .65); }
+  if (S.standard) drawStandardFx(S.standard.x, S.standard.y, 2 + areaView(), time);
+  for (const m of (S.mines||[])) drawMineFx(m.x, m.y, time);
+  for (const sh of (S.shadows||[])) drawShadowFx(sh.x, sh.y, time);
   for (const [k,t] of S.burn){ const [x,y] = unkey(k); drawFlames(x, y, time, true, t>1 ? 1 : .65); }
   if (S.tarFire) for (const [k,t] of S.tarFire){ const [x,y] = unkey(k); drawFlames(x, y, time, true, t>1 ? 1.15 : .75); }
   if (S.stairs) drawStairs(S.stairs.x, S.stairs.y, time);
@@ -1974,7 +1928,7 @@ function draw(time){
       if (isHover){
         ctx.strokeStyle = 'rgba(231,220,198,.8)'; ctx.lineWidth = 1.5;
         ctx.strokeRect(t.x*tile+1.5, t.y*tile+1.5, tile-3, tile-3);
-        if (S.mode==='quake') for (const [dx,dy] of ALL){
+        if (S.mode==='quake') for (let dy=-(1+areaView()); dy<=1+areaView(); dy++) for (let dx=-(1+areaView()); dx<=1+areaView(); dx++){
           const nx=t.x+dx, ny=t.y+dy; if (!inb(nx,ny)) continue;
           ctx.fillStyle = 'rgba(224,122,50,.22)'; ctx.fillRect(nx*tile, ny*tile, tile, tile);
         }
@@ -2002,9 +1956,11 @@ function draw(time){
         ctx.fillStyle = '#a9bfd6'; ctx.strokeStyle = '#1a120c'; ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(sx-ss, sy-ss); ctx.lineTo(sx+ss, sy-ss); ctx.lineTo(sx+ss, sy+ss*.2); ctx.lineTo(sx, sy+ss*1.2); ctx.lineTo(sx-ss, sy+ss*.2); ctx.closePath(); ctx.fill(); ctx.stroke();
       }
-      if (u.marked && !u.frozenPiece){ const mx = (x+.82)*tile, my = y*tile+tile*.16, ms = tile*.08; ctx.fillStyle = '#e3b456'; ctx.strokeStyle = '#1a120c'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(mx, my-ms); ctx.lineTo(mx+ms, my); ctx.lineTo(mx, my+ms); ctx.lineTo(mx-ms, my); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-      if (u===S.linked){ ctx.strokeStyle = 'rgba(240,160,80,.95)'; ctx.setLineDash([4,3]); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc((x+.5)*tile, (y+.5)*tile, tile*.47, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
-      if (u.judged){ ctx.strokeStyle = 'rgba(240,214,140,.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc((x+.5)*tile, (y+.5)*tile, tile*.44, 0, Math.PI*2); ctx.stroke(); }
+      if (u.frozenPiece && S.timeStop>0) drawFrozenFx(x, y, time);
+      if (u.marked && !u.frozenPiece) markGlyph(x, y, time);
+      if (u.deathMark) deathMarkGlyph(x, y, time);
+      if (u===S.linked){ ctx.strokeStyle = 'rgba(240,160,80,.95)'; ctx.setLineDash([4,3]); ctx.lineDashOffset = reduce ? 0 : -time*10; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc((x+.5)*tile, (y+.5)*tile, tile*.47, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0; }
+      if (u.judged) judgedRing(x, y, time, u.judged);
       if (u.intent && u.intent.stunned) drawSleep(x, y, time);
     } else {
       drawPiece(u.type, x, y, S.color, {ally:true, spectral:u.spectral, flash:u.flash>0});
@@ -2025,7 +1981,7 @@ function draw(time){
     ctx.beginPath(); ctx.moveTo(cx-r, cy); ctx.lineTo(cx+r, cy); ctx.moveTo(cx, cy-r); ctx.lineTo(cx, cy+r); ctx.stroke();
   }
   if (!S.dead){ const px = S.player.rx+S.player.lx, py = S.player.ry+S.player.ly;
-    defer((px+.5)*tile, (py+.5)*tile, py+.5, () => { playerAura(px, py, time); drawPiece(S.cls, px, py, S.color, {player:true, prop: skinId(), propColor: skinId()==="arcane" ? scepterColor() : null}); }); }
+    defer((px+.5)*tile, (py+.5)*tile, py+.5, () => { playerAura(px, py, time, 0); drawPiece(S.cls, px, py, S.color, {player:true, prop: skinId(), propColor: skinId()==="arcane" ? scepterColor() : null}); playerAura(px, py, time, 1); }); }
   // interactive events: a bouncing marker says "step here"
   for (const it of S.items) if (it.frozen || it.riftGate || it.tideChest) stepMarker(it.x, it.y, it.frozen ? '207,230,245' : it.riftGate ? '200,170,255' : '255,110,90', time);
   if (S.stairs && !S.enemies.length && !S.tut && !isPlayer(S.stairs.x, S.stairs.y)) stairsArrow(S.stairs.x, S.stairs.y, time);
@@ -2069,10 +2025,9 @@ function draw(time){
     ctx.strokeStyle = `rgba(${r.c||'224,122,50'},${Math.max(0,1-r.t*2)})`; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(cx,cy,tile*(.3+r.t*2.6),0,Math.PI*2); ctx.stroke();
   }
-  for (const m of fx.embers){ ctx.fillStyle = `rgba(${m.c},${Math.max(0,m.life)})`; ctx.fillRect(m.x*tile, m.y*tile, Math.max(2,tile*.04), Math.max(2,tile*.04)); }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (const m of fx.embers){ const r = Math.max(3, tile*.05); ctx.globalAlpha = Math.min(1, Math.max(0, m.life)); ctx.drawImage(glowSprite(m.c), m.x*tile - r*2, m.y*tile - r*2, r*4, r*4); } ctx.restore();
   for (const p of fx.parts){
-    ctx.globalAlpha = Math.max(0, p.life/p.max); ctx.fillStyle = p.color;
-    const s = Math.max(2, tile*.05); ctx.fillRect(p.x*tile-s/2, p.y*tile-s/2, s, s);
+    ctx.globalAlpha = Math.max(0, p.life/p.max); const s = Math.max(2.5, tile*.055); ctx.drawImage(glowSprite(hexRgb(p.color)), p.x*tile-s*1.6, p.y*tile-s*1.6, s*3.2, s*3.2);
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -2101,6 +2056,7 @@ function updateFx(dt){
     const k = Math.min(1, dt*14), dec = Math.max(0, 1-dt*10);
     for (const o of [S.player, ...(S.enemies||[]), ...(S.allies||[])]){ o.rx += (o.x-o.rx)*k; o.ry += (o.y-o.ry)*k; o.lx *= dec; o.ly *= dec; if (o.flash>0) o.flash -= dt; }
   }
+  playerTrail(dt);
   for (const p of fx.parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=dt*3; p.life-=dt; }
   fx.parts = fx.parts.filter(p => p.life>0);
   for (const m of fx.embers){ m.y += m.vy*dt; m.life -= dt*.9; }

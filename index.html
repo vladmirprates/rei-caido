@@ -728,7 +728,14 @@ canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none
 .floors i{width:7px;height:7px;transform:rotate(45deg);background:var(--bc)}
 .floors .boss{border-color:#6a2a22;color:#f0a090} .floors .boss i{background:#e04a3a}
 /* supreme bosses: the model beside the card */
-.ubers{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.ubers{grid-template-columns:1fr}
+.entries{display:flex;flex-direction:column;gap:8px;width:100%;margin-top:4px}
+.entry{display:flex;gap:14px;align-items:flex-end;justify-content:space-between;padding:10px 12px;background:rgba(0,0,0,.35);border:1px solid rgba(227,180,86,.18);border-radius:4px}
+.entry .e-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.hd{width:100%;font-size:.85rem}.hd summary{cursor:pointer;color:var(--gold-hi,#f0cf85)}.hd .uown{margin-top:4px}
+.e-cost{font-size:.8rem;color:var(--muted,#a89a86)}
+.cost.ok{color:#9bd88a}.cost.no{color:#e07a6a}.cost i{font-style:normal;opacity:.7}
+@media (max-width:520px){.entry{flex-direction:column;align-items:stretch}}
 .xcard.uber,.xcard.pinnacle{flex-direction:row;gap:0;padding:0;overflow:hidden;align-items:stretch}
 .xcard.uber{background:linear-gradient(90deg,rgba(14,10,8,.5),rgba(14,10,8,.95) 42%),var(--img) left center/cover,var(--stone)}
 .xcard.pinnacle{background:linear-gradient(90deg,rgba(227,180,86,.14),rgba(14,10,8,.96) 40%),var(--stone)}
@@ -954,6 +961,7 @@ canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none
 <script src="js/render.js"></script>
 <script src="js/fxengine.js"></script>
 <script src="js/vfx.js"></script>
+<script src="js/auras.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/treeui.js"></script>
 </body>

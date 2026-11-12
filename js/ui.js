@@ -530,22 +530,35 @@ function expCampaign(h, side, prog){
     </div>
     <p class="muted small xfoot">${$t('Primeira vez?', 'First time?')} <button class="link" type="button" data-act="tutorial">${h.tutorialDone ? $t('Refazer o Pátio de Treino', 'Redo the Training Yard') : $t('Fazer o Pátio de Treino', 'Do the Training Yard')}</button></p>`;
 }
+const uniqLi = (h, o) => `<li class="${ownsUnique(h, o.name)?'have':''}">${ownsUnique(h, o.name)?'✓ ':''}<span class="rc-legend">${esc(o.name)}</span>: ${AFX[o.affixes[0].k].t()}</li>`;
 function expBosses(h, side){
-  const killed = h.bossesKilled.filter(id => BOSSES[id] && id!=='fallen');
-  const hunts = killed.length ? `<div class="chips">${killed.map(id => `<button class="ghost sm" type="button" data-act="hunt:${id}">${BOSSES[id].names[side]}</button>`).join('')}</div>` : $t('<p class="muted small">Derrote um chefe na campanha para poder caçá-lo de novo.</p>', '<p class="muted small">Defeat a boss in the campaign to hunt it again.</p>');
-  return `<p class="muted small">${$t('Cada chefe pináculo custa', 'Each pinnacle boss costs')} ${UBER_COST.shards} ${$t('Estilhaços (você tem', 'Shards (you have')} ${h.riftShards||0}) e ${UBER_COST.seals} ${$t('Selos (você tem', 'Seals (you have')} ${h.checkSeals||0}${$t('). Estilhaços vêm das Fendas; Selos, das Partidas Congeladas.', '). Shards come from Rifts; Seals, from Frozen Matches.')}</p>
-    <div class="xgrid ubers">${Object.entries(UBERS).map(([id,U]) => `<div class="xcard uber bio-${U.biome}" style="--img:url(img/biome-${U.biome}.jpg)"><div class="ub-model">${bossModel(id, 'big')}<span class="ub-shards">${(((h.crownFrags||{})[id])||0)} ${$t('frag.', 'frag.')}</span></div><div class="ub-body"><span class="xk">${$t('Pináculo', 'Pinnacle')}</span><b>${U.name}</b>
+  const sh = h.riftShards||0, se = h.checkSeals||0;
+  const cost = (n, have, label) => `<span class="cost ${have>=n?'ok':'no'}">${n} ${label} <i>(${have})</i></span>`;
+  const rows = Object.entries(UBERS).map(([id,U]) => {
+    const killed = h.bossesKilled.includes(id), ok = canUber(h);
+    const pool = bossTable(id, h.cls), huntDrops = `<details class="hd"><summary>${$t(`${pool.length} relíquias possíveis (da sua classe)`, `${pool.length} possible relics (for your class)`)}</summary><ul class="uown">${pool.map(o => uniqLi(h, o)).join('')}</ul></details>`;
+    return `<div class="xcard uber bio-${U.biome}" style="--img:url(img/biome-${U.biome}.jpg)"><div class="ub-model">${bossModel(id, 'big')}<span class="ub-shards">${(((h.crownFrags||{})[id])||0)} ${$t('frag.', 'frag.')}</span></div><div class="ub-body"><span class="xk">${$t('Pináculo', 'Pinnacle')}</span><b>${U.name}</b>
       <p>${U.special}</p>
-      <ul class="uown">${UBER_OWN[id].map(o => `<li class="${ownsUnique(h, o.name)?'have':''}" title="${esc(AFX[o.affixes[0].k].t())}">${ownsUnique(h, o.name)?'✓ ':''}<span class="rc-legend">${esc(o.name)}</span></li>`).join('')}</ul>
-      <p class="muted small">${$t('Deixa um destes ou um único pináculo comum, e um Fragmento da Coroa.', 'Drops one of these or a common pinnacle unique, and a Crown Fragment.')} ${((h.crownFrags||{})[id]||0) ? $t(`Fragmentos: ${h.crownFrags[id]}.`, `Fragments: ${h.crownFrags[id]}.`) : ''}</p>
-      <button class="${canUber(h)?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${canUber(h)?'':'disabled'}>${$t('Enfrentar', 'Face')}</button></div></div>`).join('')}</div>
+      <div class="entries">
+        <div class="entry"><div class="e-info"><b>${$t('Pináculo', 'Pinnacle')}</b><span class="e-cost">${$t('Custo', 'Cost')}: ${cost(UBER_COST.shards, sh, $t('Estilhaços', 'Shards'))} + ${cost(UBER_COST.seals, se, $t('Selos', 'Seals'))}</span>
+          <p class="muted small">${$t('Únicos próprios (1 deles):', 'Own uniques (1 of them):')}</p><ul class="uown">${UBER_OWN[id].map(o => uniqLi(h, o)).join('')}</ul><p class="muted small">${$t('Mais 1 do pool comum de pináculo:', 'Plus 1 from the shared pinnacle pool:')}</p><details class="hd"><summary>${UBER_UNIQUES.length} ${$t('únicos comuns', 'shared uniques')}</summary><ul class="uown">${UBER_UNIQUES.map(o => uniqLi(h, o)).join('')}</ul></details>
+          <p class="muted small">${$t('Deixa um destes ou um único pináculo comum, e um Fragmento da Coroa (para entrar no Rei Caído).', 'Drops one of these or a common pinnacle unique, and a Crown Fragment (to enter the Fallen King).')}${((h.crownFrags||{})[id]||0) ? $t(` Fragmentos: ${h.crownFrags[id]}.`, ` Fragments: ${h.crownFrags[id]}.`) : ''}</p></div>
+          <button class="${ok?'primary':'ghost'} sm" type="button" data-act="uber:${id}" ${ok?'':'disabled'}>${$t('Enfrentar', 'Face')}</button></div>
+        <div class="entry"><div class="e-info"><b>${$t('Caça ao chefe', 'Boss hunt')}: ${BOSSES[id].names[side]}</b><span class="e-cost">${$t('Custo', 'Cost')}: <span class="cost ok">${$t('grátis', 'free')}</span> · ${$t('um andar só', 'a single floor')}</span>
+          <p class="muted small">${killed ? $t('Ele empunha 2 destas (sorteadas):', 'He wields 2 of these (random):') : $t('Derrote este chefe na campanha para poder caçá-lo.', 'Defeat this boss in the campaign to hunt it.')}</p>${killed ? huntDrops : ''}</div>
+          <button class="ghost sm" type="button" data-act="hunt:${id}" ${killed?'':'disabled'}>${$t('Caçar', 'Hunt')}</button></div>
+      </div></div></div>`;
+  }).join('');
+  const fok = canFallen(h);
+  return `<p class="muted small">${$t('Estilhaços vêm das Fendas; Selos, das Partidas Congeladas. Você tem', 'Shards come from Rifts; Seals, from Frozen Matches. You have')} ${sh} ${$t('Estilhaços', 'Shards')} ${$t('e', 'and')} ${se} ${$t('Selos', 'Seals')}.</p>
+    <div class="xgrid ubers">${rows}
     <div class="xcard pinnacle"><div class="ub-model"><span class="model big king" aria-hidden="true">${GLYPH.K}</span></div><div class="ub-body"><span class="xk">${$t('Uber Pináculo', 'Uber Pinnacle')}</span><b>${$t('O Rei Caído', 'The Fallen King')}</b>
       <p>${BOSSES.fallen.p1}</p><p>${BOSSES.fallen.p2}</p><p>${BOSSES.fallen.p3}</p>
-      <div class="frags">${BOSS_ORDER.map(id => `<span class="${((h.crownFrags||{})[id]||0)>0?'have':''}">${UBERS[id].name}<b>${(h.crownFrags||{})[id]||0}</b></span>`).join('')}</div>
-      <ul class="uown">${FALLEN_UNIQUES.map(o => `<li class="${ownsUnique(h, o.name)?'have':''}" title="${esc(AFX[o.affixes[0].k].t())}">${ownsUnique(h, o.name)?'✓ ':''}<span class="rc-legend">${esc(o.name)}</span>: ${AFX[o.affixes[0].k].t()}</li>`).join('')}</ul>
-      <p class="muted small">${$t('A entrada custa um Fragmento da Coroa de cada pináculo. Cada pináculo derrotado deixa o seu.', 'Entry costs one Crown Fragment from each pinnacle boss. Each pinnacle you defeat drops its own.')}${h.fallenKills ? $t(` Derrotado ${h.fallenKills}×.`, ` Defeated ${h.fallenKills}×.`) : ''}</p>
-      <button class="${canFallen(h)?'primary':'ghost'} sm" type="button" data-act="pinnacle" ${canFallen(h)?'':'disabled'}>${$t('Entrar na sala do trono', 'Enter the throne room')}</button></div></div>
-    <h3 class="sub">${$t('Caça ao chefe', 'Boss hunt')} <span class="muted">${$t('um andar só, com o chefe e as relíquias dele', 'a single floor, with the boss and its relics')}</span></h3>${hunts}`;
+      <div class="entries"><div class="entry"><div class="e-info"><b>${$t('Sala do Trono', 'Throne Room')}</b><span class="e-cost">${$t('Custo', 'Cost')}: ${$t('1 Fragmento da Coroa de cada pináculo', '1 Crown Fragment from each pinnacle')}</span>
+        <div class="frags">${BOSS_ORDER.map(id => `<span class="${((h.crownFrags||{})[id]||0)>0?'have':''}">${UBERS[id].name}<b>${(h.crownFrags||{})[id]||0}</b></span>`).join('')}</div>
+        <ul class="uown">${FALLEN_UNIQUES.map(o => uniqLi(h, o)).join('')}</ul>
+        <p class="muted small">${$t('Deixa dois destes para escolher. Cada pináculo derrotado deixa o seu fragmento.', 'Drops two of these to choose from. Each pinnacle you defeat drops its own fragment.')}${h.fallenKills ? $t(` Derrotado ${h.fallenKills}×.`, ` Defeated ${h.fallenKills}×.`) : ''}</p></div>
+        <button class="${fok?'primary':'ghost'} sm" type="button" data-act="pinnacle" ${fok?'':'disabled'}>${$t('Entrar na sala do trono', 'Enter the throne room')}</button></div></div></div></div></div>`;
 }
 function expChallenges(h){
   const dailyDone = h.daily===todayStr();

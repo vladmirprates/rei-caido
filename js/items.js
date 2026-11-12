@@ -116,6 +116,46 @@ const AFX = {
   secondLife:{t:()=>$t('Segunda Vida: uma vez por expedição, ao morrer você volta com 20% da vida', 'Second Life: once per expedition, when you die you return with 20% health'), rule:true},
   rhythm:{t:()=>$t('Ritmo: a cada 5 abates no andar, seu próximo ataque básico é um crítico garantido', 'Rhythm: every 5 kills on a floor, your next basic attack is a guaranteed critical'), rule:true},
   huntMark:{t:()=>$t('Presa Marcada: elites e chefes sofrem +2 de dano de todas as suas fontes (aliados, fogo e veneno incluídos)', 'Marked Prey: elites and bosses take +2 damage from all your sources (allies, fire and poison included)'), rule:true},
+  // unique-only rules (never roll on rares): every one of them is carried by exactly one item
+  coinShot:{t:()=>$t('Chuva de Moedas: cada abate gasta 10 de ouro e causa 3 de dano a todos os vizinhos do morto', 'Coin Rain: each kill spends 10 gold and deals 3 damage to every neighbor of the dead enemy'), rule:true},
+  besieged:{t:()=>$t('Cercado: cada inimigo ao seu lado reduz em 1 o dano de cada golpe que você recebe (até 3, nunca abaixo de 1)', 'Besieged: each enemy next to you lowers every blow you take by 1 (up to 3, never below 1)'), rule:true},
+  partingShot:{t:()=>$t('Golpe de Partida: sempre que você se move, inimigos ao lado da casa que você deixa levam 2 de dano', 'Parting Shot: whenever you move, enemies next to the square you leave take 2 damage'), rule:true},
+  critChain:{t:()=>$t('Raio Encadeado: golpes críticos disparam um raio que salta por até 3 inimigos próximos, com metade do dano', 'Chain Lightning: critical blows fire a bolt that jumps through up to 3 nearby enemies, for half damage'), rule:true},
+  headhunter:{t:()=>$t('Caçador de Cabeças: cada elite ou chefe abatido dá +1 de dano até o fim da expedição (até +5)', 'Headhunter: each elite or boss you kill gives +1 damage until the end of the expedition (up to +5)'), rule:true},
+  unbroken:{t:()=>$t('Pele Intacta: com a vida cheia, nenhum golpe te causa mais de 3 de dano', 'Unbroken: at full health, no blow can deal you more than 3 damage'), rule:true},
+  stunCrit:{t:()=>$t('Carrasco: ataques básicos contra inimigos atordoados são sempre críticos', 'Executioner: basic attacks against stunned enemies are always critical'), rule:true},
+  blitz:{t:()=>$t('Blitz: +2 ações no primeiro turno de cada andar', 'Blitz: +2 actions on the first turn of each floor'), rule:true},
+  resonance:{t:()=>$t('Ressonância: uma habilidade que acerta 3 ou mais inimigos reduz em 2 a recarga de todas as outras', 'Resonance: a skill that hits 3 or more enemies lowers every other skill\'s cooldown by 2'), rule:true},
+  combo:{t:()=>$t('Cadência: a partir da segunda habilidade usada no turno, as habilidades causam +50% de dano', 'Cadence: from the second skill used in a turn, skills deal +50% damage'), rule:true},
+  recoil:{t:()=>$t('Recuo: o primeiro inimigo adjacente que te acerta a cada turno é empurrado 1 casa e atordoado', 'Recoil: the first adjacent enemy that hits you each turn is pushed 1 square and stunned'), rule:true},
+  razor:{t:()=>$t('Fio da Navalha: com menos de um terço da vida, +4 de dano e cada abate cura 2', 'Razor\'s Edge: below a third of your health, +4 damage and each kill heals 2'), rule:true},
+  glacial:{t:()=>$t('Aura Glacial: no início da fase inimiga, cada inimigo comum ao seu lado tem 30% de chance de ser atordoado', 'Glacial Aura: at the start of the enemy phase, each regular enemy next to you has a 30% chance to be stunned'), rule:true},
+  twinStrike:{t:()=>$t('Golpe Gêmeo: 25% de chance de o ataque básico acertar uma segunda vez, com os mesmos efeitos', 'Twin Strike: 25% chance for your basic attack to hit a second time, with the same effects'), rule:true},
+  clotted:{t:()=>$t('Sangue Coagulado: ao perder vida, ganha escudo igual à metade do dano recebido (até 12)', 'Clotted Blood: when you lose health, gain shield equal to half the damage taken (up to 12)'), rule:true},
+  redReins:{t:()=>$t('Rédeas Rubras: o Galope dá +1 ação a mais, mas custa 3 de vida (nunca te mata)', 'Red Reins: Gallop gives +1 more action, but costs 3 health (never kills you)'), rule:true},
+  channel:{t:()=>$t('Canalização: suas habilidades passam a somar o seu dano elemental (fogo + gelo + raio, como o ataque básico já faz) a cada acerto', 'Channeling: your skills add your elemental damage (fire + cold + lightning, as your basic attack already does) to every hit'), rule:true},
+  decree:{t:()=>$t('Decreto Supremo: a cada 3 abates no andar, o primeiro inimigo em cada uma das 8 linhas a partir de você leva o seu dano', 'Supreme Decree: every 3 kills on a floor, the first enemy on each of the 8 lines from you takes your damage'), rule:true},
+  splitCrown:{t:()=>$t('Coroa Partida: golpes de 6 ou mais de dano são divididos: metade agora, metade no fim do turno', 'Broken Crown: blows of 6 or more damage are split: half now, half at the end of the turn'), rule:true},
+  riftAtk:{t:()=>$t('Fenda: uma vez por turno, o primeiro ataque básico depois de usar uma habilidade não gasta ação', 'Rift: once per turn, the first basic attack after using a skill costs no action'), rule:true},
+  courage:{t:()=>$t('Coragem: terminar um movimento ao lado de 2 ou mais inimigos dá 3 de escudo (1 vez por turno)', 'Courage: ending a move next to 2 or more enemies gives 3 shield (once per turn)'), rule:true},
+  resUnify:{t:()=>$t('Muralha de Elementos: suas três resistências elementais passam a valer a maior delas', 'Wall of Elements: your three elemental resistances all become as high as your best one'), rule:true},
+  crescendo:{t:()=>$t('Crescendo: cada ataque básico no turno dá +1 de dano ao próximo ataque do mesmo turno (até +4)', 'Crescendo: each basic attack in a turn gives +1 damage to the next attack of the same turn (up to +4)'), rule:true},
+  // area of effect: one shared stat. Nodes and items that widen anything add to it, and every area effect (skills and passive auras) reads it
+  area:{t:v=>$t(`+${v} de área de efeito (habilidades em área e auras)`, `+${v} area of effect (area skills and auras)`)},
+  // passive skills carried by uniques (always on while equipped, no button)
+  penitent:{t:()=>$t('Aura Penitente: sempre ativa. No fim de cada turno, inimigos num raio de 1 (+1 por ponto de área de efeito) levam o seu maior dano elemental +1 (fogo queima a casa, gelo atordoa 30%, raio alcança +1 casa) e você perde 6% da vida máxima, reduzida pela resistência ao elemento (nunca te mata).', 'Penitent Aura: always active. At the end of each turn, enemies within a radius of 1 (+1 per point of area of effect) take your highest elemental damage +1 (fire burns the square, cold stuns 30%, lightning reaches +1 square) and you lose 6% of maximum health, reduced by that element\'s resistance (never kills you).'), rule:true},
+  titan:{t:()=>$t('Passos do Titã: terminar um movimento de 2 ou mais casas causa o seu dano base a todos num raio de 1 (+1 por ponto de área de efeito) e empurra 1 casa os que não são chefes', 'Titan Steps: ending a move of 2 or more squares deals your base damage to everyone within a radius of 1 (+1 per point of area of effect) and pushes non-boss enemies 1 square'), rule:true},
+  pulse:{t:()=>$t('Pulso Ancestral: a cada 3 turnos, uma onda num raio de 1 (+1 por ponto de área de efeito) causa metade do seu dano e atordoa quem não é chefe', 'Ancient Pulse: every 3 turns, a wave within a radius of 1 (+1 per point of area of effect) deals half your damage and stuns non-bosses'), rule:true},
+  swell:{t:()=>$t('Maré Crescente: a cada 3 abates no andar, +1 de área de efeito até o fim do andar (até +2)', 'Rising Tide: every 3 kills on a floor, +1 area of effect until the end of the floor (up to +2)'), rule:true},
+  // passive powers carried by uniques
+  standard:{t:()=>$t('Estandarte: uma bandeira é fincada na casa onde você começa cada andar. Você e seus aliados num raio de 2 (+1 por ponto de área de efeito) dela causam +2 de dano e recebem 1 a menos', 'Standard: a banner is planted on the square where you start each floor. You and your allies within a radius of 2 (+1 per point of area of effect) of it deal +2 damage and take 1 less'), rule:true},
+  mines:{t:()=>$t('Minas: cada casa que você deixa ao se mover recebe uma mina (até 3 no campo). Um inimigo que termina o turno sobre uma mina leva o seu dano +2 e é atordoado; os vizinhos num raio de 1 (+1 por ponto de área de efeito) levam metade', 'Mines: every square you leave when you move gets a mine (up to 3 on the board). An enemy that ends its turn on a mine takes your damage +2 and is stunned; neighbors within a radius of 1 (+1 per point of area of effect) take half'), rule:true},
+  stoneSkin:{t:()=>$t('Pele de Pedra: cada turno que você termina sem se mover dá 1 carga de pedra (até 3); cada carga reduz em 1 o dano de cada golpe recebido (nunca abaixo de 1). Ao se mover, as cargas se soltam e causam esse dano aos inimigos num raio de 1 (+1 por ponto de área de efeito)', 'Stone Skin: each turn you end without moving gives 1 stone charge (up to 3); each charge lowers every blow you take by 1 (never below 1). When you move, the charges are released and deal that much damage to enemies within a radius of 1 (+1 per point of area of effect)'), rule:true},
+  markPrey:{t:()=>$t('Marca Mortal: o primeiro elite ou chefe que você acerta em cada andar fica marcado: todo o dano que ele recebe de você e dos seus aliados é dobrado', 'Deathmark: the first elite or boss you hit on each floor is marked: all damage it takes from you and your allies is doubled'), rule:true},
+  avenge:{t:()=>$t('Égide Vingativa: quando o seu escudo se quebra por completo, um raio atinge cada inimigo num raio de 3 (+1 por ponto de área de efeito), com metade do que o escudo absorveu (mínimo 2)', 'Vengeful Aegis: when your shield breaks completely, a bolt hits every enemy within a radius of 3 (+1 per point of area of effect) for half of what the shield absorbed (minimum 2)'), rule:true},
+  shadow:{t:()=>$t('Sombra: cada casa que você deixa ao se mover deixa uma sombra (até 2) que, no fim do turno, golpeia o inimigo mais próximo num raio de 2 (+1 por ponto de área de efeito) com o seu dano e some', 'Shadow: every square you leave when you move leaves a shadow (up to 2) that, at the end of the turn, strikes the nearest enemy within a radius of 2 (+1 per point of area of effect) for your damage and fades'), rule:true},
+  bloodDebt:{t:()=>$t('Dívida de Sangue: você ganha dano igual à vida que perdeu desde o seu turno anterior (até +6)', 'Blood Debt: you gain damage equal to the health you lost since your previous turn (up to +6)'), rule:true},
+  luckyCoin:{t:()=>$t('Moeda Fatal: uma vez por andar, o primeiro golpe que te mataria é cancelado, mas você perde todo o seu ouro', 'Fatal Coin: once per floor, the first blow that would kill you is cancelled, but you lose all your gold'), rule:true},
   // uber boss uniques: each copies its boss's own mechanic
   shatterCrown:{t:()=>$t('Coroa: a cada 4 turnos, seu golpe também atinge o primeiro inimigo em cada uma das 8 linhas a partir de você, com metade do dano', 'Crown: every 4 turns, your blow also hits the first enemy on each of the 8 lines from you, for half damage'), rule:true},
   spectralGuard:{t:()=>$t('Guarda Real: começa cada andar com 2 peões espectrais ao seu lado (somem no fim do andar)', 'Royal Guard: start each floor with 2 spectral pawns next to you (they vanish at the end of the floor)'), rule:true},
@@ -163,14 +203,15 @@ const AFX = {
   deathBurst:{t:()=>$t('Exílio: inimigos que você mata explodem e causam metade do golpe aos vizinhos (em cadeia)', 'Exile: enemies you kill explode and deal half the blow to their neighbors (in a chain)'), rule:true},
   cleave:{t:()=>$t('Usurpador: seu golpe também atinge os inimigos ao lado do alvo, com metade do dano', 'Usurper: your blow also hits the enemies next to the target, for half damage'), rule:true}
 };
-const GENERIC_RULES = ['chain','trample','vamp','thorns','killFury','killCdr','killStep','vigor','crowd','mercenary','flow','critStun','critHeal','thick','echoSkill','bounty','vanguard','lastBreath','reprisal'];
+// rules that can roll on rare items. Anything a unique carries (vigor, crowd, flow, thunder...) is kept out of here, so it stays exclusive to that unique
+const GENERIC_RULES = ['chain','trample','vamp','thorns','killFury','killCdr','killStep'];
 
 /* Uniques: only bosses (and the daily challenge) give them. Each boss carries part of the class pool, so they can be hunted. */
 const UNIQUES = [
   {cls:['N'], slot:'elmo', name:$t('Elmo do Cavalo Sombrio', 'Helm of the Dark Horse'), affixes:[{k:'darkQuake'},{k:'trample'}]},
   {cls:['N'], slot:'botas', name:$t('Ferraduras do Abismo', 'Horseshoes of the Abyss'), affixes:[{k:'longJump'},{k:'hp',v:3}]},
   {cls:['N'], slot:'arma', name:$t('Lança do Garfo', 'Fork Lance'), affixes:[{k:'fork'},{k:'dmg',v:1}]},
-  {cls:['N'], slot:'cinto', name:$t('Rédeas de Sangue', 'Blood Reins'), affixes:[{k:'chain'},{k:'hp',v:4}]},
+  {cls:['N'], slot:'cinto', name:$t('Rédeas de Sangue', 'Blood Reins'), affixes:[{k:'redReins'},{k:'hp',v:4}]},
   {cls:['N'], slot:'anel', name:$t('Selo da Cavalaria', 'Cavalry Seal'), affixes:[{k:'cavalry'},{k:'dmg',v:1}]},
   {cls:['N'], slot:'armadura', name:$t('Barda de Obsidiana', 'Obsidian Barding'), affixes:[{k:'aegisFirst'},{k:'hp',v:6}]},
   {cls:['R'], slot:'botas', name:$t('Grevas da Fortaleza', 'Fortress Greaves'), affixes:[{k:'pushPower'},{k:'fortify'}]},
@@ -203,7 +244,7 @@ const UNIQUES = [
   {cls:null, slot:'anel', name:$t('Anel da Cova Rasa', 'Shallow Grave Ring'), affixes:[{k:'gravecall'},{k:'hp',v:3}]},
   {cls:null, slot:'botas', name:$t('Botas da Marcha Fúnebre', 'Boots of the Funeral March'), affixes:[{k:'undeadFury'},{k:'hp',v:3}]},
   {cls:null, slot:'arma', name:$t('Cetro do Arquimago', "Archmage's Scepter"), affixes:[{k:'prism'},{k:'dmg',v:1}]},
-  {cls:null, slot:'elmo', name:$t('Capuz do Foco Eterno', 'Hood of Eternal Focus'), affixes:[{k:'fireDmg',v:1},{k:'coldDmg',v:1},{k:'lightDmg',v:1},{k:'cdr',v:1}]},
+  {cls:null, slot:'elmo', name:$t('Capuz do Foco Eterno', 'Hood of Eternal Focus'), affixes:[{k:'channel'},{k:'fireDmg',v:1},{k:'coldDmg',v:1},{k:'lightDmg',v:1},{k:'cdr',v:1}]},
   {cls:null, slot:'anel', name:$t('Anel do Conduíte', 'Conduit Ring'), affixes:[{k:'skillPower'},{k:'lightDmg',v:2}]},
   {cls:null, slot:'armadura', name:$t('Manto da Mana Fluida', 'Fluid Mana Mantle'), affixes:[{k:'skillShield'},{k:'hp',v:4}]},
   // archetype support, round 2 (any class)
@@ -231,21 +272,21 @@ const UNIQUES = [
   {cls:null, slot:'elmo', name:$t('Diadema do Rancor', 'Diadem of Spite'), affixes:[{k:'reprisal'},{k:'shield',v:2}]},
   {cls:null, slot:'armadura', name:$t('Gibão do Último Fôlego', 'Last Breath Doublet'), affixes:[{k:'lastBreath'},{k:'hp',v:6}]},
   {cls:null, slot:'armadura', name:$t('Cota da Casca Grossa', 'Thick Hide Mail'), affixes:[{k:'thick'},{k:'hp',v:5}]},
-  {cls:null, slot:'armadura', name:$t('Manto do Caçador de Troféus', 'Trophy Hunter Cloak'), affixes:[{k:'bounty'},{k:'hp',v:4}]},
-  {cls:null, slot:'armadura', name:$t('Armadura do Vigor', 'Armor of Vigor'), affixes:[{k:'vigor'},{k:'shield',v:2}]},
-  {cls:null, slot:'armadura', name:$t('Túnica do Eco', 'Tunic of the Echo'), affixes:[{k:'echoSkill'},{k:'hp',v:4}]},
-  {cls:null, slot:'botas', name:$t('Botas do Passo Ligeiro', 'Boots of the Light Stride'), affixes:[{k:'flow'},{k:'hp',v:3}]},
-  {cls:null, slot:'botas', name:$t('Sandálias da Vanguarda', 'Vanguard Sandals'), affixes:[{k:'vanguard'},{k:'hp',v:3}]},
-  {cls:null, slot:'botas', name:$t('Grevas da Casca Grossa', 'Thick Hide Greaves'), affixes:[{k:'thick'},{k:'resCold',v:15}]},
-  {cls:null, slot:'botas', name:$t('Botas do Mercenário', 'Mercenary Boots'), affixes:[{k:'mercenary'},{k:'gold',v:25}]},
-  {cls:null, slot:'botas', name:$t('Botas do Rancor', 'Boots of Spite'), affixes:[{k:'reprisal'},{k:'hp',v:3}]},
-  {cls:null, slot:'anel', name:$t('Anel do Trovão', 'Thunder Ring'), affixes:[{k:'critStun'},{k:'crit',v:8}]},
-  {cls:null, slot:'anel', name:$t('Anel do Sangue Frio', 'Cold Blood Ring'), affixes:[{k:'critHeal'},{k:'hp',v:3}]},
-  {cls:null, slot:'anel', name:$t('Anel da Multidão', 'Crowd Ring'), affixes:[{k:'crowd'},{k:'hp',v:3}]},
-  {cls:null, slot:'anel', name:$t('Anel do Último Fôlego', 'Last Breath Ring'), affixes:[{k:'lastBreath'},{k:'shield',v:2}]},
-  {cls:null, slot:'anel', name:$t('Anel do Eco', 'Echo Ring'), affixes:[{k:'echoSkill'},{k:'mf',v:15}]},
-  {cls:null, slot:'arma', name:$t('Lâmina da Corrente Rubra', 'Blade of the Crimson Chain'), affixes:[{k:'chain'},{k:'dmg',v:2}]},
-  {cls:null, slot:'anel', name:$t('Anel da Sede Negra', 'Ring of Black Thirst'), affixes:[{k:'vamp'},{k:'thorns'}]},
+  {cls:null, slot:'armadura', name:$t('Manto do Caçador de Cabeças', 'Headhunter Mantle'), affixes:[{k:'headhunter'},{k:'hp',v:4}]},
+  {cls:null, slot:'armadura', name:$t('Placas da Pele Intacta', 'Unbroken Plate'), affixes:[{k:'unbroken'},{k:'shield',v:2}]},
+  {cls:null, slot:'armadura', name:$t('Túnica da Ressonância', 'Resonance Tunic'), affixes:[{k:'resonance'},{k:'hp',v:4}]},
+  {cls:null, slot:'botas', name:$t('Botas do Golpe de Partida', 'Parting Shot Boots'), affixes:[{k:'partingShot'},{k:'hp',v:3}]},
+  {cls:null, slot:'botas', name:$t('Sandálias do Relâmpago', 'Blitz Sandals'), affixes:[{k:'blitz'},{k:'hp',v:3}]},
+  {cls:null, slot:'botas', name:$t('Grevas do Glaciar', 'Glacier Greaves'), affixes:[{k:'glacial'},{k:'resCold',v:15}]},
+  {cls:null, slot:'botas', name:$t('Esporas de Ouro', 'Golden Spurs'), affixes:[{k:'coinShot'},{k:'gold',v:25}]},
+  {cls:null, slot:'botas', name:$t('Botas do Recuo', 'Recoil Boots'), affixes:[{k:'recoil'},{k:'hp',v:3}]},
+  {cls:null, slot:'anel', name:$t('Anel do Raio Encadeado', 'Chain Lightning Ring'), affixes:[{k:'critChain'},{k:'crit',v:8}]},
+  {cls:null, slot:'anel', name:$t('Anel do Carrasco', 'Executioner Ring'), affixes:[{k:'stunCrit'},{k:'hp',v:3}]},
+  {cls:null, slot:'anel', name:$t('Anel do Cercado', 'Besieged Ring'), affixes:[{k:'besieged'},{k:'hp',v:3}]},
+  {cls:null, slot:'anel', name:$t('Anel do Fio da Navalha', "Razor's Edge Ring"), affixes:[{k:'razor'},{k:'shield',v:2}]},
+  {cls:null, slot:'anel', name:$t('Anel da Cadência', 'Cadence Ring'), affixes:[{k:'combo'},{k:'mf',v:15}]},
+  {cls:null, slot:'arma', name:$t('Lâmina Gêmea', 'Twin Blade'), affixes:[{k:'twinStrike'},{k:'dmg',v:1}]},
+  {cls:null, slot:'anel', name:$t('Anel do Sangue Coagulado', 'Clotted Blood Ring'), affixes:[{k:'clotted'},{k:'hp',v:3}]},
   {cls:null, slot:'botas', name:$t('Botas do Peão Ancestral', 'Boots of the Ancestral Pawn'), affixes:[{k:'kingStep'},{k:'shield',v:2}]},
   {cls:null, slot:'armadura', name:$t('Peitoral do Xeque-Mate', 'Checkmate Breastplate'), affixes:[{k:'execute'},{k:'hp',v:8}]},
   // gloves, belts and amulets: each one opens a style of play
@@ -261,10 +302,21 @@ const UNIQUES = [
   {cls:null, slot:'cinto', name:$t("Faixa da Vida Excessiva", "Sash of Excess"), affixes:[{k:'overheal'},{k:'hp',v:5}]},
   {cls:null, slot:'cinto', name:$t("Cinto do Rancor", "Belt of Grudges"), affixes:[{k:'grudge'},{k:'hp',v:4}]},
   {cls:null, slot:'amuleto', name:$t("Amuleto de Vidro", "Glass Amulet"), affixes:[{k:'glass'},{k:'crit',v:10}]},
-  {cls:null, slot:'amuleto', name:$t("Prisma de Três Faces", "Three-Faced Prism"), affixes:[{k:'unison'},{k:'fireDmg',v:3}]},
-  {cls:null, slot:'amuleto', name:$t("Talismã da Segunda Vida", "Second Life Talisman"), affixes:[{k:'secondLife'},{k:'hp',v:6}]},
   {cls:null, slot:'amuleto', name:$t("Colar do Ritmista", "Rhythmist's Necklace"), affixes:[{k:'rhythm'},{k:'crit',v:8}]},
-  {cls:null, slot:'amuleto', name:$t("Medalhão do Caçador", "Hunter's Medallion"), affixes:[{k:'huntMark'},{k:'eliteDmg',v:20}]}
+  {cls:null, slot:'amuleto', name:$t("Medalhão do Caçador", "Hunter's Medallion"), affixes:[{k:'huntMark'},{k:'eliteDmg',v:20}]},
+  // passive skills: the item itself does something on its own
+  // area of effect: these three make a wider board a build of its own
+  {cls:null, slot:'amuleto', name:$t("Pulso Ancestral", "Ancient Pulse"), affixes:[{k:'pulse'},{k:'area',v:1},{k:'hp',v:4}]},
+  // passive powers: each one changes how a whole floor is played
+  {cls:null, slot:'botas', name:$t("Botas do Minador", "Sapper Boots"), affixes:[{k:'mines'},{k:'hp',v:3}]},
+  {cls:null, slot:'anel', name:$t("Anel da Dívida de Sangue", "Blood Debt Ring"), affixes:[{k:'bloodDebt'},{k:'hp',v:3}]},
+  // blood, thorns and exile: the rules that give the hero its blood, thorn and necro effects
+  {cls:null, slot:'amuleto', name:$t("Cálice de Sangue", "Blood Chalice"), affixes:[{k:'vamp'},{k:'hp',v:4}]},
+  {cls:null, slot:'cinto', name:$t("Cinto da Sanguessuga", "Leech Belt"), affixes:[{k:'vamp'},{k:'hp',v:3},{k:'healKill',v:1}]},
+  {cls:null, slot:'armadura', name:$t("Couraça dos Mil Espinhos", "Thousand Thorns Cuirass"), affixes:[{k:'thorns'},{k:'hp',v:6}]},
+  {cls:null, slot:'luvas', name:$t("Manoplas Farpadas", "Barbed Gauntlets"), affixes:[{k:'thorns'},{k:'dmg',v:1}]},
+  {cls:null, slot:'amuleto', name:$t("Coração de Espinhos", "Heart of Thorns"), affixes:[{k:'thorns'},{k:'vamp'},{k:'hp',v:3}]},
+  {cls:null, slot:'arma', name:$t("Foice dos Mortos Inquietos", "Restless Dead Scythe"), affixes:[{k:'deathBurst'},{k:'dmg',v:1}]}
 ];
 // how a boss turns the relic it wields into a power
 const BOSS_ITEM_MAP = {
@@ -281,6 +333,7 @@ const BOSS_ITEM_MAP = {
   venom:'vamp', rot:'thorns', ironSkin:'armor', emberTrail:'lavaTrail', kindling:'lavaTrail', shatter:'frost', bloodPrice:'vamp', skillLeech:'vamp', opener:'swift', lone:'double', ward:'regen',
   vigor:'regen', crowd:'trample', mercenary:'double', flow:'swift', critStun:'double', critHeal:'vamp', thick:'armor', echoSkill:'fastSummon', bounty:'vamp', vanguard:'swift', lastBreath:'armor', reprisal:'thorns',
   bloodPact:'vamp', parry:'armor', necroGrip:'fastSummon', plague:'vamp', pyre:'lavaTrail', overkill:'double', shieldBurst:'armor', stand:'armor', bribe:'armor', overheal:'regen', grudge:'double', glass:'double', unison:'double', secondLife:'regen', rhythm:'swift', huntMark:'double',
+  penitent:'lavaTrail', standard:'armor', mines:'lavaTrail', stoneSkin:'armor', markPrey:'double', avenge:'thorns', shadow:'swift', bloodDebt:'vamp', luckyCoin:'regen', titan:'trample', pulse:'frost', swell:'explode', coinShot:'double', besieged:'armor', partingShot:'swift', critChain:'double', headhunter:'vamp', unbroken:'armor', stunCrit:'double', blitz:'swift', resonance:'fastSummon', combo:'double', recoil:'thorns', razor:'vamp', glacial:'frost', twinStrike:'double', clotted:'armor', redReins:'swift', channel:'double', decree:'double', splitCrown:'armor', riftAtk:'swift', courage:'armor', resUnify:'armor', crescendo:'double',
   supremePromo:'regen', enPassant:'thorns', regicide:'double', deathBurst:'explode', cleave:'double', killFury:'double', killCdr:'fastSummon', killStep:'swift'
 };
 

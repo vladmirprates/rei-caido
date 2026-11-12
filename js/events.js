@@ -378,23 +378,33 @@ function riftKill(e){
 // about 3 Rifts and 3 Frozen Matches per uber boss
 const UBER_COST = {shards:45, seals:3};
 const UBER_UNIQUES = [
-  {slot:'arma', name:$t('Cetro da Suprema', 'Scepter of the Supreme'), affixes:[{k:'execute'},{k:'dmg',v:4},{k:'crit',v:15}]},
-  {slot:'armadura', name:$t('Manto da Coroa Partida', 'Cloak of the Broken Crown'), affixes:[{k:'aegisFirst'},{k:'hp',v:12},{k:'block',v:12}]},
-  {slot:'anel', name:$t('Anel da Fenda', 'Ring of the Rift'), affixes:[{k:'chain'},{k:'dmg',v:2},{k:'mf',v:30}]},
-  {slot:'botas', name:$t('Botas do Rei Supremo', 'Boots of the Supreme King'), affixes:[{k:'kingStep'},{k:'hp',v:10},{k:'block',v:10}]},
-  {slot:'elmo', name:$t('Elmo da Muralha Suprema', 'Helm of the Supreme Wall'), affixes:[{k:'lineGuard'},{k:'resFire',v:25},{k:'resCold',v:25},{k:'resLight',v:25}]},
-  {slot:'anel', name:$t('Anel da Fúria Suprema', 'Ring of Supreme Fury'), affixes:[{k:'fury'},{k:'crit',v:15},{k:'eliteDmg',v:25}]}
+  {slot:'arma', name:$t('Cetro da Suprema', 'Scepter of the Supreme'), affixes:[{k:'decree'},{k:'dmg',v:4},{k:'crit',v:15}]},
+  {slot:'armadura', name:$t('Manto da Coroa Partida', 'Cloak of the Broken Crown'), affixes:[{k:'splitCrown'},{k:'hp',v:12},{k:'block',v:12}]},
+  {slot:'anel', name:$t('Anel da Fenda', 'Ring of the Rift'), affixes:[{k:'riftAtk'},{k:'dmg',v:2},{k:'mf',v:30}]},
+  {slot:'botas', name:$t('Botas do Rei Supremo', 'Boots of the Supreme King'), affixes:[{k:'courage'},{k:'hp',v:10},{k:'block',v:10}]},
+  {slot:'elmo', name:$t('Elmo da Muralha Suprema', 'Helm of the Supreme Wall'), affixes:[{k:'resUnify'},{k:'resFire',v:25},{k:'resCold',v:10},{k:'resLight',v:10}]},
+  {slot:'anel', name:$t('Anel da Fúria Suprema', 'Ring of Supreme Fury'), affixes:[{k:'crescendo'},{k:'crit',v:15},{k:'eliteDmg',v:25}]},
+  // build-defining rules that change how a fight is played: the shared uber pool
+  {slot:'amuleto', name:$t('Talismã da Segunda Vida', 'Second Life Talisman'), affixes:[{k:'secondLife'},{k:'hp',v:14},{k:'block',v:10}]},
+  {slot:'amuleto', name:$t('Prisma de Três Faces', 'Three-Faced Prism'), affixes:[{k:'unison'},{k:'fireDmg',v:4},{k:'coldDmg',v:2}]},
+  {slot:'armadura', name:$t('Égide Vingativa', 'Vengeful Aegis'), affixes:[{k:'avenge'},{k:'shield',v:4},{k:'hp',v:10}]},
+  {slot:'arma', name:$t('Lâmina da Marca Mortal', 'Deathmark Blade'), affixes:[{k:'markPrey'},{k:'dmg',v:3},{k:'eliteDmg',v:25}]},
+  {slot:'anel', name:$t('Anel da Moeda Fatal', 'Fatal Coin Ring'), affixes:[{k:'luckyCoin'},{k:'hp',v:8},{k:'gold',v:40}]}
 ];
 // each uber boss also has two uniques of its own, with a rule that copies its mechanic
 const UBER_OWN = {
   queen:[{slot:'elmo', name:$t('Coroa Estilhaçada', 'Shattered Crown'), affixes:[{k:'shatterCrown'},{k:'hp',v:8},{k:'crit',v:15}]},
-         {slot:'armadura', name:$t('Véu da Guarda Real', 'Veil of the Royal Guard'), affixes:[{k:'spectralGuard'},{k:'hp',v:10},{k:'shield',v:2}]}],
+         {slot:'armadura', name:$t('Véu da Guarda Real', 'Veil of the Royal Guard'), affixes:[{k:'spectralGuard'},{k:'hp',v:10},{k:'shield',v:2}]},
+         {slot:'cinto', name:$t('Cinto do Estandarte', 'Standard-Bearer Belt'), affixes:[{k:'standard'},{k:'hp',v:10},{k:'block',v:8}]}],
   knight:[{slot:'arma', name:$t('Rédeas do Ímpeto', 'Reins of Momentum'), affixes:[{k:'momentum'},{k:'dmg',v:3}]},
-          {slot:'botas', name:$t('Ferraduras da Fuga', 'Horseshoes of Escape'), affixes:[{k:'flee'},{k:'hp',v:10},{k:'block',v:10}]}],
+          {slot:'botas', name:$t('Ferraduras da Fuga', 'Horseshoes of Escape'), affixes:[{k:'flee'},{k:'hp',v:10},{k:'block',v:10}]},
+          {slot:'botas', name:$t('Passos do Titã', 'Titan Steps'), affixes:[{k:'titan'},{k:'area',v:1},{k:'hp',v:10}]}],
   twins:[{slot:'elmo', name:$t('Ameias Gêmeas', 'Twin Battlements'), affixes:[{k:'link'},{k:'resFire',v:25},{k:'resCold',v:25},{k:'resLight',v:25}]},
-         {slot:'armadura', name:$t('Couraça da Forja Viva', 'Living Forge Cuirass'), affixes:[{k:'forgeWalk'},{k:'hp',v:12},{k:'resFire',v:30}]}],
+         {slot:'armadura', name:$t('Couraça da Forja Viva', 'Living Forge Cuirass'), affixes:[{k:'forgeWalk'},{k:'hp',v:12},{k:'resFire',v:30}]},
+         {slot:'armadura', name:$t('Couraça de Pedra Viva', 'Living Stone Cuirass'), affixes:[{k:'stoneSkin'},{k:'hp',v:14},{k:'block',v:8}]}],
   pawn:[{slot:'elmo', name:$t('Coroa do Peão Supremo', 'Crown of the Supreme Pawn'), affixes:[{k:'supremePromo'},{k:'hp',v:8},{k:'eliteDmg',v:25}]},
-        {slot:'anel', name:$t('Anel do En Passant', 'En Passant Ring'), affixes:[{k:'enPassant'},{k:'dmg',v:1},{k:'mf',v:20}]}]
+        {slot:'anel', name:$t('Anel do En Passant', 'En Passant Ring'), affixes:[{k:'enPassant'},{k:'dmg',v:1},{k:'mf',v:20}]},
+        {slot:'botas', name:$t('Botas da Sombra', 'Shadow Boots'), affixes:[{k:'shadow'},{k:'hp',v:8},{k:'crit',v:12}]}]
 };
 const canUber = h => (h.riftShards||0) >= UBER_COST.shards && (h.checkSeals||0) >= UBER_COST.seals;
 
@@ -403,7 +413,9 @@ const canUber = h => (h.riftShards||0) >= UBER_COST.shards && (h.checkSeals||0) 
 const FALLEN_UNIQUES = [
   {slot:'elmo', name:$t('Coroa do Rei Caído', 'Crown of the Fallen King'), affixes:[{k:'regicide'},{k:'hp',v:12},{k:'crit',v:20}]},
   {slot:'armadura', name:$t('Manto do Exílio', 'Mantle of Exile'), affixes:[{k:'deathBurst'},{k:'hp',v:14},{k:'block',v:12}]},
-  {slot:'arma', name:$t('Cetro do Trono Vazio', 'Scepter of the Empty Throne'), affixes:[{k:'cleave'},{k:'dmg',v:4},{k:'eliteDmg',v:30}]}
+  {slot:'arma', name:$t('Cetro do Trono Vazio', 'Scepter of the Empty Throne'), affixes:[{k:'cleave'},{k:'dmg',v:4},{k:'eliteDmg',v:30}]},
+  {slot:'amuleto', name:$t('Relicário do Penitente', 'Penitent Reliquary'), affixes:[{k:'penitent'},{k:'hp',v:14},{k:'resFire',v:20},{k:'resCold',v:20},{k:'resLight',v:20}]},
+  {slot:'arma', name:$t('Cetro da Maré Crescente', 'Rising Tide Scepter'), affixes:[{k:'swell'},{k:'area',v:1},{k:'dmg',v:4},{k:'eliteDmg',v:20}]}
 ];
 const fragName = id => $t(`Fragmento da Coroa (${UBERS[id].name})`, `Crown Fragment (${UBERS[id].name})`);
 const canFallen = h => BOSS_ORDER.every(id => ((h.crownFrags||{})[id]||0) > 0);
