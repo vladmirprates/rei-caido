@@ -604,7 +604,7 @@ function damageEnemy(e, amt, src){
     if (ps.shatter && e.intent && e.intent.stunned) amt += 3;
     if (ps.opener && !e.opened){ e.opened = true; amt += 3; }
   }
-  if (e.frozenPiece && S.timeStop>0){ if (src==='enemy') return; amt = Math.ceil(amt * (atlasRank('kWinter') ? 1.25 : 1.5)) + (src==='player' ? 2*atlasRank('aIceBreak') : 0); }
+  if (e.frozenPiece && S.timeStop>0){ if (src==='enemy') return; amt = Math.ceil(amt * 1.5); }
   if (src==='player' && atlasRank('aBloodBath') && terrainAt(e.x,e.y)==='blood') amt += 2*atlasRank('aBloodBath');   // only you can break the ice
   if (src==='player' && !S.blasting && e.mods.includes('thorns') && (S.thornHits||0) < 2){ S.thornHits = (S.thornHits||0) + 1; const t = contentLvl()>=7 ? 2 : 1; hurtPlayer(t, $t(`Os espinhos de ${enemyName(e)} te ferem (${t}).`, `The thorns of ${enemyName(e)} hurt you (${t}).`)); }
   if (e.shield>0){

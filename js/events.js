@@ -18,6 +18,13 @@ function puzzleDepths(){
   const p = S.lvl + 3*(S.torment||0);
   return p<=3 ? [1] : p<=6 ? [1,2] : p<=9 ? [2] : p<=12 ? [2,3] : p<=18 ? [3] : [3,4];
 }
+function pickPuzzle(){
+  const depths = puzzleDepths(), maxN = Math.max(...depths);
+  const unknown = MATES.filter(m => !(HERO.grimoire||{})[m.id] && m.n<=maxN);
+  const pool = PROBLEMS.filter(m => depths.includes(m.n));
+  // mostly the longer problems; now and then a pattern you haven't learned yet (it teaches a Grimório power)
+  return unknown.length && (rnd()<.35 || !pool.length) ? pick(unknown) : pick(pool.length ? pool : PROBLEMS);
+}
 function placeEvent(force){
   if (['daily','uber','pinnacle','tutorial'].includes(S.exp.kind)) return;
   // Atlas keystone: every map floor has the tide, on top of any other event
@@ -36,7 +43,7 @@ function placeEvent(force){
   const tideOk = contentLvl()>=4 && !S.tide;
   // the Horde: endgame content (maps, Torment, the end of the campaign)
   const hordeOk = contentLvl()>=10;
-  const kind = force || (hordeOk && rnd()<.25 + .1*atlasRank('aHordeW') ? 'horde' : tideOk && rnd()<.25 ? 'tide' : rnd() < Math.min(.9, Math.max(.1, .5 - .15*atlasRank('aRiftW'))) ? 'frozen' : 'rift');
+  const kind = force || (hordeOk && rnd()<.25 + .1*atlasRank('aHordeW') ? 'horde' : tideOk && rnd()<.25 + .1*atlasRank('aTideW') ? 'tide' : rnd() < Math.min(.9, Math.max(.1, .5 - .15*atlasRank('aRiftW'))) ? 'frozen' : 'rift');
   if (kind==='tide'){ startTide(); return; }
   if (kind==='horde'){ startHorde(); return; }
   if (kind==='frozen' && frozenMode()==='army'){
@@ -47,12 +54,7 @@ function placeEvent(force){
     log($t('Um tabuleiro congelado brilha neste andar.', 'A frozen board glows on this floor.'));
     S.eventNote = [$t('Exército Congelado', 'Frozen Army'), $t('Um tabuleiro de gelo brilha neste andar. Pise nele para revelar o exército.', 'An ice board glows on this floor. Step on it to reveal the army.')];
   } else if (kind==='frozen'){
-    const depths = puzzleDepths(), maxN = Math.max(...depths);
-    const unknown = MATES.filter(m => !(HERO.grimoire||{})[m.id] && m.n<=maxN);
-    const pool = PROBLEMS.filter(m => depths.includes(m.n));
-    // mostly the longer problems; now and then a pattern you haven't learned yet (it teaches a Grimório power)
-    const P = unknown.length && (rnd()<.35 || !pool.length) ? pick(unknown) : pick(pool.length ? pool : PROBLEMS);
-    S.items.push({x:spot[0], y:spot[1], frozen:P.id});
+    S.items.push({x:spot[0], y:spot[1], frozen:pickPuzzle().id});
     log($t('Um tabuleiro congelado brilha neste andar.', 'A frozen board glows on this floor.'));
     S.eventNote = [$t('Partida Congelada', 'Frozen Match'), $t('Um tabuleiro de gelo brilha neste andar. Pise nele para jogar.', 'An ice board glows on this floor. Step on it to play.')];
   } else {
@@ -160,7 +162,7 @@ function startFrozenArmy(en){
     S.enemies.push(e);
     burst(x, y, '#cfe6f5', 6);
   }
-  S.timeStop = TIME_STOP + 1 + atlasRank('aArmyTurns') + (atlasRank('kWinter') ? 2 : 0);   // +1: the step onto the board already spends this turn
+  S.timeStop = TIME_STOP + 1;   // +1: the step onto the board already spends this turn
   S.shattered = []; S.armyOpening = O.name; S.floorCleared = false;
   refreshDanger();
   fx.shake = Math.max(fx.shake, 6);
@@ -171,7 +173,6 @@ function startFrozenArmy(en){
 function shatterPiece(e){
   S.enemies = S.enemies.filter(o => o!==e);
   e.marked = true; S.shattered.push(e);
-  if (atlasRank('aShatterHeal')) heal(2*atlasRank('aShatterHeal'));
   burst(e.x, e.y, '#cfe6f5', 22); fx.shake = Math.max(fx.shake, 4);
   floatText(e.x, e.y-0.3, $t('estilhaçado', 'shattered'), '#cfe6f5');
   log($t(`${enemyName(e)} foi estilhaçado. Volta quando o gelo derreter, e aí pode deixar saque.`, `${enemyName(e)} was shattered. It comes back when the ice melts, and then it can drop loot.`));
@@ -200,11 +201,11 @@ function frozenTick(){
 function armyLoot(e){
   if (!e.marked) return;
   if (e.type==='K'){
-    HERO.checkSeals = (HERO.checkSeals||0) + 1 + atlasRank('aKingSeal');
+    HERO.checkSeals = (HERO.checkSeals||0) + 1;
     S.items.push({x:e.x, y:e.y, item:genItem(true)});
     floatText(e.x, e.y-0.5, $t('+1 Selo de Xeque', '+1 Check Seal'), '#cfe6f5');
     log($t('O Rei marcado caiu: +1 Selo de Xeque.', 'The marked King fell: +1 Check Seal.'));
-  } else if (rnd() < (e.type==='P' ? .3 : .65) + .1*atlasRank('aMarked')) S.items.push({x:e.x, y:e.y, item:genItem(e.type==='Q' || e.type==='R')});
+  } else if (rnd() < (e.type==='P' ? .3 : .65))S.items.push({x:e.x, y:e.y, item:genItem(e.type==='Q' || e.type==='R')});
 }
 
 /* ---------- Partida Congelada: puzzle runtime ---------- */
@@ -286,10 +287,18 @@ function frozenReward(c){
   if (atlasRank('aMateGold')){ const g = 25*atlasRank('aMateGold'); HERO.gold += g; S.goldFound += g; lines.push($t(`+${g} de ouro`, `+${g} gold`)); }
   HERO.checkSeals = (HERO.checkSeals||0) + seals;
   lines.push($t(`+${seals} ${seals===1 ? 'Selo' : 'Selos'} de Xeque`, `+${seals} Check ${seals===1 ? 'Seal' : 'Seals'}`));
-  if (!paidHints(c)){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; lines.push($t(`${RUNES[r].name} (bônus por não usar dicas)`, `${RUNES[r].name} (bonus for using no hints)`)); }
+  const runeN = (paidHints(c) ? 0 : 1) + atlasRank('aMateRune');
+  for (let i=0; i<runeN; i++){ const r = pick(Object.keys(RUNES)); HERO.runes = HERO.runes || {}; HERO.runes[r] = (HERO.runes[r]||0) + 1; lines.push(i===0 && !paidHints(c) ? $t(`${RUNES[r].name} (bônus por não usar dicas)`, `${RUNES[r].name} (bonus for using no hints)`) : RUNES[r].name); }
   const n = c.P.n;
   const items = [rollItem(paidHints(c)>=2 || n===1 ? 'magic' : 'rare', areaIlvl())];
   if (n>=3) items.push(rollItem(n>=4 || !paidHints(c) ? 'rare' : 'magic', areaIlvl() + (n>=4 ? 2 : 0)));
+  for (let i=0; i<atlasRank('aMateItem'); i++) items.push(rollItem('magic', areaIlvl() + 1));
+  // Atlas keystone: the board may stay behind for another round
+  if (atlasRank('kPerpetual') && rnd() < .5){
+    const free = [];
+    for (let y=1; y<H-2; y++) for (let x=0; x<W; x++) if (!occupied(x,y) && !S.terrain.has(key(x,y)) && !S.items.some(i => i.x===x && i.y===y) && cheb(x,y,c.at[0],c.at[1])>1) free.push([x,y]);
+    if (free.length){ const s = pick(free); S.items.push({x:s[0], y:s[1], frozen:pickPuzzle().id}); lines.push($t('Outro tabuleiro de gelo surgiu no andar.', 'Another ice board appeared on the floor.')); }
+  }
   if (atlasRank('aNoHintItem') && !paidHints(c)) items.push(rollItem('rare', areaIlvl() + 1));
   if (atlasRank('kGrandmaster') && n>=3){ const U = pick(classUniques(S.cls)); if (U) items.push(makeUnique(U)); }
   const spots = [[c.at[0],c.at[1]], ...ALL.map(([dx,dy]) => [c.at[0]+dx, c.at[1]+dy])].filter(([x,y]) => inb(x,y) && !isWall(x,y) && !isPit(x,y) && !S.items.some(i => i.x===x && i.y===y));
