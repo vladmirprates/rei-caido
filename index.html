@@ -158,6 +158,8 @@ h1{font-family:var(--f-display);font-weight:400;font-size:2.2rem;margin:0;letter
 .scard{background:var(--stone);border:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .scard.onbar{border-color:var(--ember);box-shadow:inset 0 0 0 1px rgba(224,122,50,.35)}
 .scard.locked{opacity:.5}
+.skincard canvas{align-self:center;display:block}
+.skincard.locked canvas{filter:grayscale(.85) brightness(.7)}
 .scard p{margin:0;font-size:.85rem;color:var(--ash)}
 .scard .tt b{font-family:var(--f-display);font-weight:400;font-size:1.1rem}
 .rslot{border:1px dashed #6a4f94;padding:7px 9px;font-size:.8rem;color:var(--ash);display:flex;flex-direction:column;gap:6px}
@@ -960,6 +962,7 @@ canvas,.board-frame,.hotbar,.hk,button{-webkit-user-select:none;user-select:none
 <script src="js/tutorial.js"></script>
 <script src="js/render.js"></script>
 <script src="js/fxengine.js"></script>
+<script src="js/skins.js"></script>
 <script src="js/vfx.js"></script>
 <script src="js/auras.js"></script>
 <script src="js/ui.js"></script>

@@ -447,16 +447,18 @@ function campTree(h){
     <div class="xcard"><span class="xk">${$t('Sua árvore', 'Your tree')}</span><b>${learned.length} / ${total} ${$t('nós', 'nodes')}</b></div>
     ${list}`;
 }
-// Appearance: the emblems worn by the piece, earned by using each skill
+// Appearance: skins change the piece itself (material, veins, particles); each one is earned by a feat of the campaign
 function campSkins(h){
-  const cards = skinsOf(h.cls).map(A => {
-    const n = skinUses(h, A), ok = n >= SKIN_FEAT, on = h.skin===A.id, pct = Math.min(100, Math.round(100*n/SKIN_FEAT));
-    return `<div class="scard ${on?'onbar':''} ${ok?'':'locked'}"><div class="tt"><b>${esc(A.name)}</b><span class="muted small">${ok ? $t('desbloqueada', 'unlocked') : $t('bloqueada', 'locked')}</span></div>
-      <p>${$t('Feito: usar', 'Feat: use')} <b>${esc(SKILLS[A.skill].name)}</b> ${SKIN_FEAT} ${$t('vezes', 'times')} (${Math.min(n, SKIN_FEAT)}/${SKIN_FEAT}).</p>
-      <div class="bar xp"><i style="width:${pct}%"></i></div>
-      ${ok ? (on ? `<button class="ghost sm" type="button" data-act="skin:none">${$t('Tirar', 'Remove')}</button>` : `<button class="primary sm" type="button" data-act="skin:${A.id}">${$t('Usar', 'Wear')}</button>`) : ''}</div>`;
-  }).join('');
-  return `<div class="thead"><p class="muted">${$t('Skins são só aparência: um adereço que a sua peça carrega no tabuleiro. Cada uma é liberada ao usar a habilidade correspondente 25 vezes, em qualquer expedição.', 'Skins are cosmetic only: an emblem your piece carries on the board. Each is unlocked by using the matching skill 25 times, in any expedition.')}</p></div><div class="sgrid">${cards}</div>`;
+  const card = (id) => {
+    const K = SKINS[id], ok = K.ok(h), on = h.skin===id && ok;
+    return `<div class="scard skincard ${on?'onbar':''} ${ok?'':'locked'}"><canvas data-skinprev="${id}" aria-hidden="true"></canvas>
+      <div class="tt"><b>${esc(K.name)}</b><span class="muted small">${ok ? $t('desbloqueada', 'unlocked') : $t('bloqueada', 'locked')}</span></div>
+      <p>${esc(K.d)}</p>
+      ${ok ? '' : `<p class="muted small">${$t('Feito:', 'Feat:')} ${esc(K.feat)}.</p>`}
+      ${ok ? (on ? `<button class="ghost sm" type="button" data-act="skin:none">${$t('Tirar', 'Remove')}</button>` : `<button class="primary sm" type="button" data-act="skin:${id}">${$t('Usar', 'Wear')}</button>`) : ''}</div>`;
+  };
+  return `<div class="thead"><p class="muted">${$t('Skins mudam a própria peça: o material, as veias de luz e as partículas ao redor dela. Servem para qualquer classe e não dão poder. Cada uma é liberada por um feito da campanha.', 'Skins change the piece itself: its material, its veins of light and the particles around it. They work for any class and give no power. Each one is unlocked by a campaign feat.')}</p></div>
+    <div class="sgrid">${SKIN_ORDER.map(card).join('')}</div>`;
 }
 function campAtlas(h){
   if (h.actDone<4) return $t('<p class="muted">Conclua o Ato 4 para liberar os mapas e o Atlas.</p>', '<p class="muted">Complete Act 4 to unlock maps and the Atlas.</p>');
@@ -670,6 +672,7 @@ function showCamp(notice){
     <div class="tabbody">${body}</div>`;
   const tt = document.getElementById('treeTip'); if (tt) tt.hidden = true;
   showScreen('camp');
+  if (campTab==='skn') drawSkinPreviews();
 }
 $('scrCamp').addEventListener('click', ev => {
   const b = ev.target.closest('[data-act]'); if (!b || b.disabled) return;
@@ -713,7 +716,7 @@ $('scrCamp').addEventListener('click', ev => {
     campNotice = $t(`${c.length} ${c.length===1?'item comum vendido':'itens comuns vendidos'} (+${g} de ouro).`, `${c.length} ${c.length===1?'common item sold':'common items sold'} (+${g} gold).`);
   }
   else if (act==='treeopen'){ openTree(arg); }
-  else if (act==='skin'){ if (arg==='none') delete h.skin; else if (ASC[arg] && ASC[arg].cls===h.cls && skinUnlocked(h, ASC[arg])) h.skin = arg; }
+  else if (act==='skin'){ if (arg==='none') delete h.skin; else if (skinUnlocked(h, arg)) h.skin = arg; }
   else if (act==='switch'){ persist(); showHeroes(); return; }
   else if (act==='act'){ startExpedition({kind:'campaign', act:+arg}); return; }
   else if (act==='abyss'){ startExpedition({kind:'abyss'}); return; }

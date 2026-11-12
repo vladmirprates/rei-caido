@@ -39,12 +39,6 @@ const ascOfSkill = id => Object.values(ASC).find(A => A.skill===id) || null;
 const isAscSkill = id => !!ascOfSkill(id);
 // skills with their own numbers per skill (the shared ascension modifiers live under stats().by[skillId])
 const ASC_GENERIC = new Set(['ascDmg','ascCd','ascStun','ascBurn','ascHeal','ascShield','ascKillCd','ascKillAct','ascNext']);
-// Skins: each ascension emblem is a cosmetic, unlocked by a feat (using that skill 25 times) and chosen in the camp
-const SKIN_FEAT = 25;
-const skinsOf = cls => Object.values(ASC).filter(A => A.cls===cls);
-const skinUses = (h, A) => (h.skillUses||{})[A.skill] || 0;
-const skinUnlocked = (h, A) => skinUses(h, A) >= SKIN_FEAT;
-const skinId = () => HERO && HERO.skin && ASC[HERO.skin] && ASC[HERO.skin].cls===HERO.cls && skinUnlocked(HERO, ASC[HERO.skin]) ? HERO.skin : null;
 
 /* ---------- Necromancer: corpses and raised pieces ---------- */
 const allyCap = () => MAX_ALLIES + (stats().allyCap||0) + (stats().ossuary ? 1 : 0);

@@ -122,33 +122,6 @@ new ResizeObserver(resize).observe(cv.parentElement);
 const sqCenter = (x,y) => [(x+.5)*tile, (y+.5)*tile];
 
 
-/* Ascension emblems: every subclass is recognizable on the board by what the piece carries or wears */
-function drawAscProp(id, col, cx, cy, sz, down, time){
-  const t = tile, pulse = reduce ? .7 : .65 + .25*Math.sin(time*3.2), x0 = cx + sz*.34, y0 = cy + down + sz*.18, top = y0 - sz*.62, head = cy + down - sz*.5;
-  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  const line = (x1,y1,x2,y2,c,w) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
-  const glow = (x,y,r,c,a) => { const g = ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,'rgba(255,255,255,'+a+')'); g.addColorStop(.4,'rgba('+c+','+a+')'); g.addColorStop(1,'rgba('+c+',0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); };
-  const rod = (c) => { line(x0 - sz*.04, y0, x0, top, '#2a1f18', Math.max(3, t*.07)); line(x0 - sz*.04, y0, x0, top, c, Math.max(1.5, t*.035)); };
-  const dot = (x,y,r,fill,stroke) => { ctx.fillStyle = fill; ctx.strokeStyle = stroke || '#e3b456'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); if (stroke!==false) ctx.stroke(); };
-  switch (id){
-    case 'arcane': { rod('#e3b456'); glow(x0, top, t*.2, col || '190,140,255', pulse); dot(x0, top, t*.065, 'rgb(' + (col || '190,140,255') + ')'); break; }       // scepter, orb in the element's color
-    case 'necro': { rod('#cdbb9c'); dot(x0, top, t*.07, '#e8dfc8', '#2a1f18'); glow(x0, top - t*.08, t*.18, '150,60,210', pulse*.8); break; }                    // bone staff, violet flame
-    case 'regent': { line(x0, y0, x0, top, '#2a1f18', Math.max(3, t*.06)); ctx.fillStyle = '#c0392b'; ctx.strokeStyle = '#e3b456'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x0, top); ctx.lineTo(x0 + t*.2, top + t*.05 + Math.sin(time*4)*t*.015); ctx.lineTo(x0, top + t*.2); ctx.closePath(); ctx.fill(); ctx.stroke(); break; }   // banner
-    case 'duelist': { line(x0 + sz*.05, y0 + sz*.1, x0 - sz*.05, top, '#cfe0f0', Math.max(1.5, t*.03)); line(x0 + sz*.1, y0 - sz*.02, x0 - sz*.02, y0 - sz*.1, '#e3b456', Math.max(2, t*.045)); break; }  // rapier
-    case 'lancer': { line(x0 - sz*.2, y0 + sz*.15, x0 + sz*.12, top - sz*.1, '#5a4636', Math.max(3, t*.06)); line(x0 + sz*.08, top - sz*.02, x0 + sz*.16, top - sz*.22, '#cfe0f0', Math.max(2.5, t*.05)); ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.moveTo(x0 + sz*.03, top + sz*.08); ctx.lineTo(x0 - sz*.1, top + sz*.16); ctx.lineTo(x0 + sz*.02, top + sz*.18); ctx.fill(); break; }   // lance with a pennant
-    case 'dread': { glow(cx, cy + down - sz*.05, t*.55, '190,30,30', .35*pulse); dot(cx - sz*.12, head + sz*.1, t*.03, '#ff4a3a', false); dot(cx + sz*.12, head + sz*.1, t*.03, '#ff4a3a', false); break; }    // red aura and glowing eyes
-    case 'bulwark': { const sx = cx - sz*.42, sy = cy + down + sz*.02; ctx.fillStyle = '#6a7684'; ctx.strokeStyle = '#e3b456'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(sx - t*.09, sy - t*.14); ctx.lineTo(sx + t*.09, sy - t*.14); ctx.lineTo(sx + t*.09, sy + t*.04); ctx.lineTo(sx, sy + t*.16); ctx.lineTo(sx - t*.09, sy + t*.04); ctx.closePath(); ctx.fill(); ctx.stroke(); break; }  // tower shield
-    case 'siege': { line(x0 - sz*.06, y0 + sz*.08, x0 + sz*.04, top + sz*.05, '#5a4636', Math.max(3, t*.06)); ctx.fillStyle = '#3a3f48'; ctx.strokeStyle = '#e3b456'; ctx.lineWidth = 1.5; ctx.fillRect(x0 - t*.06, top - t*.02, t*.18, t*.12); ctx.strokeRect(x0 - t*.06, top - t*.02, t*.18, t*.12); break; }   // mallet
-    case 'forge': { glow(cx, cy + down + sz*.1, t*.5, '255,120,40', .4*pulse); if (!reduce && Math.random()<.25) fx.embers.push({x:(cx/t)-.2+Math.random()*.4, y:(cy/t)+.1, vy:-(.5+Math.random()*.6), life:1, c:'255,150,60'}); line(x0 - sz*.05, y0, x0, top + sz*.08, '#2a1f18', Math.max(3, t*.06)); ctx.fillStyle = '#ff8a3c'; ctx.fillRect(x0 - t*.08, top - t*.02, t*.2, t*.09); break; }   // glowing hammer, embers
-    case 'inquisitor': { rod('#8a6a1f'); line(x0 - t*.08, top + t*.07, x0 + t*.08, top + t*.07, '#e3b456', Math.max(2, t*.04)); line(x0, top - t*.02, x0, top + t*.18, '#e3b456', Math.max(2, t*.04)); break; }   // cross staff
-    case 'saint': { ctx.strokeStyle = 'rgba(240,214,140,' + (.55 + .3*pulse) + ')'; ctx.lineWidth = Math.max(2, t*.04); ctx.beginPath(); ctx.ellipse(cx, head - sz*.08, t*.17, t*.05, 0, 0, Math.PI*2); ctx.stroke(); glow(cx, head - sz*.08, t*.25, '240,214,140', .25*pulse); break; }   // halo
-    case 'heretic': { ctx.fillStyle = '#7a1f2a'; ctx.strokeStyle = '#2a1f18'; ctx.lineWidth = 1; for (const s of [-1, 1]){ ctx.beginPath(); ctx.moveTo(cx + s*sz*.1, head); ctx.quadraticCurveTo(cx + s*sz*.3, head - sz*.05, cx + s*sz*.24, head - sz*.25); ctx.quadraticCurveTo(cx + s*sz*.17, head - sz*.1, cx + s*sz*.06, head); ctx.fill(); ctx.stroke(); } break; }   // horns
-    case 'blood': { glow(cx, cy + down, t*.5, '200,30,50', .3*pulse); line(x0 + sz*.04, y0 + sz*.1, x0 - sz*.04, top, '#c0392b', Math.max(2, t*.04)); dot(x0 - sz*.03, y0 + sz*.25, t*.02, '#c0392b', false); break; }   // red aura, crimson blade
-    case 'frost': { ctx.fillStyle = 'rgba(190,230,255,.95)'; ctx.strokeStyle = '#6a9cc0'; ctx.lineWidth = 1; for (const [dx, h] of [[-.14, .15], [0, .24], [.14, .15]]){ ctx.beginPath(); ctx.moveTo(cx + dx*t - t*.04, head); ctx.lineTo(cx + dx*t, head - h*t); ctx.lineTo(cx + dx*t + t*.04, head); ctx.closePath(); ctx.fill(); ctx.stroke(); } break; }   // crown of ice
-    case 'assassin': { line(x0 + sz*.05, y0 + sz*.08, x0 - sz*.02, y0 - sz*.2, '#cfe0f0', Math.max(2, t*.04)); line(x0 + sz*.08, y0 + sz*.02, x0 - sz*.01, y0 - sz*.02, '#2a1f18', Math.max(2.5, t*.05)); glow(cx, cy + down + sz*.2, t*.5, '40,20,70', .5); break; }   // dagger and shadow
-  }
-  ctx.restore();
-}
 // lighten (amt>0) or darken (amt<0) a #rrggbb color
 function shadeHex(hex, amt){
   const n = parseInt(hex.slice(1), 16), ch = s => { const v = (n >> s) & 255; return Math.max(0, Math.min(255, Math.round(amt > 0 ? v + (255-v)*amt : v*(1+amt)))); };
@@ -219,10 +192,12 @@ function drawPiece(type, x, y, side, o){
   else if (o.frozen){ fill = side==='w' ? '#eef6fc' : '#3a5068'; stroke = '#cfe6f5'; }
   else { const white = side==='w'; fill = o.spectral ? '#dbe8f5' : white ? '#f1e7d3' : '#1b1411'; stroke = o.horde ? '#ff8a4a' : o.herald ? '#ff4a3a' : o.rival ? '#8fd18a' : o.rift ? '#b48cff' : o.elite ? '#e3b456' : o.spectral ? '#5a7a9e' : white ? '#2a1f18' : '#cdbb9c'; }
   if (o.flash) fill = '#fff4e0';   // hit flash
-  { const sp = pieceSprite(GLYPH[type], sz, fill, stroke, ctx.lineWidth*1.7), br = reduce ? 0 : Math.sin(time*2.2 + x*1.3 + y*.7);   // it breathes a little
+  { const br = reduce ? 0 : Math.sin(time*2.2 + x*1.3 + y*.7);   // it breathes a little
     ctx.save(); ctx.translate(cx, cy - lift + down + sz*.45); ctx.scale(1 + .012*br, 1 + .024*br);
-    ctx.drawImage(sp.cv, -sp.w/2, -sp.h/2 - sz*.45, sp.w, sp.h); ctx.restore(); }
-  if (o.prop) drawAscProp(o.prop, o.propColor, cx, cy, sz, down, time);   // ascension: each subclass carries its own emblem
+    if (o.skin && !o.flash) drawSkinBody(ctx, GLYPH[type], sz, o.skin, 0, -sz*.45, time, dpr);   // skin: the piece itself is made of something else
+    else { const sp = pieceSprite(GLYPH[type], sz, fill, stroke, ctx.lineWidth*1.7); ctx.drawImage(sp.cv, -sp.w/2, -sp.h/2 - sz*.45, sp.w, sp.h); }
+    ctx.restore(); }
+  if (o.skin) skinFx(o.skin, x, y, time);
   if (o.horde || o.boss || o.elite || o.rift || o.spectral) pieceAura(o, x, y, time);
 }
 // Modifier icons: vector line icons (24x24 paths), one per modifier, drawn in a row above the piece.
@@ -1981,7 +1956,7 @@ function draw(time){
     ctx.beginPath(); ctx.moveTo(cx-r, cy); ctx.lineTo(cx+r, cy); ctx.moveTo(cx, cy-r); ctx.lineTo(cx, cy+r); ctx.stroke();
   }
   if (!S.dead){ const px = S.player.rx+S.player.lx, py = S.player.ry+S.player.ly;
-    defer((px+.5)*tile, (py+.5)*tile, py+.5, () => { playerAura(px, py, time, 0); drawPiece(S.cls, px, py, S.color, {player:true, prop: skinId(), propColor: skinId()==="arcane" ? scepterColor() : null}); playerAura(px, py, time, 1); }); }
+    defer((px+.5)*tile, (py+.5)*tile, py+.5, () => { playerAura(px, py, time, 0); drawPiece(S.cls, px, py, S.color, {player:true, skin: SKINS[skinId()] || null}); playerAura(px, py, time, 1); }); }
   // interactive events: a bouncing marker says "step here"
   for (const it of S.items) if (it.frozen || it.riftGate || it.tideChest) stepMarker(it.x, it.y, it.frozen ? '207,230,245' : it.riftGate ? '200,170,255' : '255,110,90', time);
   if (S.stairs && !S.enemies.length && !S.tut && !isPlayer(S.stairs.x, S.stairs.y)) stairsArrow(S.stairs.x, S.stairs.y, time);

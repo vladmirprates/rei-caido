@@ -1,5 +1,5 @@
 /* Rei Caído — the other ascensions (13). Each one: a skill that replaces a base skill, an 8-node tree (the last is the keystone),
-   and an emblem drawn on the piece (render.js drawAscProp).
+   and an emblem drawn on the piece.
    Shared modifiers read by every ascension skill: ascDmg, ascCd, ascStun, ascBurn, ascHeal, ascShield, ascKillCd, ascKillAct. */
 
 const A_ = (n, v) => ({k:'asc', n, v});
